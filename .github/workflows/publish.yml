@@ -1,0 +1,114 @@
+name: Publish
+
+permissions:
+  contents: write
+  actions: write
+  attestations: write
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish"
+        type: string
+        required: true
+
+jobs:
+  test:
+    strategy:
+      fail-fast: true
+      matrix:
+        node:
+          - 20
+          - 22
+          - 24
+        os:
+          - ubuntu-latest
+          - macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Use Node.js ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+      - uses: actions/cache@v4
+        name: Setup pnpm cache
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+      - run: pnpm install
+      - run: pnpm run check
+      - run: pnpm run build
+      - run: pnpm run test
+
+  build-and-publish:
+    needs: [test]
+    runs-on: ubuntu-latest
+    env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      NPM_USERNAME: ${{ secrets.NPM_USERNAME }}
+      version_tag: v${{ inputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Log in to npm
+        run: |
+          echo "//registry.npmjs.org/:_authToken=\${NPM_TOKEN}" > ~/.npmrc
+          echo "Logged in to npm as ${NPM_USERNAME}"
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_USERNAME: ${{ secrets.NPM_USERNAME }}
+
+      - uses: pnpm/action-setup@v4
+        name: Install pnpm
+        with:
+          run_install: false
+
+      - name: Install dependencies and build
+        run: pnpm install && pnpm build
+
+      - name: Set version
+        run: |
+          pnpm version ${{ inputs.version }} --allow-same-version --no-commit-hooks --no-git-tag-version --silent || true
+
+      - name: Dry-run publish and publish
+        run: |
+          pnpm publish --dry-run --access public --no-git-checks --tag=latest
+          pnpm publish --access public --no-git-checks --tag=latest
+
+      - name: Publish Github Release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.git.createRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: 'refs/tags/${{ env.version_tag }}',
+              sha: context.sha
+            }).then(() => github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: '${{ env.version_tag }}',
+              name: '${{ env.version_tag }}',
+              draft: false,
+              prerelease: false,
+              generate_release_notes: true
+            }))
