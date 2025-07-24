@@ -58,7 +58,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-      NPM_USERNAME: ${{ secrets.NPM_USERNAME }}
       version_tag: v${{ inputs.version }}
     steps:
       - name: Checkout
@@ -71,11 +70,11 @@ jobs:
 
       - name: Log in to npm
         run: |
-          echo "//registry.npmjs.org/:_authToken=\${NPM_TOKEN}" > ~/.npmrc
+          echo "//registry.npmjs.org/:_authToken=\${NPM_TOKEN}" > ./.npmrc
           echo "Logged in to npm as ${NPM_USERNAME}"
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NPM_USERNAME: ${{ secrets.NPM_USERNAME }}
+
 
       - uses: pnpm/action-setup@v4
         name: Install pnpm
