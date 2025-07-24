@@ -1,5 +1,6 @@
 {
-  "name": "@project/drizzle-utils",
+  "name": "@denilc/drizzle-pg-utils",
+  "version": "0.1.0",
   "type": "module",
   "exports": {
     ".": "./dist/index.js"
@@ -7,12 +8,12 @@
   "scripts": {
     "test": "vitest run",
     "build": "tsc",
-    "check:type": "pnpm run --parallel -r type-check",
+    "check:type": "tsc --noEmit",
     "check:lint": "biome lint .",
     "check:fmt": "biome format .",
     "check": "pnpm run check:fmt && pnpm run check:lint && pnpm run check:type",
     "fmt": "biome check --write .",
-    "release": "pnpm check && pnpm build && git add . && "
+    "publish:pre": "pnpm check && pnpm build && git add . && git commit -m 'chore: release' "
   },
   "dependencies": {
     "drizzle-orm": "^0.44.3"
@@ -26,6 +27,5 @@
   "files": [
     "dist",
     "tsconfig.json"
-  ],
-  "version": "0.0.1"
+  ]
 }
