@@ -9,7 +9,7 @@ import type {
 } from './common.ts'
 
 export type SQLJSONSetMixedValue<T> = T extends any[]
-  ? (T[number] | SQL<T[number]>)[]
+  ? SQL<T> | (T[number] | SQL<T[number]>)[]
   : T extends object
     ? { [K in keyof T]: T[K] | SQL<T[K]> }
     : T | SQL<T>
