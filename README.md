@@ -19,6 +19,7 @@ A TypeScript library providing type-safe utilities for working with PostgreSQL J
 - 🔧 **Custom column types** - Ready-to-use Drizzle column definitions
 - ✅ **Type safety** - Full TypeScript support for all temporal operations
 - 🛡️ **Format validation** - Built-in constraints for text-based temporal types
+- ⚠️ **Compatibility** - Uses [temporal-polyfill](https://github.com/fullcalendar/temporal-polyfill), since not yet supported natively pretty much anywhere
 
 ## Installation
 
