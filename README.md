@@ -22,11 +22,11 @@ A TypeScript library providing type-safe utilities for working with PostgreSQL J
 ## Installation
 
 ```bash
-npm install @denilc/drizzle-pg-utils
+npm install @denny-il/drizzle-pg-utils
 # or
-pnpm add @denilc/drizzle-pg-utils
+pnpm add @denny-il/drizzle-pg-utils
 # or
-yarn add @denilc/drizzle-pg-utils
+yarn add @denny-il/drizzle-pg-utils
 ```
 
 ## Exports Structure
@@ -35,17 +35,17 @@ This library provides modular exports for different functionality:
 
 ```typescript
 // Main export - includes all utilities
-import { json, temporal } from '@denilc/drizzle-pg-utils'
+import { json, temporal } from '@denny-il/drizzle-pg-utils'
 
 // JSON utilities only
-import { access, merge, array } from '@denilc/drizzle-pg-utils/json'
+import { access, merge, array } from '@denny-il/drizzle-pg-utils/json'
 // or
-import json from '@denilc/drizzle-pg-utils/json'
+import json from '@denny-il/drizzle-pg-utils/json'
 
 // Temporal utilities only
-import { timestamp, timestampz, date } from '@denilc/drizzle-pg-utils/temporal'
+import { timestamp, timestampz, date } from '@denny-il/drizzle-pg-utils/temporal'
 // or
-import temporal from '@denilc/drizzle-pg-utils/temporal'
+import temporal from '@denny-il/drizzle-pg-utils/temporal'
 ```
 
 Each export is independently importable, allowing you to include only what you need in your bundle.
@@ -58,7 +58,7 @@ Access nested properties in JSONB columns with type safety:
 
 ```typescript
 import { sql } from 'drizzle-orm'
-import json from '@denilc/drizzle-pg-utils/json'
+import json from '@denny-il/drizzle-pg-utils/json'
 
 // Define your JSON type
 type UserProfile = {
@@ -99,7 +99,7 @@ Update specific paths in JSONB data:
 
 ```typescript
 import { sql } from 'drizzle-orm'
-import json from '@denilc/drizzle-pg-utils/json'
+import json from '@denny-il/drizzle-pg-utils/json'
 
 const jsonData = sql<UserProfile>`'{"user": {"id": 1, "name": "John"}}'::jsonb`
 const setter = json.set(jsonData)
@@ -126,7 +126,7 @@ Merge JSON objects and arrays following PostgreSQL JSONB semantics:
 
 ```typescript
 import { sql } from 'drizzle-orm'
-import json from '@denilc/drizzle-pg-utils/json'
+import json from '@denny-il/drizzle-pg-utils/json'
 
 const obj1 = sql`'{"a": "hello", "b": 1}'::jsonb`
 const obj2 = sql`'{"b": 2, "c": true}'::jsonb`
@@ -152,7 +152,7 @@ Manipulate JSONB arrays:
 
 ```typescript
 import { sql } from 'drizzle-orm'
-import json from '@denilc/drizzle-pg-utils/json'
+import json from '@denny-il/drizzle-pg-utils/json'
 
 const numberArray = sql<number[]>`'[1, 2, 3]'::jsonb`
 
@@ -175,7 +175,7 @@ Use with actual Drizzle table columns:
 
 ```typescript
 import { jsonb, pgTable, serial, text } from 'drizzle-orm/pg-core'
-import json from '@denilc/drizzle-pg-utils/json'
+import json from '@denny-il/drizzle-pg-utils/json'
 
 const users = pgTable('users', {
   id: serial('id').primaryKey(),
@@ -222,7 +222,7 @@ Work with PostgreSQL date/time types using the modern Temporal API.
 In case you encounter issues with JSON serialization of `ZonedDateTime`, register the JSON fix that excludes timezone names:
 
 ```typescript
-import { _registerZonedDateTimeJSONFix } from '@denilc/drizzle-pg-utils/temporal'
+import { _registerZonedDateTimeJSONFix } from '@denny-il/drizzle-pg-utils/temporal'
 
 // Call once at application startup in case
 _registerZonedDateTimeJSONFix()
@@ -234,7 +234,7 @@ Define tables with Temporal types with native PostgreSQL support:
 
 ```typescript
 import { pgTable, serial, text } from 'drizzle-orm/pg-core'
-import { timestamp, timestampz, date, time, interval } from '@denilc/drizzle-pg-utils/temporal'
+import { timestamp, timestampz, date, time, interval } from '@denny-il/drizzle-pg-utils/temporal'
 
 const events = pgTable('events', {
   id: serial('id').primaryKey(),
@@ -263,7 +263,7 @@ For year-month and month-day values stored as text with optional validation:
 
 ```typescript
 import { pgTable, serial } from 'drizzle-orm/pg-core'
-import { yearMonth, monthDay } from '@denilc/drizzle-pg-utils/temporal'
+import { yearMonth, monthDay } from '@denny-il/drizzle-pg-utils/temporal'
 
 const reports = pgTable('reports', {
   id: serial('id').primaryKey(),
