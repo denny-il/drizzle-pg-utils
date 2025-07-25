@@ -57,6 +57,7 @@ jobs:
     needs: [test]
     runs-on: ubuntu-latest
     env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
       version_tag: v${{ inputs.version }}
     steps:
       - name: Checkout
