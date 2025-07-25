@@ -70,9 +70,7 @@ export function jsonArraySet<
   const _value = isSQLWrapper(value)
     ? value
     : sql`${JSON.stringify(value)}::jsonb`
-  return sql<
-    SourceType
-  >`jsonb_set(${source}, '{${sql`${index}`.inlineParams()}}', ${_value})`
+  return sql<SourceType>`jsonb_set(${source}, '{${sql`${index}`.inlineParams()}}', ${_value})`
 }
 
 export function jsonArrayDelete<
