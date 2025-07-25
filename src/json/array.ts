@@ -71,7 +71,7 @@ export function jsonArraySet<
     ? value
     : sql`${JSON.stringify(value)}::jsonb`
   return sql<
-    SQLJSONDenullify<SourceType>
+    SourceType
   >`jsonb_set(${source}, '{${sql`${index}`.inlineParams()}}', ${_value})`
 }
 
