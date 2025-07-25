@@ -1,15 +1,15 @@
 import { sql } from 'drizzle-orm'
 import type { PgliteDatabase } from 'drizzle-orm/pglite'
 import { beforeAll, describe, expect, it } from 'vitest'
-import { jsonAccessor } from '../src/json/access.ts'
+import { jsonAccess } from '../../src/json/access.ts'
 import {
   jsonArrayDelete,
   jsonArrayPush,
   jsonArraySet,
-} from '../src/json/array.ts'
-import { jsonMerge } from '../src/json/merge.ts'
-import { jsonSet } from '../src/json/set.ts'
-import { createDatabase, executeQuery } from './utils.ts'
+} from '../../src/json/array.ts'
+import { jsonMerge } from '../../src/json/merge.ts'
+import { jsonSet } from '../../src/json/set.ts'
+import { createDatabase, executeQuery } from '../utils.ts'
 
 let db: PgliteDatabase
 
@@ -23,8 +23,8 @@ describe('JSON Integration Tests', () => {
       const value = sql<{
         user: { id: number; name: string }
       }>`'{"user": {"id": 123, "name": "John"}}'::jsonb`
-      const userId = jsonAccessor(value).user.id.$path
-      const userName = jsonAccessor(value).user.name.$path
+      const userId = jsonAccess(value).user.id.$path
+      const userName = jsonAccess(value).user.name.$path
 
       const idResult = await executeQuery(db, userId)
       const nameResult = await executeQuery(db, userName)
@@ -38,11 +38,11 @@ describe('JSON Integration Tests', () => {
       const jsonWithNull = sql<{
         value: string | null
       }>`'{"value": null}'::jsonb`
-      const jsonNullResult = jsonAccessor(jsonWithNull).value.$path
+      const jsonNullResult = jsonAccess(jsonWithNull).value.$path
 
       // SQL NULL
       const sqlNull = sql<{ value: string | null }>`NULL::jsonb`
-      const sqlNullResult = jsonAccessor(sqlNull).value.$path
+      const sqlNullResult = jsonAccess(sqlNull).value.$path
 
       const jsonNullValue = await executeQuery(db, jsonNullResult)
       const sqlNullValue = await executeQuery(db, sqlNullResult)
@@ -56,8 +56,8 @@ describe('JSON Integration Tests', () => {
       const value = sql<{
         user: { name: string; age?: number }
       }>`'{"user": {"name": "John"}}'::jsonb`
-      const missingAge = jsonAccessor(value).user.age.$path
-      const existingName = jsonAccessor(value).user.name.$path
+      const missingAge = jsonAccess(value).user.age.$path
+      const existingName = jsonAccess(value).user.name.$path
 
       const ageResult = await executeQuery(db, missingAge)
       const nameResult = await executeQuery(db, existingName)
@@ -68,7 +68,7 @@ describe('JSON Integration Tests', () => {
 
     it('should handle deeply nested missing properties', async () => {
       const value = sql<{ a: { b: { c: string } } }>`'{"a": {"b": {}}}'::jsonb`
-      const missing = jsonAccessor(value).a.b.c.$path
+      const missing = jsonAccess(value).a.b.c.$path
 
       const missingResult = await executeQuery(db, missing)
 
@@ -82,7 +82,7 @@ describe('JSON Integration Tests', () => {
       }>`'{"tags": ["typescript", "postgres"], "numbers": [1, 2, 3]}'::jsonb`
 
       // Access array elements using proper accessor pattern
-      const accessor = jsonAccessor(value)
+      const accessor = jsonAccess(value)
       const firstTag = accessor.tags['0'].$path
       const secondNumber = accessor.numbers['1'].$path
       const outOfBounds = accessor.tags['10'].$path
@@ -110,11 +110,11 @@ describe('JSON Integration Tests', () => {
         metadata: { version: string } | null
       }>`'{"user": {"id": 42, "profile": {"settings": {"theme": "dark", "notifications": true}}}, "metadata": null}'::jsonb`
 
-      const userId = jsonAccessor(complexValue).user.id.$path
-      const theme = jsonAccessor(complexValue).user.profile.settings.theme.$path
+      const userId = jsonAccess(complexValue).user.id.$path
+      const theme = jsonAccess(complexValue).user.profile.settings.theme.$path
       const notifications =
-        jsonAccessor(complexValue).user.profile.settings.notifications.$path
-      const metadata = jsonAccessor(complexValue).metadata.$path
+        jsonAccess(complexValue).user.profile.settings.notifications.$path
+      const metadata = jsonAccess(complexValue).metadata.$path
 
       const userIdResult = await executeQuery(db, userId)
       const themeResult = await executeQuery(db, theme)
@@ -301,10 +301,10 @@ describe('JSON Integration Tests', () => {
         negative: number
       }>`'{"int": 42, "float": 3.14, "zero": 0, "negative": -123}'::jsonb`
 
-      const intValue = jsonAccessor(numericData).int.$path
-      const floatValue = jsonAccessor(numericData).float.$path
-      const zeroValue = jsonAccessor(numericData).zero.$path
-      const negativeValue = jsonAccessor(numericData).negative.$path
+      const intValue = jsonAccess(numericData).int.$path
+      const floatValue = jsonAccess(numericData).float.$path
+      const zeroValue = jsonAccess(numericData).zero.$path
+      const negativeValue = jsonAccess(numericData).negative.$path
 
       const intResult = await executeQuery(db, intValue)
       const floatResult = await executeQuery(db, floatValue)
@@ -323,8 +323,8 @@ describe('JSON Integration Tests', () => {
         false: boolean
       }>`'{"true": true, "false": false}'::jsonb`
 
-      const trueValue = jsonAccessor(booleanData).true.$path
-      const falseValue = jsonAccessor(booleanData).false.$path
+      const trueValue = jsonAccess(booleanData).true.$path
+      const falseValue = jsonAccess(booleanData).false.$path
 
       const trueResult = await executeQuery(db, trueValue)
       const falseResult = await executeQuery(db, falseValue)
@@ -341,10 +341,10 @@ describe('JSON Integration Tests', () => {
         escaped: string
       }>`'{"empty": "", "spaces": "   ", "unicode": "🚀", "escaped": "quote\\"test"}'::jsonb`
 
-      const emptyValue = jsonAccessor(stringData).empty.$path
-      const spacesValue = jsonAccessor(stringData).spaces.$path
-      const unicodeValue = jsonAccessor(stringData).unicode.$path
-      const escapedValue = jsonAccessor(stringData).escaped.$path
+      const emptyValue = jsonAccess(stringData).empty.$path
+      const spacesValue = jsonAccess(stringData).spaces.$path
+      const unicodeValue = jsonAccess(stringData).unicode.$path
+      const escapedValue = jsonAccess(stringData).escaped.$path
 
       const emptyResult = await executeQuery(db, emptyValue)
       const spacesResult = await executeQuery(db, spacesValue)
@@ -368,7 +368,7 @@ describe('JSON Integration Tests', () => {
         } | null
       }>`'{"level1": {"level2": {"level3": null}}}'::jsonb`
 
-      const deepValue = jsonAccessor(deepData).level1.level2.level3.value.$path
+      const deepValue = jsonAccess(deepData).level1.level2.level3.value.$path
       const result = await executeQuery(db, deepValue)
 
       expect(result).toBeNull()
@@ -380,8 +380,8 @@ describe('JSON Integration Tests', () => {
         count: number | null
       }>`'{"status": "active", "count": null}'::jsonb`
 
-      const statusValue = jsonAccessor(unionData).status.$path
-      const countValue = jsonAccessor(unionData).count.$path
+      const statusValue = jsonAccess(unionData).status.$path
+      const countValue = jsonAccess(unionData).count.$path
 
       const statusResult = await executeQuery(db, statusValue)
       const countResult = await executeQuery(db, countValue)
@@ -399,15 +399,15 @@ describe('JSON Integration Tests', () => {
 
       const maxSafeResult = await executeQuery(
         db,
-        jsonAccessor(largeNumbers).maxSafeInt.$path,
+        jsonAccess(largeNumbers).maxSafeInt.$path,
       )
       const largeBigIntResult = await executeQuery(
         db,
-        jsonAccessor(largeNumbers).largeBigInt.$path,
+        jsonAccess(largeNumbers).largeBigInt.$path,
       )
       const scientificResult = await executeQuery(
         db,
-        jsonAccessor(largeNumbers).scientific.$path,
+        jsonAccess(largeNumbers).scientific.$path,
       )
 
       expect(maxSafeResult).toEqual(9007199254740991)
@@ -421,7 +421,7 @@ describe('JSON Integration Tests', () => {
       }>`'{"mixed": ["string", 42, true, null, false, 0]}'::jsonb`
 
       // Access individual array elements using proper accessor pattern
-      const accessor = jsonAccessor(mixedArray)
+      const accessor = jsonAccess(mixedArray)
 
       const results = await Promise.all([
         executeQuery(db, accessor.mixed['0'].$path),
@@ -449,15 +449,15 @@ describe('JSON Integration Tests', () => {
 
       const emptyObjResult = await executeQuery(
         db,
-        jsonAccessor(emptyData).emptyObj.$path,
+        jsonAccess(emptyData).emptyObj.$path,
       )
       const emptyArrayResult = await executeQuery(
         db,
-        jsonAccessor(emptyData).emptyArray.$path,
+        jsonAccess(emptyData).emptyArray.$path,
       )
       const nestedEmptyResult = await executeQuery(
         db,
-        jsonAccessor(emptyData).objWithEmpty.empty.$path,
+        jsonAccess(emptyData).objWithEmpty.empty.$path,
       )
 
       expect(emptyObjResult).toEqual({})
@@ -473,21 +473,21 @@ describe('JSON Integration Tests', () => {
       // $path returns the actual JSON value
       const nameViaPath = await executeQuery(
         db,
-        jsonAccessor(testData).user.name.$path,
+        jsonAccess(testData).user.name.$path,
       )
       const countViaPath = await executeQuery(
         db,
-        jsonAccessor(testData).user.count.$path,
+        jsonAccess(testData).user.count.$path,
       )
 
       // $value should extract as text (all return strings)
       const nameViaValue = await executeQuery(
         db,
-        jsonAccessor(testData).user.name.$value,
+        jsonAccess(testData).user.name.$value,
       )
       const countViaValue = await executeQuery(
         db,
-        jsonAccessor(testData).user.count.$value,
+        jsonAccess(testData).user.count.$value,
       )
 
       // $path preserves types
@@ -550,7 +550,7 @@ describe('JSON Integration Tests', () => {
       expect(result).toEqual(['second', 'UPDATED', 'fourth'])
     })
 
-    it('should test jsonAccessor with complex nested access patterns', async () => {
+    it('should test jsonAccess with complex nested access patterns', async () => {
       const complexData = sql<{
         app: {
           modules: {
@@ -561,16 +561,15 @@ describe('JSON Integration Tests', () => {
         }
       }>`'{"app": {"modules": {"auth": {"enabled": true, "providers": ["google", "github"]}, "db": {"host": "localhost", "connections": [1, 2, 3]}}, "metadata": {"version": "1.0.0", "build": 123}}}'::jsonb`
 
-      // Use jsonAccessor to access deeply nested values
-      const authEnabled =
-        jsonAccessor(complexData).app.modules.auth.enabled.$path
+      // Use jsonAccess to access deeply nested values
+      const authEnabled = jsonAccess(complexData).app.modules.auth.enabled.$path
       const firstProvider =
-        jsonAccessor(complexData).app.modules.auth.providers['0'].$path
-      const dbHost = jsonAccessor(complexData).app.modules.db.host.$path
+        jsonAccess(complexData).app.modules.auth.providers['0'].$path
+      const dbHost = jsonAccess(complexData).app.modules.db.host.$path
       const firstConnection =
-        jsonAccessor(complexData).app.modules.db.connections['0'].$path
-      const version = jsonAccessor(complexData).app.metadata.version.$path
-      const buildNumber = jsonAccessor(complexData).app.metadata.build.$path
+        jsonAccess(complexData).app.modules.db.connections['0'].$path
+      const version = jsonAccess(complexData).app.metadata.version.$path
+      const buildNumber = jsonAccess(complexData).app.metadata.build.$path
 
       const results = await Promise.all([
         executeQuery(db, authEnabled),

@@ -72,12 +72,12 @@ export function jsonArraySet<
     : sql`${JSON.stringify(value)}::jsonb`
   return sql<
     SQLJSONDenullify<SourceType>
-  >`jsonb_set(${source}, '{${index}}', ${_value})`.inlineParams()
+  >`jsonb_set(${source}, '{${sql`${index}`.inlineParams()}}', ${_value})`
 }
 
 export function jsonArrayDelete<
   Source extends SQLJSONValue<any[]>,
   SourceType extends SQLJSONExtractType<Source> = SQLJSONExtractType<Source>,
 >(source: Source, index: number) {
-  return sql<SourceType>`${normalizeNullishArray(source)} - ${index}`.inlineParams()
+  return sql<SourceType>`${normalizeNullishArray(source)} - ${sql`${index}`.inlineParams()}`
 }

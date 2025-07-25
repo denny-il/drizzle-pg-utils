@@ -1,3 +1,5 @@
-import json from './json/index.ts'
+import * as json from './json/index.ts'
+import * as temporal from './temporal/index.ts'
 
-export { json }
+export { json, temporal }
+export default { json, temporal }

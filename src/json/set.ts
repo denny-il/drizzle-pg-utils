@@ -14,10 +14,10 @@ export type SQLJSONSetMixedValue<T> = T extends any[]
     ? { [K in keyof T]: T[K] | SQL<T[K]> }
     : T | SQL<T>
 
-export type SQLJSONSetFn<Type, Source> = (
+export type SQLJSONSetFn<Type, Source extends SQLJSONValue> = (
   value: SQLJSONSetMixedValue<SQLJSONDenullify<Type>>,
   createMissing?: boolean,
-) => Source
+) => SQL<SQLJSONExtractType<Source>>
 
 export type SQLJSONSet<
   Source extends SQLJSONValue,

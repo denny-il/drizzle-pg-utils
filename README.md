@@ -1,25 +1,54 @@
 # Drizzle PostgreSQL Utils
 
-A TypeScript library providing type-safe utilities for working with PostgreSQL JSONB data in Drizzle ORM applications.
+A TypeScript library providing type-safe utilities for working with PostgreSQL JSONB data and Temporal types in Drizzle ORM applications.
 
 ## Features
 
+### JSON Utilities
 - 🎯 **Type-safe JSONB operations** - Full TypeScript support with proper type inference
-- 🔍 **JSON accessor** - Navigate nested JSON structures with dot notation
+- 🔍 **JSON accessor** - Navigate nested JSON structures with dot notation WITHOUT any runtime schema
 - ✏️ **JSON setter** - Update JSON values at specific paths
 - 🔄 **JSON merge** - Merge JSON objects and arrays following PostgreSQL semantics
 - 📦 **Array operations** - Push, set, and delete array elements
-- 🛡️ **Null safety** - Proper handling of SQL NULL vs JSON null values
+- 🛡️ **Null safety** - Proper handling of SQL NULL and JSON null values
+
+### Temporal Utilities
+- ⏰ **Temporal API support** - Modern date/time handling with Temporal polyfill
+- 📅 **PostgreSQL integration** - Direct mapping between Temporal types and PostgreSQL date/time types
+- 🔧 **Custom column types** - Ready-to-use Drizzle column definitions
+- ✅ **Type safety** - Full TypeScript support for all temporal operations
+- 🛡️ **Format validation** - Built-in constraints for text-based temporal types
 
 ## Installation
 
 ```bash
-npm install @project/drizzle-utils
+npm install @denilc/drizzle-pg-utils
 # or
-pnpm add @project/drizzle-utils
+pnpm add @denilc/drizzle-pg-utils
 # or
-yarn add @project/drizzle-utils
+yarn add @denilc/drizzle-pg-utils
 ```
+
+## Exports Structure
+
+This library provides modular exports for different functionality:
+
+```typescript
+// Main export - includes all utilities
+import { json, temporal } from '@denilc/drizzle-pg-utils'
+
+// JSON utilities only
+import { access, merge, array } from '@denilc/drizzle-pg-utils/json'
+// or
+import json from '@denilc/drizzle-pg-utils/json'
+
+// Temporal utilities only
+import { timestamp, timestampz, date } from '@denilc/drizzle-pg-utils/temporal'
+// or
+import temporal from '@denilc/drizzle-pg-utils/temporal'
+```
+
+Each export is independently importable, allowing you to include only what you need in your bundle.
 
 ## Usage
 
@@ -29,7 +58,7 @@ Access nested properties in JSONB columns with type safety:
 
 ```typescript
 import { sql } from 'drizzle-orm'
-import { json } from '@project/drizzle-utils'
+import json from '@denilc/drizzle-pg-utils/json'
 
 // Define your JSON type
 type UserProfile = {
@@ -70,7 +99,7 @@ Update specific paths in JSONB data:
 
 ```typescript
 import { sql } from 'drizzle-orm'
-import { json } from '@project/drizzle-utils'
+import json from '@denilc/drizzle-pg-utils/json'
 
 const jsonData = sql<UserProfile>`'{"user": {"id": 1, "name": "John"}}'::jsonb`
 const setter = json.set(jsonData)
@@ -97,7 +126,7 @@ Merge JSON objects and arrays following PostgreSQL JSONB semantics:
 
 ```typescript
 import { sql } from 'drizzle-orm'
-import { json } from '@project/drizzle-utils'
+import json from '@denilc/drizzle-pg-utils/json'
 
 const obj1 = sql`'{"a": "hello", "b": 1}'::jsonb`
 const obj2 = sql`'{"b": 2, "c": true}'::jsonb`
@@ -123,7 +152,7 @@ Manipulate JSONB arrays:
 
 ```typescript
 import { sql } from 'drizzle-orm'
-import { json } from '@project/drizzle-utils'
+import json from '@denilc/drizzle-pg-utils/json'
 
 const numberArray = sql<number[]>`'[1, 2, 3]'::jsonb`
 
@@ -146,7 +175,7 @@ Use with actual Drizzle table columns:
 
 ```typescript
 import { jsonb, pgTable, serial, text } from 'drizzle-orm/pg-core'
-import { json } from '@project/drizzle-utils'
+import json from '@denilc/drizzle-pg-utils/json'
 
 const users = pgTable('users', {
   id: serial('id').primaryKey(),
@@ -184,9 +213,95 @@ await db
   .where(eq(users.id, 1))
 ```
 
+## Temporal API Integration
+
+Work with PostgreSQL date/time types using the modern Temporal API.
+
+### Setup
+
+In case you encounter issues with JSON serialization of `ZonedDateTime`, register the JSON fix that excludes timezone names:
+
+```typescript
+import { _registerZonedDateTimeJSONFix } from '@denilc/drizzle-pg-utils/temporal'
+
+// Call once at application startup in case
+_registerZonedDateTimeJSONFix()
+```
+
+### Basic Column Types
+
+Define tables with Temporal types with native PostgreSQL support:
+
+```typescript
+import { pgTable, serial, text } from 'drizzle-orm/pg-core'
+import { timestamp, timestampz, date, time, interval } from '@denilc/drizzle-pg-utils/temporal'
+
+const events = pgTable('events', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull(),
+  
+  // timestamp - PlainDateTime (no timezone)
+  scheduledAt: timestamp.column('scheduled_at'),
+  
+  // timestamptz - ZonedDateTime (with timezone, stored as UTC)
+  createdAt: timestampz.column('created_at'),
+  
+  // date - PlainDate
+  eventDate: date.column('event_date'),
+  
+  // time - PlainTime
+  startTime: time.column('start_time', { precision: 3 }),
+  
+  // interval - Duration (requires PostgreSQL intervalstyle = 'iso_8601')
+  duration: interval.column('duration'),
+})
+```
+
+### Text-based Temporal Types
+
+For year-month and month-day values stored as text with optional validation:
+
+```typescript
+import { pgTable, serial } from 'drizzle-orm/pg-core'
+import { yearMonth, monthDay } from '@denilc/drizzle-pg-utils/temporal'
+
+const reports = pgTable('reports', {
+  id: serial('id').primaryKey(),
+  reportMonth: yearMonth.column('report_month'),
+  holidayDate: monthDay.column('holiday_date'),
+}, (table) => ([
+  // Add format validation constraints
+  ...yearMonth.constraints(table.reportMonth),
+  ...monthDay.constraints(table.holidayDate),
+]))
+```
+
+### Working with Temporal Values
+
+```typescript
+import { Temporal } from 'temporal-polyfill'
+
+// Insert data
+const now = Temporal.Now.plainDateTimeISO()
+const zonedNow = Temporal.Now.zonedDateTimeISO('America/New_York')
+const eventDate = Temporal.PlainDate.from('2023-12-25')
+const duration = Temporal.Duration.from('PT2H30M')
+
+await db.insert(events).values({
+  name: 'Holiday Party',
+  scheduledAt: now,
+  createdAt: zonedNow,
+  eventDate: eventDate,
+  duration: duration,
+})
+```
+
+
 ## API Reference
 
-### `json.access(source)`
+### JSON Utilities
+
+#### `json.access(source)`
 
 Creates a type-safe accessor for navigating JSONB structures.
 
@@ -194,10 +309,10 @@ Creates a type-safe accessor for navigating JSONB structures.
   - `source`: JSONB column or SQL expression
 - **Returns:** Proxy object with type-safe property access
 - **Properties:**
-  - `.$value`: Extract the value as text (using `jsonb_extract_path_text`)
-  - `.$path`: Extract the JSONB value (using `jsonb_extract_path`)
+  - `.$value`: Extract the value as text (using `jsonb_extract_path_text`, equivalent to `->>` operator)
+  - `.$path`: Extract the JSONB value (using `jsonb_extract_path`, equivalent to `->` operator)
 
-### `json.set(source)`
+#### `json.set(source)`
 
 Creates a setter for updating JSONB values at specific paths.
 
@@ -207,7 +322,7 @@ Creates a setter for updating JSONB values at specific paths.
 - **Method:**
   - `.$set(value, createMissing?)`: Update the value at this path
 
-### `json.merge(left, right)`
+#### `json.merge(left, right)`
 
 Merges two JSONB values following PostgreSQL semantics.
 
@@ -216,7 +331,7 @@ Merges two JSONB values following PostgreSQL semantics.
   - `right`: Second JSONB value
 - **Returns:** SQL expression with merged result
 
-### `json.array.push(source, ...values)`
+#### `json.array.push(source, ...values)`
 
 Appends values to a JSONB array.
 
@@ -225,7 +340,7 @@ Appends values to a JSONB array.
   - `values`: Values to append
 - **Returns:** SQL expression with updated array
 
-### `json.array.set(source, index, value)`
+#### `json.array.set(source, index, value)`
 
 Sets a value at a specific array index.
 
@@ -235,7 +350,7 @@ Sets a value at a specific array index.
   - `value`: New value
 - **Returns:** SQL expression with updated array
 
-### `json.array.delete(source, index)`
+#### `json.array.delete(source, index)`
 
 Removes an element at a specific array index.
 
@@ -244,23 +359,122 @@ Removes an element at a specific array index.
   - `index`: Zero-based index to remove
 - **Returns:** SQL expression with updated array
 
+### Temporal Utilities
+
+#### `timestamp.column(name, config?)`
+
+Creates a PostgreSQL `timestamp` column for `Temporal.PlainDateTime` values.
+
+- **Parameters:**
+  - `name`: Column name
+  - `config?`: Optional configuration with `precision`
+- **Returns:** Drizzle column definition
+- **Maps to:** `timestamp[(precision)]` in PostgreSQL
+
+#### `timestampz.column(name, config?)`
+
+Creates a PostgreSQL `timestamp with time zone` column for `Temporal.ZonedDateTime` values.
+
+- **Parameters:**
+  - `name`: Column name  
+  - `config?`: Optional configuration with `precision`
+- **Returns:** Drizzle column definition
+- **Maps to:** `timestamp[(precision)] with time zone` in PostgreSQL
+- **Note:** Values are stored as UTC and returned as UTC ZonedDateTime instances
+
+#### `date.column(name)`
+
+Creates a PostgreSQL `date` column for `Temporal.PlainDate` values.
+
+- **Parameters:**
+  - `name`: Column name
+- **Returns:** Drizzle column definition
+- **Maps to:** `date` in PostgreSQL
+
+#### `time.column(name, config?)`
+
+Creates a PostgreSQL `time` column for `Temporal.PlainTime` values.
+
+- **Parameters:**
+  - `name`: Column name
+  - `config?`: Optional configuration with `precision`
+- **Returns:** Drizzle column definition
+- **Maps to:** `time[(precision)]` in PostgreSQL
+
+#### `interval.column(name, config?)`
+
+Creates a PostgreSQL `interval` column for `Temporal.Duration` values.
+
+- **Parameters:**
+  - `name`: Column name
+  - `config?`: Optional configuration with `fields` and `precision`
+- **Returns:** Drizzle column definition
+- **Maps to:** `interval[fields][(precision)]` in PostgreSQL
+- **Requires:** PostgreSQL `intervalstyle` set to `'iso_8601', see [PostgreSQL documentation](https://www.postgresql.org/docs/current/datatype-datetime.html#DATATYPE-INTERVAL-OUTPUT)`
+
+#### `yearMonth.column(name)` and `yearMonth.constraints(column, name?)`
+
+Creates a text column for `Temporal.PlainYearMonth` values with format validation.
+
+- **Column Parameters:**
+  - `name`: Column name
+- **Constraints Parameters:**
+  - `column`: The column to validate
+  - `name?`: Optional constraint name
+- **Returns:** Column definition / Array of check constraints
+- **Format:** `YYYY-MM` (e.g., "2023-07")
+
+#### `monthDay.column(name)` and `monthDay.constraints(column, name?)`
+
+Creates a text column for `Temporal.PlainMonthDay` values with format validation.
+
+- **Column Parameters:**
+  - `name`: Column name
+- **Constraints Parameters:**
+  - `column`: The column to validate
+  - `name?`: Optional constraint name
+- **Returns:** Column definition / Array of check constraints
+- **Format:** `MM-DD` (e.g., "07-25")
+
+#### `_registerZonedDateTimeJSONFix()`
+
+Patches `Temporal.ZonedDateTime.prototype.toJSON` to exclude timezone names from JSON output.
+
+- **Parameters:** None
+- **Returns:** void
+- **Warning:** Modifies global prototype - call once at application startup
+
 ## Type Safety
 
 All functions provide full TypeScript support:
 
+### JSON Utilities
 - Input types are validated at compile time
 - Return types are properly inferred based on the input JSON schema
 - Nested property access maintains type safety
 - SQL NULL vs JSON null handling is type-aware
 
+### Temporal Utilities
+- Temporal types are fully typed with proper TypeScript integration
+- Column definitions include precise type information
+- Automatic conversion between PostgreSQL and Temporal types
+- Type-safe constraint validation for text-based temporal types
+
 ## PostgreSQL Compatibility
 
-This library targets PostgreSQL 12+ and uses standard JSONB functions:
+This library targets PostgreSQL 12+ and uses standard functions:
 
+### JSON Operations
 - `jsonb_extract_path()` and `jsonb_extract_path_text()` for access
 - `jsonb_set()` for updates
 - `||` operator for merging
 - `jsonb_build_array()` and `jsonb_build_object()` for construction
+
+### Temporal Operations
+- Native PostgreSQL date/time types: `timestamp`, `timestamptz`, `date`, `time`, `interval`
+- ISO 8601 format support for intervals (requires `intervalstyle = 'iso_8601'` set in PostgreSQL)
+- Text-based storage with regex validation for `yearMonth` and `monthDay` types
+- Full timezone support with automatic UTC conversion
 
 ## Contributing
 

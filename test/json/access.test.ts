@@ -1,8 +1,8 @@
 import { type SQL, sql } from 'drizzle-orm'
 
 import { describe, expect, expectTypeOf, it } from 'vitest'
-import { jsonAccessor, type SQLJSONAccess } from '../../src/json/access.ts'
-import { dialect } from '../utils.ts'
+import { jsonAccess, type SQLJSONAccess } from '../../src/json/access.ts'
+import { dialect, table } from '../utils.ts'
 
 describe('JSON Accessor', () => {
   type JsonType = {
@@ -26,13 +26,13 @@ describe('JSON Accessor', () => {
 
   describe('Basic Property Access', () => {
     it('creates accessor for simple property', () => {
-      const accessor = jsonAccessor(jsonObject)
+      const accessor = jsonAccess(jsonObject)
       expect(accessor).toBeDefined()
       expect(typeof accessor).toBe('object')
     })
 
     it('generates correct SQL for root access', () => {
-      const accessor = jsonAccessor(jsonObject)
+      const accessor = jsonAccess(jsonObject)
       const query = dialect.sqlToQuery(accessor.$path)
 
       // Root access should just return the source directly
@@ -41,7 +41,7 @@ describe('JSON Accessor', () => {
     })
 
     it('generates correct SQL for property access', () => {
-      const accessor = jsonAccessor(jsonObject)
+      const accessor = jsonAccess(jsonObject)
       const userAccess = accessor.user.$path
       const query = dialect.sqlToQuery(userAccess)
 
@@ -50,7 +50,7 @@ describe('JSON Accessor', () => {
     })
 
     it('supports the $$ syntax for path extraction', () => {
-      const accessor = jsonAccessor(jsonObject)
+      const accessor = jsonAccess(jsonObject)
       const pathSQL = accessor.$path
       const query = dialect.sqlToQuery(pathSQL)
 
@@ -61,7 +61,7 @@ describe('JSON Accessor', () => {
 
   describe('Nested Property Access', () => {
     it('accesses nested object properties', () => {
-      const accessor = jsonAccessor(jsonObject)
+      const accessor = jsonAccess(jsonObject)
       const nameAccess = accessor.user.name.$path
       const query = dialect.sqlToQuery(nameAccess)
 
@@ -72,7 +72,7 @@ describe('JSON Accessor', () => {
     })
 
     it('accesses deeply nested properties', () => {
-      const accessor = jsonAccessor(jsonObject)
+      const accessor = jsonAccess(jsonObject)
       const themeAccess = accessor.user.profile.preferences.theme.$path
       const query = dialect.sqlToQuery(themeAccess)
 
@@ -83,7 +83,7 @@ describe('JSON Accessor', () => {
     })
 
     it('handles array access', () => {
-      const accessor = jsonAccessor(jsonObject)
+      const accessor = jsonAccess(jsonObject)
       const tagsAccess = accessor.tags.$path
       const query = dialect.sqlToQuery(tagsAccess)
 
@@ -94,14 +94,14 @@ describe('JSON Accessor', () => {
 
   describe('Type Safety', () => {
     it('has correct types for accessor', () => {
-      const accessor = jsonAccessor(jsonObject)
+      const accessor = jsonAccess(jsonObject)
 
-      // Test with SQLJSONAccessor type
+      // Test with SQLjsonAccess type
       expectTypeOf(accessor).toEqualTypeOf<SQLJSONAccess<SQL<JsonType>>>()
     })
 
     it('preserves type information through chaining', () => {
-      const accessor = jsonAccessor(jsonObject)
+      const accessor = jsonAccess(jsonObject)
 
       // Test nested property access types
       expectTypeOf(accessor.user).toEqualTypeOf<
@@ -118,7 +118,7 @@ describe('JSON Accessor', () => {
     })
 
     it('handles deeply nested property types', () => {
-      const accessor = jsonAccessor(jsonObject)
+      const accessor = jsonAccess(jsonObject)
 
       expectTypeOf(accessor.user.profile).toEqualTypeOf<
         SQLJSONAccess<SQL<JsonType['user']['profile']>>
@@ -142,7 +142,7 @@ describe('JSON Accessor', () => {
     it('handles nullable JSON values', () => {
       type JsonType = { prop?: string | null }
       const nullableJson = sql<JsonType>`'{"prop": null}'::jsonb`
-      const accessor = jsonAccessor(nullableJson)
+      const accessor = jsonAccess(nullableJson)
       const propAccess = accessor.prop
       const query = dialect.sqlToQuery(propAccess.$path)
 
@@ -158,7 +158,7 @@ describe('JSON Accessor', () => {
     it('works with empty object', () => {
       type JsonType = {}
       const emptyJson = sql<JsonType>`'{}'::jsonb`
-      const accessor = jsonAccessor(emptyJson)
+      const accessor = jsonAccess(emptyJson)
       const query = dialect.sqlToQuery(accessor.$path)
 
       expect(query.params).toEqual([])
@@ -167,7 +167,7 @@ describe('JSON Accessor', () => {
     })
 
     it('handles dynamic property names', () => {
-      const accessor = jsonAccessor(jsonObject)
+      const accessor = jsonAccess(jsonObject)
       const metadataAccess = accessor.metadata
       const query = dialect.sqlToQuery(metadataAccess.$path)
 
@@ -182,7 +182,7 @@ describe('JSON Accessor', () => {
 
   describe('SQL Generation', () => {
     it('generates inline parameters correctly', () => {
-      const accessor = jsonAccessor(jsonObject)
+      const accessor = jsonAccess(jsonObject)
       const nestedAccess = accessor.user.profile.avatar
       const query = dialect.sqlToQuery(nestedAccess.$path)
 
@@ -195,7 +195,7 @@ describe('JSON Accessor', () => {
     })
 
     it('builds correct path arrays', () => {
-      const accessor = jsonAccessor(jsonObject)
+      const accessor = jsonAccess(jsonObject)
       const deepAccess = accessor.user.profile.preferences
       const query = dialect.sqlToQuery(deepAccess.$path)
 
@@ -210,7 +210,7 @@ describe('JSON Accessor', () => {
     })
 
     it('generates correct SQL for $value access', () => {
-      const accessor = jsonAccessor(jsonObject)
+      const accessor = jsonAccess(jsonObject)
       const nameValue = accessor.user.name.$value
       const query = dialect.sqlToQuery(nameValue)
 
@@ -221,13 +221,36 @@ describe('JSON Accessor', () => {
     })
 
     it('handles $value for nested properties', () => {
-      const accessor = jsonAccessor(jsonObject)
+      const accessor = jsonAccess(jsonObject)
       const themeValue = accessor.user.profile.preferences.theme.$value
       const query = dialect.sqlToQuery(themeValue)
 
       expect(query.params).toEqual([])
       expect(query.sql).toBe(
         `jsonb_extract_path_text(${jsonObjectSql}, 'user','profile','preferences','theme')`,
+      )
+    })
+  })
+
+  describe('Table Column Integration', () => {
+    it('should work with actual table columns', () => {
+      const accessor = jsonAccess(table.jsoncol)
+      const someAccess = accessor.some.$path
+      const query = dialect.sqlToQuery(someAccess)
+
+      // Should generate correct SQL for table column access
+      expect(query.params).toEqual([])
+      expect(query.sql).toBe(`jsonb_extract_path("test"."jsoncol", 'some')`)
+    })
+
+    it('should handle $value access on table columns', () => {
+      const accessor = jsonAccess(table.jsoncol)
+      const someValue = accessor.some.$value
+      const query = dialect.sqlToQuery(someValue)
+
+      expect(query.params).toEqual([])
+      expect(query.sql).toBe(
+        `jsonb_extract_path_text("test"."jsoncol", 'some')`,
       )
     })
   })

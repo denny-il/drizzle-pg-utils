@@ -6,7 +6,7 @@ import {
   type SQLJSONSet,
   type SQLJSONSetFn,
 } from '../../src/json/set.ts'
-import { dialect } from '../utils.ts'
+import { dialect, table } from '../utils.ts'
 
 describe('JSON Set', () => {
   type JsonType = {
@@ -447,6 +447,29 @@ describe('JSON Set', () => {
       expect(query.sql).toBe(
         `jsonb_set('{"level1": {"level2": {"level3": {"level4": {"value": "deep"}}}}}'::jsonb, array['level1','level2','level3','level4','value']::text[], $1::jsonb, true)`,
       )
+    })
+  })
+
+  describe('Table Column Integration', () => {
+    it('should work with table columns for setting properties', () => {
+      const setter = jsonSet(table.jsoncol)
+      const result = setter.some.$set('json' as const)
+      const query = dialect.sqlToQuery(result)
+
+      expect(query.params).toEqual(['json'].map((v) => JSON.stringify(v)))
+      expect(query.sql).toBe(
+        `jsonb_set("test"."jsoncol", array['some']::text[], $1::jsonb, true)`,
+      )
+    })
+
+    it('should work with table columns for setting complete objects', () => {
+      const setter = jsonSet(table.jsoncol)
+      const newValue = { some: 'json' as const }
+      const result = setter.$set(newValue)
+      const query = dialect.sqlToQuery(result)
+
+      expect(query.params).toEqual(['json'].map((v) => JSON.stringify(v)))
+      expect(query.sql).toBe(`jsonb_build_object('some', $1::jsonb)`)
     })
   })
 })

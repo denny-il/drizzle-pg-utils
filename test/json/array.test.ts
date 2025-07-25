@@ -5,7 +5,7 @@ import {
   jsonArrayPush,
   jsonArraySet,
 } from '../../src/json/array.ts'
-import { dialect } from '../utils.ts'
+import { dialect, table } from '../utils.ts'
 
 describe('JSON Array Operations', () => {
   const numberArraySql = `'[1, 2, 3]'::jsonb`
@@ -109,17 +109,17 @@ describe('JSON Array Operations', () => {
       const result = jsonArraySet(numberArray, 1, 99)
       const query = dialect.sqlToQuery(result)
 
-      expect(query.params).toEqual([])
-      expect(query.sql).toBe(`jsonb_set(${numberArraySql}, '{1}', '99'::jsonb)`)
+      expect(query.params).toEqual([99].map((v) => JSON.stringify(v)))
+      expect(query.sql).toBe(`jsonb_set(${numberArraySql}, '{1}', $1::jsonb)`)
     })
 
     it('sets string value at index', () => {
       const result = jsonArraySet(stringArray, 0, 'new')
       const query = dialect.sqlToQuery(result)
 
-      expect(query.params).toEqual([])
+      expect(query.params).toEqual(['new'].map((v) => JSON.stringify(v)))
       expect(query.sql).toBe(
-        `jsonb_set(${stringArraySql}, '{0}', '"new"'::jsonb)`,
+        `jsonb_set(${stringArraySql}, '{0}', $1::jsonb)`,
       )
     })
 
@@ -128,9 +128,9 @@ describe('JSON Array Operations', () => {
       const result = jsonArraySet(objectArray, 0, newUser)
       const query = dialect.sqlToQuery(result)
 
-      expect(query.params).toEqual([])
+      expect(query.params).toEqual([newUser].map((v) => JSON.stringify(v)))
       expect(query.sql).toBe(
-        `jsonb_set(${objectArraySql}, '{0}', '{"id":99,"name":"Updated"}'::jsonb)`,
+        `jsonb_set(${objectArraySql}, '{0}', $1::jsonb)`,
       )
     })
 
@@ -149,9 +149,9 @@ describe('JSON Array Operations', () => {
       const result = jsonArraySet(numberArray, -1, 99)
       const query = dialect.sqlToQuery(result)
 
-      expect(query.params).toEqual([])
+      expect(query.params).toEqual([99].map((v) => JSON.stringify(v)))
       expect(query.sql).toBe(
-        `jsonb_set(${numberArraySql}, '{-1}', '99'::jsonb)`,
+        `jsonb_set(${numberArraySql}, '{-1}', $1::jsonb)`,
       )
     })
 
@@ -266,9 +266,9 @@ describe('JSON Array Operations', () => {
       const result = jsonArraySet(numberArray, 0, null as any)
       const query = dialect.sqlToQuery(result)
 
-      expect(query.params).toEqual([])
+      expect(query.params).toEqual([null].map((v) => JSON.stringify(v)))
       expect(query.sql).toBe(
-        `jsonb_set(${numberArraySql}, '{0}', 'null'::jsonb)`,
+        `jsonb_set(${numberArraySql}, '{0}', $1::jsonb)`,
       )
     })
 
@@ -291,6 +291,41 @@ describe('JSON Array Operations', () => {
       expectTypeOf(objectResult).toEqualTypeOf<
         SQL<Array<{ id: number; name: string }>>
       >()
+    })
+  })
+
+  describe('Table Column Integration', () => {
+    it('should work with table columns for push operations', () => {
+      const result = jsonArrayPush(table.arraycol, { id: 3, name: 'new-item' })
+      const query = dialect.sqlToQuery(result)
+
+      expect(query.params).toEqual(['{"id":3,"name":"new-item"}'])
+      expect(query.sql).toBe(
+        `json_query(coalesce("test"."arraycol", 'null'::jsonb), 'strict $ ? (@ != null)' default '[]'::jsonb on empty)::jsonb || jsonb_build_array($1::jsonb)`,
+      )
+    })
+
+    it('should work with table columns for set operations', () => {
+      const result = jsonArraySet(table.arraycol, 0, {
+        id: 1,
+        name: 'updated-item',
+      })
+      const query = dialect.sqlToQuery(result)
+
+      expect(query.params).toEqual([{"id":1,"name":"updated-item"}].map((v) => JSON.stringify(v)))
+      expect(query.sql).toBe(
+        `jsonb_set("test"."arraycol", '{0}', $1::jsonb)`,
+      )
+    })
+
+    it('should work with table columns for delete operations', () => {
+      const result = jsonArrayDelete(table.arraycol, 0)
+      const query = dialect.sqlToQuery(result)
+
+      expect(query.params).toEqual([])
+      expect(query.sql).toBe(
+        `json_query(coalesce("test"."arraycol", 'null'::jsonb), 'strict $ ? (@ != null)' default '[]'::jsonb on empty)::jsonb - 0`,
+      )
     })
   })
 })

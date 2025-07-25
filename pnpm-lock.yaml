@@ -7,10 +7,6 @@ settings:
 importers:
 
   .:
-    dependencies:
-      drizzle-orm:
-        specifier: ^0.44.3
-        version: 0.44.3(@electric-sql/pglite@0.3.5)
     devDependencies:
       '@biomejs/biome':
         specifier: ^2.1.2
@@ -18,6 +14,12 @@ importers:
       '@electric-sql/pglite':
         specifier: 0.3.5
         version: 0.3.5
+      drizzle-orm:
+        specifier: ^0.44.3
+        version: 0.44.3(@electric-sql/pglite@0.3.5)
+      temporal-polyfill:
+        specifier: ^0.3.0
+        version: 0.3.0
       typescript:
         specifier: ^5.8.3
         version: 5.8.3
@@ -585,6 +587,12 @@ packages:
   strip-literal@3.0.0:
     resolution: {integrity: sha512-TcccoMhJOM3OebGhSBEmp3UZ2SfDMZUEBdRA/9ynfLi8yYajyWX3JiXArcJt4Umh4vISpspkQIY8ZZoCqjbviA==}
 
+  temporal-polyfill@0.3.0:
+    resolution: {integrity: sha512-qNsTkX9K8hi+FHDfHmf22e/OGuXmfBm9RqNismxBrnSmZVJKegQ+HYYXT+R7Ha8F/YSm2Y34vmzD4cxMu2u95g==}
+
+  temporal-spec@0.3.0:
+    resolution: {integrity: sha512-n+noVpIqz4hYgFSMOSiINNOUOMFtV5cZQNCmmszA6GiVFVRt3G7AqVyhXjhCSmowvQn+NsGn+jMDMKJYHd3bSQ==}
+
   tinybench@2.9.0:
     resolution: {integrity: sha512-0+DUvqWMValLmha6lr4kD8iAMK1HzV0/aKnCtWb9v9641TnP/MFb7Pc2bxoxQjTXAErryXVgUOfv2YqNllqGeg==}
 
@@ -1050,6 +1058,12 @@ snapshots:
   strip-literal@3.0.0:
     dependencies:
       js-tokens: 9.0.1
+
+  temporal-polyfill@0.3.0:
+    dependencies:
+      temporal-spec: 0.3.0
+
+  temporal-spec@0.3.0: {}
 
   tinybench@2.9.0: {}
 

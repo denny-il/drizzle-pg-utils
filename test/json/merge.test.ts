@@ -2,7 +2,7 @@ import { type SQL, sql } from 'drizzle-orm'
 
 import { describe, expect, expectTypeOf, it } from 'vitest'
 import { jsonMerge } from '../../src/json/merge.ts'
-import { dialect } from '../utils.ts'
+import { dialect, table } from '../utils.ts'
 
 describe('JSON Merge Operations', () => {
   // Common SQL strings for testing
@@ -372,6 +372,30 @@ describe('JSON Merge Operations', () => {
       expect(query.params).toEqual(['value', 'data'])
       expect(query.sql).toBe(
         `coalesce(jsonb_build_object('dynamic', $1), 'null'::jsonb) || coalesce(jsonb_build_object('other', $2), 'null'::jsonb)`,
+      )
+    })
+  })
+
+  describe('Table Column Integration', () => {
+    it('should work with table columns for merging objects', () => {
+      const additionalData = sql<{ some: 'json' }>`'{"some": "json"}'::jsonb`
+      const mergeResult = jsonMerge(table.jsoncol, additionalData)
+      const query = dialect.sqlToQuery(mergeResult)
+
+      expect(query.params).toEqual([])
+      expect(query.sql).toBe(
+        `coalesce("test"."jsoncol", 'null'::jsonb) || coalesce('{"some": "json"}'::jsonb, 'null'::jsonb)`,
+      )
+    })
+
+    it('should work with table columns merging with plain objects', () => {
+      const additionalData = sql<{ some: 'json' }>`'{"some": "json"}'::jsonb`
+      const mergeResult = jsonMerge(table.jsoncol, additionalData)
+      const query = dialect.sqlToQuery(mergeResult)
+
+      expect(query.params).toEqual([])
+      expect(query.sql).toBe(
+        `coalesce("test"."jsoncol", 'null'::jsonb) || coalesce('{"some": "json"}'::jsonb, 'null'::jsonb)`,
       )
     })
   })

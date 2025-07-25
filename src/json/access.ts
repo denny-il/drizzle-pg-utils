@@ -41,7 +41,7 @@ export type SQLJSONAccess<
   $path: SQL<SQLJSONNullify<IsNullish, Type>>
 }
 
-export function jsonAccessor<Source extends SQLJSONValue>(
+export function jsonAccess<Source extends SQLJSONValue>(
   source: Source,
 ): SQLJSONAccess<Source> {
   function buildPathArgs(path: string[]) {
