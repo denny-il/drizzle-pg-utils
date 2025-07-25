@@ -11,6 +11,7 @@ A TypeScript library providing type-safe utilities for working with PostgreSQL J
 - 🔄 **JSON merge** - Merge JSON objects and arrays following PostgreSQL semantics
 - 📦 **Array operations** - Push, set, and delete array elements
 - 🛡️ **Null safety** - Proper handling of SQL NULL and JSON null values
+- ⚠️ **Compatibility** - Requires runtime with [Proxy](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy#browser_compatibility) support
 
 ### Temporal Utilities
 - ⏰ **Temporal API support** - Modern date/time handling with Temporal polyfill
@@ -82,8 +83,8 @@ const jsonData = sql<UserProfile>`'{"user": {"id": 1, "name": "John", "profile":
 const accessor = json.access(jsonData)
 
 // Get the user's name
-const userName = accessor.user.name.$value  // Returns SQL<string>
-const userPath = accessor.user.name.$path   // Returns the JSONB path
+const userName = accessor.user.name.$value  // Returns value as string (jsonb_extract_path_text, or '->> operator)
+const userPath = accessor.user.name.$path   // Returns value as jsonb (jsonb_extract_path, or '-> operator)
 
 // Access deeply nested values
 const theme = accessor.user.profile.preferences.theme.$value
@@ -309,8 +310,8 @@ Creates a type-safe accessor for navigating JSONB structures.
   - `source`: JSONB column or SQL expression
 - **Returns:** Proxy object with type-safe property access
 - **Properties:**
-  - `.$value`: Extract the value as text (using `jsonb_extract_path_text`, equivalent to `->>` operator)
-  - `.$path`: Extract the JSONB value (using `jsonb_extract_path`, equivalent to `->` operator)
+  - `.$value`: Extract the value as `text` (using `jsonb_extract_path_text`, equivalent to `->>` operator)
+  - `.$path`: Extract the value as `jsonb` (using `jsonb_extract_path`, equivalent to `->` operator)
 
 #### `json.set(source)`
 
