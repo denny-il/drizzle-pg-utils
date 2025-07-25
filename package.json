@@ -1,5 +1,13 @@
 {
-  "name": "@denilc/drizzle-pg-utils",
+  "name": "@denny-il/drizzle-pg-utils",
+  "description": "Set of utilities for Drizzle ORM and PostgreSQL",
+  "homepage": "https://github.com/denny-il/drizzle-pg-utils",
+  "keywords": ["drizzle", "drizzle-orm", "postgres", "pg", "utils", "json", "temporal"],
+  "author": {
+    "name": "Denny Il",
+    "email": "ilchishin.denis@gmail.com",
+    "url": "https://github.com/denny-il"
+  },
   "type": "module",
   "exports": {
     ".": {

@@ -23,19 +23,5 @@
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false
   },
-  "include": ["src/**/*"],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "build",
-    "coverage",
-    "scripts",
-    "test",
-    "**/*.test.ts",
-    "**/*.spec.ts",
-    "**/*.d.ts",
-    "**/types.d.ts",
-    "**/types.ts",
-    "**/index.d.ts"
-  ]
+  "include": ["src/**/*"]
 }
