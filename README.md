@@ -12,6 +12,7 @@ A TypeScript library providing type-safe utilities for working with PostgreSQL J
 - 📦 **Array operations** - Push, set, and delete array elements
 - 🛡️ **Null safety** - Proper handling of SQL NULL and JSON null values
 - ⚠️ **Compatibility** - Requires runtime with [Proxy](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy#browser_compatibility) support
+- ⚠️ **Indexes** — TODO
 
 ### Temporal Utilities
 - ⏰ **Temporal API support** - Modern date/time handling with Temporal polyfill
