@@ -42,6 +42,7 @@ jobs:
           - 24
         os:
           - ubuntu-latest
+          - windows-latest
           - macos-15
           - macos-14
     runs-on: ${{ matrix.os }}
