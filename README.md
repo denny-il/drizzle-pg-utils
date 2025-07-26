@@ -40,7 +40,7 @@ This library provides modular exports for different functionality:
 import { json, temporal } from '@denny-il/drizzle-pg-utils'
 
 // JSON utilities only
-import { access, merge, array } from '@denny-il/drizzle-pg-utils/json'
+import { access, merge, array, setPipe } from '@denny-il/drizzle-pg-utils/json'
 // or
 import json from '@denny-il/drizzle-pg-utils/json'
 
@@ -120,6 +120,45 @@ const updatedProfile = setter.user.profile.$set({
 
 // Set with createMissing parameter (default: true)
 const setWithoutCreating = setter.user.newField.$set('value', false)
+```
+
+### JSON Set Pipe
+
+Chain multiple JSONB set operations together for complex updates:
+
+```typescript
+import { sql } from 'drizzle-orm'
+import { jsonSetPipe } from '@denny-il/drizzle-pg-utils/json'
+
+const userData = sql<UserProfile>`'{"user": {"id": 1, "name": "John"}}'::jsonb`
+
+// Chain multiple updates together
+const updated = jsonSetPipe(
+  userData,
+  // First update: set the user name
+  (setter) => setter.user.name.$set('Jane'),
+  // Second update: add profile data (operates on result of first update)
+  (setter) => setter.user.profile.$set({
+    avatar: 'avatar.jpg',
+    preferences: { theme: 'dark', notifications: true }
+  }),
+  // Third update: set last login (operates on result of second update)
+  (setter) => setter.lastLogin.$set('2023-12-01T10:00:00Z')
+)
+// Result: Complete UserProfile object with all updates applied sequentially
+
+// Use with database updates for complex multi-field changes
+await db
+  .update(users)
+  .set({
+    profile: jsonSetPipe(
+      users.profile,
+      (setter) => setter.user.name.$set('Updated Name'),
+      (setter) => setter.user.profile.preferences.theme.$set('light'),
+      (setter) => setter.lastLogin.$set(new Date().toISOString())
+    )
+  })
+  .where(eq(users.id, 1))
 ```
 
 ### JSON Merge
@@ -323,6 +362,16 @@ Creates a setter for updating JSONB values at specific paths.
 - **Returns:** Proxy object with `$set` methods
 - **Method:**
   - `.$set(value, createMissing?)`: Update the value at this path
+
+#### `json.setPipe(source, ...operations)`
+
+Chains multiple JSONB set operations together in a pipeline.
+
+- **Parameters:**
+  - `source`: Initial JSONB column or SQL expression
+  - `operations`: Functions that take a setter and return SQL expressions with updates
+- **Returns:** SQL expression with all updates applied sequentially
+- **Usage:** Each operation receives the result of the previous operation, allowing for complex multi-step updates in a single expression
 
 #### `json.merge(left, right)`
 

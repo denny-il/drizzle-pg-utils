@@ -115,3 +115,48 @@ export function jsonSet<Source extends SQLJSONValue>(
 
   return createValue([]) as any
 }
+
+/**
+ * Chains multiple JSONB set operations together. Each operation receives the result of the previous one.
+ *
+ * @param source - The initial JSONB column or SQL expression
+ * @param args - Functions that take a setter and return an SQL expression
+ * @returns SQL expression with all updates applied sequentially
+ *
+ * @example
+ * ```typescript
+ * // Chain multiple updates
+ * const updated = jsonSetPipe(
+ *   userData,
+ *   (setter) => setter.user.name.$set('Jane'),
+ *   (setter) => setter.user.profile.$set({ avatar: 'new.jpg' }),
+ *   (setter) => setter.lastLogin.$set('2023-12-01')
+ * )
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Database updates
+ * await db.update(users).set({
+ *   profile: jsonSetPipe(
+ *     users.profile,
+ *     (setter) => setter.name.$set('Updated'),
+ *     (setter) => setter.settings.theme.$set('dark')
+ *   )
+ * }).where(eq(users.id, 1))
+ * ```
+ */
+export function jsonSetPipe<Source extends SQLJSONValue>(
+  source: Source,
+  ...args: Array<
+    (setter: SQLJSONSet<Source, Source>) => SQL<SQLJSONExtractType<Source>>
+  >
+): SQL<SQLJSONExtractType<Source>> {
+  return args.reduce(
+    (acc, fn) => {
+      const setter = jsonSet(acc)
+      return fn(setter as any)
+    },
+    source as SQL<SQLJSONExtractType<Source>>,
+  )
+}

@@ -3,6 +3,7 @@ import { type SQL, sql } from 'drizzle-orm'
 import { describe, expect, expectTypeOf, it } from 'vitest'
 import {
   jsonSet,
+  jsonSetPipe,
   type SQLJSONSet,
   type SQLJSONSetFn,
 } from '../../src/json/set.ts'
@@ -446,6 +447,23 @@ describe('JSON Set', () => {
       expect(query.params).toEqual(['very-deep'].map((v) => JSON.stringify(v)))
       expect(query.sql).toBe(
         `jsonb_set('{"level1": {"level2": {"level3": {"level4": {"value": "deep"}}}}}'::jsonb, array['level1','level2','level3','level4','value']::text[], $1::jsonb, true)`,
+      )
+    })
+  })
+
+  describe('Set Pipeline', () => {
+    it('allows chaining setter functions', () => {
+      const result = jsonSetPipe(
+        jsonObject,
+        (setter) => setter.profile.avatar.$set('new-avatar.jpg'),
+        (setter) => setter.profile.settings.theme.$set('dark'),
+      )
+      const query = dialect.sqlToQuery(result)
+      expect(query.params).toEqual(
+        ['new-avatar.jpg', 'dark'].map((v) => JSON.stringify(v)),
+      )
+      expect(query.sql).toBe(
+        `jsonb_set(jsonb_set(${jsonObjectSql}, array['profile','avatar']::text[], $1::jsonb, true), array['profile','settings','theme']::text[], $2::jsonb, true)`,
       )
     })
   })

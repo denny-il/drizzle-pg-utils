@@ -8,7 +8,7 @@ import {
   jsonArraySet,
 } from '../../src/json/array.ts'
 import { jsonMerge } from '../../src/json/merge.ts'
-import { jsonSet } from '../../src/json/set.ts'
+import { jsonSet, jsonSetPipe } from '../../src/json/set.ts'
 import { createDatabase, executeQuery } from '../utils.ts'
 
 let db: PgliteDatabase
@@ -179,6 +179,19 @@ describe('JSON Integration Tests', () => {
       )
 
       expect(result).toEqual({ user: { name: 'New User' } })
+    })
+
+    it('should set multiple properties', async () => {
+      const baseValue = sql<{
+        user: { name: string; age: number }
+      }>`'{"user": {"name": "John", "age": 30}}'::jsonb`
+      const setter = jsonSetPipe(
+        baseValue,
+        (s) => s.user.name.$set('Jane'),
+        (s) => s.user.age.$set(25),
+      )
+      const result = await executeQuery(db, setter)
+      expect(result).toEqual({ user: { name: 'Jane', age: 25 } })
     })
   })
 
