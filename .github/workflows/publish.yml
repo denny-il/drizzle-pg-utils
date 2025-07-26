@@ -14,47 +14,7 @@ on:
         required: true
 
 jobs:
-  test:
-    strategy:
-      fail-fast: true
-      matrix:
-        node:
-          - 20
-          - 22
-          - 24
-        os:
-          - ubuntu-latest
-          - macos-latest
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Use Node.js ${{ matrix.node }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node }}
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          run_install: false
-      - name: Get pnpm store directory
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-      - uses: actions/cache@v4
-        name: Setup pnpm cache
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-      - run: pnpm install
-      - run: pnpm run check
-      - run: pnpm run build
-      - run: pnpm run test
-
   build-and-publish:
-    needs: [test]
     runs-on: ubuntu-latest
     env:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -79,8 +39,8 @@ jobs:
         with:
           run_install: false
 
-      - name: Install dependencies and build
-        run: pnpm install && pnpm build
+      - name: Install dependencies, build, check and test
+        run: pnpm install && pnpm run build && pnpm run check && pnpm run test
 
       - name: Set version
         run: |
