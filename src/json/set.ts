@@ -8,11 +8,9 @@ import type {
   SQLJSONValue,
 } from './common.ts'
 
-export type SQLJSONSetMixedValue<T> = T extends any[]
-  ? SQL<T> | (T[number] | SQL<T[number]>)[]
-  : T extends object
-    ? { [K in keyof T]: T[K] | SQL<T[K]> }
-    : T | SQL<T>
+export type SQLJSONSetMixedValue<T> =
+  | SQL<T>
+  | (T extends object ? { [K in keyof T]: T[K] | SQL<T[K]> } : T)
 
 export type SQLJSONSetFn<Type, Source extends SQLJSONValue> = (
   value: SQLJSONSetMixedValue<SQLJSONDenullify<Type>>,
