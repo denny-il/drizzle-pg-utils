@@ -47,8 +47,8 @@
   },
   "scripts": {
     "test": "vitest run",
-    "build": "tsc",
-    "check:type": "tsc --noEmit",
+    "build": "tsgo",
+    "check:type": "tsgo --noEmit",
     "check:lint": "biome lint .",
     "check:fmt": "biome format .",
     "check": "pnpm run check:fmt && pnpm run check:lint && pnpm run check:type",
@@ -62,9 +62,10 @@
     "drizzle-orm": "^0.44.3",
     "@biomejs/biome": "^2.1.2",
     "@electric-sql/pglite": "0.3.5",
-    "typescript": "^5.8.3",
+    "typescript": "5.7.3",
     "vitest": "^3.2.4",
-    "temporal-polyfill": "^0.3.0"
+    "temporal-polyfill": "^0.3.0",
+    "@typescript/native-preview": "7.0.0-dev.20250726.1"
   },
   "files": [
     "dist",
