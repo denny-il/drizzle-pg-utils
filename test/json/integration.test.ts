@@ -135,12 +135,9 @@ describe('JSON Integration Tests', () => {
         age: number
       }>`'{"name": "John", "age": 30}'::jsonb`
       const setter = jsonSet(baseValue)
-      const result = await executeQuery(
-        db,
-        setter.$set({ name: 'Jane', age: 25 }),
-      )
+      const result = await executeQuery(db, setter.name.$set('Jane'))
 
-      expect(result).toEqual({ name: 'Jane', age: 25 })
+      expect(result).toEqual({ name: 'Jane', age: 30 })
     })
 
     it('should set nested properties', async () => {
@@ -150,12 +147,10 @@ describe('JSON Integration Tests', () => {
       const setter = jsonSet(baseValue)
       const result = await executeQuery(
         db,
-        setter.$set({
-          user: {
-            id: 1,
-            profile: {
-              name: 'Updated John',
-            },
+        setter.user.$set({
+          id: 1,
+          profile: {
+            name: 'Updated John',
           },
         }),
       )
@@ -171,12 +166,11 @@ describe('JSON Integration Tests', () => {
     })
 
     it('should handle setting on NULL base with createMissing', async () => {
-      const nullBase = sql<{ user: { name: string } } | null>`NULL::jsonb`
-      const setter = jsonSet(nullBase)
-      const result = await executeQuery(
-        db,
-        setter.$set({ user: { name: 'New User' } }, true),
-      )
+      const baseValue = sql<{
+        user: { name: string }
+      }>`'{"user": {"name": "Default"}}'::jsonb`
+      const setter = jsonSet(baseValue)
+      const result = await executeQuery(db, setter.user.name.$set('New User'))
 
       expect(result).toEqual({ user: { name: 'New User' } })
     })

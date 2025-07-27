@@ -2,7 +2,15 @@
   "name": "@denny-il/drizzle-pg-utils",
   "description": "Set of utilities for Drizzle ORM and PostgreSQL",
   "homepage": "https://github.com/denny-il/drizzle-pg-utils",
-  "keywords": ["drizzle", "drizzle-orm", "postgres", "pg", "utils", "json", "temporal"],
+  "keywords": [
+    "drizzle",
+    "drizzle-orm",
+    "postgres",
+    "pg",
+    "utils",
+    "json",
+    "temporal"
+  ],
   "author": {
     "name": "Denny Il",
     "email": "ilchishin.denis@gmail.com",
@@ -59,13 +67,14 @@
     "temporal-polyfill": "^0.3.0"
   },
   "devDependencies": {
-    "drizzle-orm": "^0.44.3",
     "@biomejs/biome": "^2.1.2",
     "@electric-sql/pglite": "0.3.5",
-    "typescript": "5.7.3",
-    "vitest": "^3.2.4",
+    "@types/node": "20",
+    "@typescript/native-preview": "7.0.0-dev.20250726.1",
+    "drizzle-orm": "^0.44.3",
     "temporal-polyfill": "^0.3.0",
-    "@typescript/native-preview": "7.0.0-dev.20250726.1"
+    "typescript": "5.7.3",
+    "vitest": "^3.2.4"
   },
   "files": [
     "dist",
