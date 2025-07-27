@@ -1,15 +1,29 @@
-import { isSQLWrapper, sql } from 'drizzle-orm'
-import {
-  normalizeNullishArray,
-  type SQLJSONDenullify,
-  type SQLJSONExtractType,
-  type SQLJSONNullish,
-  type SQLJSONValue,
+import { isSQLWrapper, type SQL, sql } from 'drizzle-orm'
+import { jsonCoalesce } from './coalesce.ts'
+import type {
+  SQLJSONDenullify,
+  SQLJSONExtractType,
+  SQLJSONNullish,
+  SQLJSONValue,
 } from './common.ts'
 
+type AcceptableValue = any[] | SQLJSONNullish
+
+function valueOrEmptyArray<T extends SQLJSONValue<AcceptableValue>>(
+  value: T,
+): SQL<SQLJSONDenullify<SQLJSONExtractType<T>>> {
+  return jsonCoalesce(
+    value,
+    sql<SQLJSONDenullify<SQLJSONExtractType<T>>>`'[]'::jsonb`,
+  )
+}
+
 /**
- * Push a value to the end of a JSONB array
- * @param source The source JSONB array
+ * Push a value to the end of a JSONB array.
+ * Note, it will create a empty array if the target is null.
+ * So it always return a valid array
+ *
+ * @param target The source JSONB array
  * @param value The value to push
  * @returns SQL expression representing the updated JSONB array
  *
@@ -26,23 +40,27 @@ import {
  * // Results in: [1, 2, 3]
  */
 export function jsonArrayPush<
-  Source extends SQLJSONValue<any[] | SQLJSONNullish>,
-  SourceType extends SQLJSONExtractType<Source> = SQLJSONExtractType<Source>,
+  Target extends SQLJSONValue<AcceptableValue>,
+  SourceType extends SQLJSONExtractType<Target> = SQLJSONExtractType<Target>,
   ElementType extends
     SQLJSONDenullify<SourceType>[number] = SQLJSONDenullify<SourceType>[number],
->(source: Source, ...values: Array<ElementType | SQLJSONValue<ElementType>>) {
+>(
+  target: Target,
+  ...values: Array<ElementType | SQLJSONValue<ElementType>>
+): SQL<SQLJSONDenullify<SourceType>> {
   const _values = values.map((value) =>
     isSQLWrapper(value) ? value : sql`${JSON.stringify(value)}::jsonb`,
   )
   const _value = sql`jsonb_build_array(${sql.join(_values, sql`, `)})`
-  return sql<
-    SQLJSONDenullify<SourceType>
-  >`${normalizeNullishArray(source)} || ${_value}`
+  return sql`${valueOrEmptyArray(target)} || ${_value}`
 }
 
 /**
- * Set a value at a specific index in a JSONB array
- * @param source The source JSONB array
+ * Set a value at a specific index in a JSONB array.
+ * Note, it will create a empty array if the target is null.
+ * So it always return a valid array
+ *
+ * @param target The source JSONB array
  * @param index The index to set the value at
  * @param value The value to set (can be SQL expression or plain JS value)
  * @returns SQL expression representing the updated JSONB array
@@ -60,22 +78,33 @@ export function jsonArrayPush<
  * // Results in: [1, 3]
  */
 export function jsonArraySet<
-  Source extends SQLJSONValue<any[]>,
-  SourceType extends SQLJSONExtractType<Source> = SQLJSONExtractType<Source>,
+  Target extends SQLJSONValue<AcceptableValue>,
+  SourceType extends SQLJSONExtractType<Target> = SQLJSONExtractType<Target>,
+  ElementType extends
+    SQLJSONDenullify<SourceType>[number] = SQLJSONDenullify<SourceType>[number],
 >(
-  source: Source,
+  target: Target,
   index: number,
-  value: SourceType[number] | SQLJSONValue<SourceType[number]>,
+  value: ElementType | SQLJSONValue<ElementType>,
 ) {
   const _value = isSQLWrapper(value)
     ? value
     : sql`${JSON.stringify(value)}::jsonb`
-  return sql<SourceType>`jsonb_set(${source}, '{${sql`${index}`.inlineParams()}}', ${_value})`
+  return sql<SourceType>`jsonb_set(${valueOrEmptyArray(target)}, '{${sql`${index}`.inlineParams()}}', ${_value})`
 }
 
+/**
+ * Delete an element from a JSONB array at a specific index.
+ * Note, it will create a empty array if the target is null.
+ * So it always return a valid array
+ *
+ * @param target The source JSONB array
+ * @param index The index to delete from the array
+ * @returns SQL expression representing the updated JSONB array
+ */
 export function jsonArrayDelete<
-  Source extends SQLJSONValue<any[]>,
-  SourceType extends SQLJSONExtractType<Source> = SQLJSONExtractType<Source>,
->(source: Source, index: number) {
-  return sql<SourceType>`${normalizeNullishArray(source)} - ${sql`${index}`.inlineParams()}`
+  Target extends SQLJSONValue<AcceptableValue>,
+  TargetType extends SQLJSONExtractType<Target> = SQLJSONExtractType<Target>,
+>(target: Target, index: number): SQL<SQLJSONDenullify<TargetType>> {
+  return sql`${valueOrEmptyArray(target)} - ${sql`${index}`.inlineParams()}`
 }

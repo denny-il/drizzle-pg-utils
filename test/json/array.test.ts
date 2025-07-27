@@ -110,7 +110,9 @@ describe('JSON Array Operations', () => {
       const query = dialect.sqlToQuery(result)
 
       expect(query.params).toEqual([99].map((v) => JSON.stringify(v)))
-      expect(query.sql).toBe(`jsonb_set(${numberArraySql}, '{1}', $1::jsonb)`)
+      expect(query.sql).toBe(
+        `jsonb_set(json_query(coalesce(${numberArraySql}, 'null'::jsonb), 'strict $ ? (@ != null)' default '[]'::jsonb on empty)::jsonb, '{1}', $1::jsonb)`,
+      )
     })
 
     it('sets string value at index', () => {
@@ -118,7 +120,9 @@ describe('JSON Array Operations', () => {
       const query = dialect.sqlToQuery(result)
 
       expect(query.params).toEqual(['new'].map((v) => JSON.stringify(v)))
-      expect(query.sql).toBe(`jsonb_set(${stringArraySql}, '{0}', $1::jsonb)`)
+      expect(query.sql).toBe(
+        `jsonb_set(json_query(coalesce(${stringArraySql}, 'null'::jsonb), 'strict $ ? (@ != null)' default '[]'::jsonb on empty)::jsonb, '{0}', $1::jsonb)`,
+      )
     })
 
     it('sets object value at index', () => {
@@ -127,7 +131,9 @@ describe('JSON Array Operations', () => {
       const query = dialect.sqlToQuery(result)
 
       expect(query.params).toEqual([newUser].map((v) => JSON.stringify(v)))
-      expect(query.sql).toBe(`jsonb_set(${objectArraySql}, '{0}', $1::jsonb)`)
+      expect(query.sql).toBe(
+        `jsonb_set(json_query(coalesce(${objectArraySql}, 'null'::jsonb), 'strict $ ? (@ != null)' default '[]'::jsonb on empty)::jsonb, '{0}', $1::jsonb)`,
+      )
     })
 
     it('sets SQL expression value', () => {
@@ -137,7 +143,7 @@ describe('JSON Array Operations', () => {
 
       expect(query.params).toEqual([])
       expect(query.sql).toBe(
-        `jsonb_set(${numberArraySql}, '{2}', '777'::jsonb)`,
+        `jsonb_set(json_query(coalesce(${numberArraySql}, 'null'::jsonb), 'strict $ ? (@ != null)' default '[]'::jsonb on empty)::jsonb, '{2}', '777'::jsonb)`,
       )
     })
 
@@ -146,7 +152,9 @@ describe('JSON Array Operations', () => {
       const query = dialect.sqlToQuery(result)
 
       expect(query.params).toEqual([99].map((v) => JSON.stringify(v)))
-      expect(query.sql).toBe(`jsonb_set(${numberArraySql}, '{-1}', $1::jsonb)`)
+      expect(query.sql).toBe(
+        `jsonb_set(json_query(coalesce(${numberArraySql}, 'null'::jsonb), 'strict $ ? (@ != null)' default '[]'::jsonb on empty)::jsonb, '{-1}', $1::jsonb)`,
+      )
     })
 
     it('has correct return type', () => {
@@ -261,7 +269,9 @@ describe('JSON Array Operations', () => {
       const query = dialect.sqlToQuery(result)
 
       expect(query.params).toEqual([null].map((v) => JSON.stringify(v)))
-      expect(query.sql).toBe(`jsonb_set(${numberArraySql}, '{0}', $1::jsonb)`)
+      expect(query.sql).toBe(
+        `jsonb_set(json_query(coalesce(${numberArraySql}, 'null'::jsonb), 'strict $ ? (@ != null)' default '[]'::jsonb on empty)::jsonb, '{0}', $1::jsonb)`,
+      )
     })
 
     it('preserves type information through operations', () => {
@@ -307,7 +317,9 @@ describe('JSON Array Operations', () => {
       expect(query.params).toEqual(
         [{ id: 1, name: 'updated-item' }].map((v) => JSON.stringify(v)),
       )
-      expect(query.sql).toBe(`jsonb_set("test"."arraycol", '{0}', $1::jsonb)`)
+      expect(query.sql).toBe(
+        `jsonb_set(json_query(coalesce("test"."arraycol", 'null'::jsonb), 'strict $ ? (@ != null)' default '[]'::jsonb on empty)::jsonb, '{0}', $1::jsonb)`,
+      )
     })
 
     it('should work with table columns for delete operations', () => {

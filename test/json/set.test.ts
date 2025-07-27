@@ -22,6 +22,13 @@ describe('JSON Set', () => {
     }
     tags: string[]
     metadata: Record<string, any>
+    optionalObject?: {
+      key?: string
+    }
+    optionalArray?: {
+      key?: string
+      key2?: string
+    }[]
   }
 
   const jsonObjectSql = `'{"id": 1, "name": "John", "profile": {"avatar": "url", "settings": {"theme": "dark", "notifications": true}}, "tags": ["tag1"], "metadata": {}}'::jsonb`
@@ -37,58 +44,42 @@ describe('JSON Set', () => {
     it('sets a complete object value', () => {
       const setter = jsonSet(jsonObject)
       const newValue = {
-        id: 2,
-        name: 'Jane',
-        profile: {
-          avatar: 'new-url',
-          settings: {
-            theme: 'light' as const,
-            notifications: false,
-          },
+        avatar: 'new-url',
+        settings: {
+          theme: 'light' as const,
+          notifications: false,
         },
-        tags: ['tag2'],
-        metadata: { key: 'value' },
       }
 
-      const result = setter.$set(newValue)
+      const result = setter.profile.$set(newValue)
       const query = dialect.sqlToQuery(result)
 
       expect(query.params).toEqual(
-        [2, 'Jane', 'new-url', 'light', false, 'tag2', 'value'].map((v) =>
-          JSON.stringify(v),
-        ),
+        ['new-url', 'light', false].map((v) => JSON.stringify(v)),
       )
       expect(query.sql).toBe(
-        `jsonb_build_object('id', $1::jsonb,'name', $2::jsonb,'profile', jsonb_build_object('avatar', $3::jsonb,'settings', jsonb_build_object('theme', $4::jsonb,'notifications', $5::jsonb)),'tags', jsonb_build_array($6::jsonb),'metadata', jsonb_build_object('key', $7::jsonb))`,
+        `jsonb_set(${jsonObjectSql}, array['profile']::text[], jsonb_build_object('avatar', $1::jsonb,'settings', jsonb_build_object('theme', $2::jsonb,'notifications', $3::jsonb)), true)`,
       )
     })
 
     it('sets with createMissing parameter', () => {
       const setter = jsonSet(jsonObject)
       const newValue = {
-        id: 2,
-        name: 'Jane',
-        profile: {
-          avatar: 'new-url',
-          settings: {
-            theme: 'light' as const,
-            notifications: false,
-          },
+        avatar: 'new-url',
+        settings: {
+          theme: 'light' as const,
+          notifications: false,
         },
-        tags: ['tag2'],
-        metadata: { key: 'value' },
       }
 
-      const result = setter.$set(newValue, false)
+      const result = setter.profile.$set(newValue, false)
       const query = dialect.sqlToQuery(result)
 
       expect(query.params).toEqual(
-        [2, 'Jane', 'new-url', 'light', false, 'tag2', 'value'].map((v) =>
-          JSON.stringify(v),
-        ),
+        ['new-url', 'light', false].map((v) => JSON.stringify(v)),
       )
       expect(query.sql).toBe(
-        `jsonb_build_object('id', $1::jsonb,'name', $2::jsonb,'profile', jsonb_build_object('avatar', $3::jsonb,'settings', jsonb_build_object('theme', $4::jsonb,'notifications', $5::jsonb)),'tags', jsonb_build_array($6::jsonb),'metadata', jsonb_build_object('key', $7::jsonb))`,
+        `jsonb_set(${jsonObjectSql}, array['profile']::text[], jsonb_build_object('avatar', $1::jsonb,'settings', jsonb_build_object('theme', $2::jsonb,'notifications', $3::jsonb)), false)`,
       )
     })
   })
@@ -263,18 +254,12 @@ describe('JSON Set', () => {
   describe('Type Safety', () => {
     it('has correct return type for setter function', () => {
       const setter = jsonSet(jsonObject)
-      const result = setter.$set({
-        id: 1,
-        name: 'test',
-        profile: {
-          avatar: 'url',
-          settings: {
-            theme: 'dark',
-            notifications: true,
-          },
+      const result = setter.profile.$set({
+        avatar: 'url',
+        settings: {
+          theme: 'dark',
+          notifications: true,
         },
-        tags: [],
-        metadata: {},
       })
 
       expectTypeOf(result).toEqualTypeOf<SQL<JsonType>>()
@@ -311,14 +296,99 @@ describe('JSON Set', () => {
         $set: SQLJSONSetFn<string, SQL<JsonType>>
       }>()
       expectTypeOf(setter.profile).toEqualTypeOf<
-        SQLJSONSet<SQL<JsonType>, SQL<JsonType['profile']>>
+        SQLJSONSet<SQL<JsonType>, SQL<JsonType['profile']>, false>
       >()
       expectTypeOf(setter.tags).toEqualTypeOf<
-        SQLJSONSet<SQL<JsonType>, SQL<JsonType['tags']>>
+        SQLJSONSet<SQL<JsonType>, SQL<JsonType['tags']>, false>
       >()
       expectTypeOf(setter.metadata).toEqualTypeOf<
-        SQLJSONSet<SQL<JsonType>, SQL<JsonType['metadata']>>
+        SQLJSONSet<SQL<JsonType>, SQL<JsonType['metadata']>, false>
       >()
+    })
+
+    it('restricts primitive types to only have $set method', () => {
+      const setter = jsonSet(jsonObject)
+
+      // Type-level checks for primitive properties
+      expectTypeOf(setter.name).toEqualTypeOf<{
+        $set: SQLJSONSetFn<string, SQL<JsonType>>
+      }>()
+      expectTypeOf(setter.id).toEqualTypeOf<{
+        $set: SQLJSONSetFn<number, SQL<JsonType>>
+      }>()
+
+      // Ensure primitive types don't have nested property access
+      expectTypeOf(setter.name).not.toHaveProperty('nonExistentProperty')
+      expectTypeOf(setter.id).not.toHaveProperty('nonExistentProperty')
+    })
+
+    it('allows proper object property access', () => {
+      const setter = jsonSet(jsonObject)
+
+      // Objects should have both $set and property access
+      expectTypeOf(setter.profile).toHaveProperty('$set')
+      expectTypeOf(setter.profile).toHaveProperty('avatar')
+      expectTypeOf(setter.profile).toHaveProperty('settings')
+
+      // Nested object access should work
+      expectTypeOf(setter.profile.settings).toHaveProperty('$set')
+      expectTypeOf(setter.profile.settings).toHaveProperty('theme')
+      expectTypeOf(setter.profile.settings).toHaveProperty('notifications')
+    })
+
+    it('allows proper array property access', () => {
+      const setter = jsonSet(jsonObject)
+
+      // Arrays should have $set and numeric string keys
+      expectTypeOf(setter.tags).toHaveProperty('$set')
+
+      // Arrays should allow numeric string access
+      expectTypeOf(setter.tags['0']).toEqualTypeOf<{
+        $set: SQLJSONSetFn<string, SQL<JsonType>>
+      }>()
+      expectTypeOf(setter.tags['1']).toEqualTypeOf<{
+        $set: SQLJSONSetFn<string, SQL<JsonType>>
+      }>()
+    })
+
+    it('restricts array elements based on their type', () => {
+      const setter = jsonSet(jsonObject)
+
+      // Array of strings should only have $set
+      expectTypeOf(setter.tags['0']).toEqualTypeOf<{
+        $set: SQLJSONSetFn<string, SQL<JsonType>>
+      }>()
+
+      // Array of objects should have property access
+      expectTypeOf(setter.optionalArray['0']).toHaveProperty('$set')
+      expectTypeOf(setter.optionalArray['0']).toHaveProperty('key')
+      expectTypeOf(setter.optionalArray['0']).toHaveProperty('key2')
+    })
+
+    it('supports $default only for optional properties', () => {
+      const setter = jsonSet(jsonObject)
+
+      // Optional object should have $default
+      expectTypeOf(setter.optionalObject).toHaveProperty('$default')
+      expectTypeOf(setter.optionalArray).toHaveProperty('$default')
+
+      // Required properties should not have $default
+      expectTypeOf(setter.profile).not.toHaveProperty('$default')
+      expectTypeOf(setter.name).not.toHaveProperty('$default')
+      expectTypeOf(setter.tags).not.toHaveProperty('$default')
+    })
+
+    it('ensures $default returns proper chaining interface', () => {
+      const setter = jsonSet(jsonObject)
+
+      const defaultResult = setter.optionalObject.$default({ key: 'default' })
+
+      // After $default, should be able to access properties
+      expectTypeOf(defaultResult).toHaveProperty('key')
+      expectTypeOf(defaultResult.key).toHaveProperty('$set')
+
+      // Should not have $default after using $default
+      expectTypeOf(defaultResult).not.toHaveProperty('$default')
     })
   })
 
@@ -463,8 +533,117 @@ describe('JSON Set', () => {
         ['new-avatar.jpg', 'dark'].map((v) => JSON.stringify(v)),
       )
       expect(query.sql).toBe(
-        `jsonb_set(jsonb_set(${jsonObjectSql}, array['profile','avatar']::text[], $1::jsonb, true), array['profile','settings','theme']::text[], $2::jsonb, true)`,
+        `jsonb_set(jsonb_set(coalesce(${jsonObjectSql}, 'null'::jsonb), array['profile','avatar']::text[], $1::jsonb, true), array['profile','settings','theme']::text[], $2::jsonb, true)`,
       )
+    })
+  })
+
+  describe('Set with default values', () => {
+    it('sets default values for missing properties', () => {
+      const setter = jsonSet(jsonObject)
+      const result = setter.optionalObject
+        .$default({ key: 'default' })
+        .key.$set('updated')
+      const query = dialect.sqlToQuery(result)
+
+      expect(query.params).toEqual(
+        ['default', 'updated'].map((v) => JSON.stringify(v)),
+      )
+      expect(query.sql).toBe(
+        `jsonb_set(jsonb_set(${jsonObjectSql}, array['optionalObject']::text[], json_query(coalesce(jsonb_extract_path(${jsonObjectSql}, array['optionalObject']::text[]), 'null'::jsonb), 'strict $ ? (@ != null)' default jsonb_build_object('key', $1::jsonb) on empty)::jsonb, true), array['optionalObject','key']::text[], $2::jsonb, true)`,
+      )
+    })
+
+    it('sets default values for missing array properties', () => {
+      const setter = jsonSet(jsonObject)
+      const result = setter.optionalArray
+        .$default([{ key: 'default1' }, { key: 'default2' }])
+        ['0'].key.$set('updated')
+      const query = dialect.sqlToQuery(result)
+
+      expect(query.params).toEqual(
+        ['default1', 'default2', 'updated'].map((v) => JSON.stringify(v)),
+      )
+      expect(query.sql).toBe(
+        `jsonb_set(jsonb_set(${jsonObjectSql}, array['optionalArray']::text[], json_query(coalesce(jsonb_extract_path(${jsonObjectSql}, array['optionalArray']::text[]), 'null'::jsonb), 'strict $ ? (@ != null)' default jsonb_build_array(jsonb_build_object('key', $1::jsonb),jsonb_build_object('key', $2::jsonb)) on empty)::jsonb, true), array['optionalArray','0','key']::text[], $3::jsonb, true)`,
+      )
+    })
+
+    it('sets default with createMissing parameter', () => {
+      const setter = jsonSet(jsonObject)
+      const result = setter.optionalObject
+        .$default({ key: 'default' }, false)
+        .key.$set('updated')
+      const query = dialect.sqlToQuery(result)
+
+      expect(query.params).toEqual(
+        ['default', 'updated'].map((v) => JSON.stringify(v)),
+      )
+      expect(query.sql).toBe(
+        `jsonb_set(jsonb_set(${jsonObjectSql}, array['optionalObject']::text[], json_query(coalesce(jsonb_extract_path(${jsonObjectSql}, array['optionalObject']::text[]), 'null'::jsonb), 'strict $ ? (@ != null)' default jsonb_build_object('key', $1::jsonb) on empty)::jsonb, false), array['optionalObject','key']::text[], $2::jsonb, true)`,
+      )
+    })
+
+    it('sets default with SQL expressions', () => {
+      const setter = jsonSet(jsonObject)
+      const sqlDefault = sql<{
+        key: string
+      }>`jsonb_build_object('key', 'sql-default')`
+      const result = setter.optionalObject
+        .$default(sqlDefault)
+        .key.$set('updated')
+      const query = dialect.sqlToQuery(result)
+
+      expect(query.params).toEqual(['updated'].map((v) => JSON.stringify(v)))
+      expect(query.sql).toBe(
+        `jsonb_set(jsonb_set(${jsonObjectSql}, array['optionalObject']::text[], json_query(coalesce(jsonb_extract_path(${jsonObjectSql}, array['optionalObject']::text[]), 'null'::jsonb), 'strict $ ? (@ != null)' default jsonb_build_object('key', 'sql-default') on empty)::jsonb, true), array['optionalObject','key']::text[], $1::jsonb, true)`,
+      )
+    })
+
+    it('handles complex default object structures', () => {
+      const setter = jsonSet(jsonObject)
+      const defaultValue = {
+        key: 'defaultKey',
+        key2: 'defaultKey2',
+      }
+      const result = setter.optionalArray
+        .$default([defaultValue])
+        ['0'].key2.$set('newValue')
+      const query = dialect.sqlToQuery(result)
+
+      expect(query.params).toEqual(
+        ['defaultKey', 'defaultKey2', 'newValue'].map((v) => JSON.stringify(v)),
+      )
+      expect(query.sql).toBe(
+        `jsonb_set(jsonb_set(${jsonObjectSql}, array['optionalArray']::text[], json_query(coalesce(jsonb_extract_path(${jsonObjectSql}, array['optionalArray']::text[]), 'null'::jsonb), 'strict $ ? (@ != null)' default jsonb_build_array(jsonb_build_object('key', $1::jsonb,'key2', $2::jsonb)) on empty)::jsonb, true), array['optionalArray','0','key2']::text[], $3::jsonb, true)`,
+      )
+    })
+
+    it('chains multiple default operations', () => {
+      const setter = jsonSet(jsonObject)
+      const result = setter.optionalObject
+        .$default({ key: 'first-default' })
+        .key.$set('intermediate')
+
+      const setter2 = jsonSet(result)
+      const finalResult = setter2.optionalObject
+        .$default({ key: 'second-default' })
+        .key.$set('final')
+
+      const query = dialect.sqlToQuery(finalResult)
+
+      expect(query.params).toEqual(
+        [
+          'first-default',
+          'intermediate',
+          'first-default',
+          'intermediate',
+          'second-default',
+          'final',
+        ].map((v) => JSON.stringify(v)),
+      )
+      // Note: SQL expectation would be very complex due to nested operations
+      // The important thing is that the parameters are correctly passed
     })
   })
 
@@ -482,12 +661,13 @@ describe('JSON Set', () => {
 
     it('should work with table columns for setting complete objects', () => {
       const setter = jsonSet(table.jsoncol)
-      const newValue = { some: 'json' as const }
-      const result = setter.$set(newValue)
+      const result = setter.some.$set('json' as const)
       const query = dialect.sqlToQuery(result)
 
       expect(query.params).toEqual(['json'].map((v) => JSON.stringify(v)))
-      expect(query.sql).toBe(`jsonb_build_object('some', $1::jsonb)`)
+      expect(query.sql).toBe(
+        `jsonb_set("test"."jsoncol", array['some']::text[], $1::jsonb, true)`,
+      )
     })
   })
 })

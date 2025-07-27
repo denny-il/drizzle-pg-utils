@@ -37,9 +37,3 @@ export const normalizeNullish = <T>(
 ): SQLJSONIsNullish<T> extends true ? SQL<T> : never => {
   return sql<T>`coalesce(${value}, 'null'::jsonb)` as any
 }
-
-export const normalizeNullishArray = <T extends any[] | SQLJSONNullish>(
-  value: SQLJSONValue<T>,
-): SQL<SQLJSONDenullify<T>> => {
-  return sql`json_query(${normalizeNullish(value)}, 'strict $ ? (@ != null)' default '[]'::jsonb on empty)::jsonb` as any
-}
