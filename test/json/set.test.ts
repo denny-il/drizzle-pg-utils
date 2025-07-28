@@ -550,7 +550,7 @@ describe('JSON Set', () => {
         ['default', 'updated'].map((v) => JSON.stringify(v)),
       )
       expect(query.sql).toBe(
-        `jsonb_set(jsonb_set(${jsonObjectSql}, array['optionalObject']::text[], json_query(coalesce(jsonb_extract_path(${jsonObjectSql}, array['optionalObject']::text[]), 'null'::jsonb), 'strict $ ? (@ != null)' default jsonb_build_object('key', $1::jsonb) on empty)::jsonb, true), array['optionalObject','key']::text[], $2::jsonb, true)`,
+        `jsonb_set(jsonb_set(${jsonObjectSql}, array['optionalObject']::text[], json_query(coalesce(jsonb_extract_path(${jsonObjectSql}, 'optionalObject'), 'null'::jsonb), 'strict $ ? (@ != null)' default jsonb_build_object('key', $1::jsonb) on empty)::jsonb, true), array['optionalObject','key']::text[], $2::jsonb, true)`,
       )
     })
 
@@ -565,7 +565,7 @@ describe('JSON Set', () => {
         ['default1', 'default2', 'updated'].map((v) => JSON.stringify(v)),
       )
       expect(query.sql).toBe(
-        `jsonb_set(jsonb_set(${jsonObjectSql}, array['optionalArray']::text[], json_query(coalesce(jsonb_extract_path(${jsonObjectSql}, array['optionalArray']::text[]), 'null'::jsonb), 'strict $ ? (@ != null)' default jsonb_build_array(jsonb_build_object('key', $1::jsonb),jsonb_build_object('key', $2::jsonb)) on empty)::jsonb, true), array['optionalArray','0','key']::text[], $3::jsonb, true)`,
+        `jsonb_set(jsonb_set(${jsonObjectSql}, array['optionalArray']::text[], json_query(coalesce(jsonb_extract_path(${jsonObjectSql}, 'optionalArray'), 'null'::jsonb), 'strict $ ? (@ != null)' default jsonb_build_array(jsonb_build_object('key', $1::jsonb),jsonb_build_object('key', $2::jsonb)) on empty)::jsonb, true), array['optionalArray','0','key']::text[], $3::jsonb, true)`,
       )
     })
 
@@ -580,7 +580,7 @@ describe('JSON Set', () => {
         ['default', 'updated'].map((v) => JSON.stringify(v)),
       )
       expect(query.sql).toBe(
-        `jsonb_set(jsonb_set(${jsonObjectSql}, array['optionalObject']::text[], json_query(coalesce(jsonb_extract_path(${jsonObjectSql}, array['optionalObject']::text[]), 'null'::jsonb), 'strict $ ? (@ != null)' default jsonb_build_object('key', $1::jsonb) on empty)::jsonb, false), array['optionalObject','key']::text[], $2::jsonb, true)`,
+        `jsonb_set(jsonb_set(${jsonObjectSql}, array['optionalObject']::text[], json_query(coalesce(jsonb_extract_path(${jsonObjectSql}, 'optionalObject'), 'null'::jsonb), 'strict $ ? (@ != null)' default jsonb_build_object('key', $1::jsonb) on empty)::jsonb, false), array['optionalObject','key']::text[], $2::jsonb, true)`,
       )
     })
 
@@ -596,7 +596,7 @@ describe('JSON Set', () => {
 
       expect(query.params).toEqual(['updated'].map((v) => JSON.stringify(v)))
       expect(query.sql).toBe(
-        `jsonb_set(jsonb_set(${jsonObjectSql}, array['optionalObject']::text[], json_query(coalesce(jsonb_extract_path(${jsonObjectSql}, array['optionalObject']::text[]), 'null'::jsonb), 'strict $ ? (@ != null)' default jsonb_build_object('key', 'sql-default') on empty)::jsonb, true), array['optionalObject','key']::text[], $1::jsonb, true)`,
+        `jsonb_set(jsonb_set(${jsonObjectSql}, array['optionalObject']::text[], json_query(coalesce(jsonb_extract_path(${jsonObjectSql}, 'optionalObject'), 'null'::jsonb), 'strict $ ? (@ != null)' default jsonb_build_object('key', 'sql-default') on empty)::jsonb, true), array['optionalObject','key']::text[], $1::jsonb, true)`,
       )
     })
 
@@ -615,7 +615,7 @@ describe('JSON Set', () => {
         ['defaultKey', 'defaultKey2', 'newValue'].map((v) => JSON.stringify(v)),
       )
       expect(query.sql).toBe(
-        `jsonb_set(jsonb_set(${jsonObjectSql}, array['optionalArray']::text[], json_query(coalesce(jsonb_extract_path(${jsonObjectSql}, array['optionalArray']::text[]), 'null'::jsonb), 'strict $ ? (@ != null)' default jsonb_build_array(jsonb_build_object('key', $1::jsonb,'key2', $2::jsonb)) on empty)::jsonb, true), array['optionalArray','0','key2']::text[], $3::jsonb, true)`,
+        `jsonb_set(jsonb_set(${jsonObjectSql}, array['optionalArray']::text[], json_query(coalesce(jsonb_extract_path(${jsonObjectSql}, 'optionalArray'), 'null'::jsonb), 'strict $ ? (@ != null)' default jsonb_build_array(jsonb_build_object('key', $1::jsonb,'key2', $2::jsonb)) on empty)::jsonb, true), array['optionalArray','0','key2']::text[], $3::jsonb, true)`,
       )
     })
 

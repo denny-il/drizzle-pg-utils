@@ -101,10 +101,7 @@ describe('JSON Integration Tests', () => {
         user: {
           id: number
           profile: {
-            settings: {
-              theme: 'light' | 'dark'
-              notifications: boolean
-            }
+            settings: { theme: 'light' | 'dark'; notifications: boolean }
           } | null
         }
         metadata: { version: string } | null
@@ -147,21 +144,11 @@ describe('JSON Integration Tests', () => {
       const setter = jsonSet(baseValue)
       const result = await executeQuery(
         db,
-        setter.user.$set({
-          id: 1,
-          profile: {
-            name: 'Updated John',
-          },
-        }),
+        setter.user.$set({ id: 1, profile: { name: 'Updated John' } }),
       )
 
       expect(result).toEqual({
-        user: {
-          id: 1,
-          profile: {
-            name: 'Updated John',
-          },
-        },
+        user: { id: 1, profile: { name: 'Updated John' } },
       })
     })
 
@@ -186,6 +173,453 @@ describe('JSON Integration Tests', () => {
       )
       const result = await executeQuery(db, setter)
       expect(result).toEqual({ user: { name: 'Jane', age: 25 } })
+    })
+  })
+
+  describe('JSON Set $default Runtime Behavior', () => {
+    it('should set default value when property is missing', async () => {
+      const baseValue = sql<{
+        user: { name: string }
+        profile?: { avatar: string; theme: string }
+      }>`'{"user": {"name": "John"}}'::jsonb`
+      const setter = jsonSet(baseValue)
+      const result = await executeQuery(
+        db,
+        setter.profile
+          .$default({ avatar: 'default-avatar.jpg', theme: 'light' })
+          .avatar.$set('new-avatar.jpg'),
+      )
+
+      expect(result).toEqual({
+        user: { name: 'John' },
+        profile: { avatar: 'new-avatar.jpg', theme: 'light' },
+      })
+    })
+
+    it('should preserve existing value when property exists', async () => {
+      const baseValue = sql<{
+        user: { name: string }
+        profile?: { avatar: string; theme: string }
+      }>`'{"user": {"name": "John"}, "profile": {"avatar": "existing.jpg", "theme": "dark"}}'::jsonb`
+      const setter = jsonSet(baseValue)
+      const result = await executeQuery(
+        db,
+        setter.profile
+          .$default({ avatar: 'default-avatar.jpg', theme: 'light' })
+          .avatar.$set('new-avatar.jpg'),
+      )
+
+      expect(result).toEqual({
+        user: { name: 'John' },
+        profile: { avatar: 'new-avatar.jpg', theme: 'dark' },
+      })
+    })
+
+    it('should handle null vs missing property correctly', async () => {
+      const baseValueWithNull = sql<{
+        config?: { setting: string }
+      }>`'{"config": null}'::jsonb`
+      const baseValueMissing = sql<{
+        config?: { setting: string }
+      }>`'{}'::jsonb`
+
+      const setter1 = jsonSet(baseValueWithNull)
+      const setter2 = jsonSet(baseValueMissing)
+
+      const resultWithNull = await executeQuery(
+        db,
+        setter1.config.$default({ setting: 'default' }).setting.$set('updated'),
+      )
+      const resultMissing = await executeQuery(
+        db,
+        setter2.config.$default({ setting: 'default' }).setting.$set('updated'),
+      )
+
+      // Both should use the default value since JSON null and missing are treated the same
+      expect(resultWithNull).toEqual({ config: { setting: 'updated' } })
+      expect(resultMissing).toEqual({ config: { setting: 'updated' } })
+    })
+
+    it('should set default for nested array properties', async () => {
+      const baseValue = sql<{
+        user: { name: string }
+        tags?: string[]
+      }>`'{"user": {"name": "John"}}'::jsonb`
+      // Note: $default returns a setter, we need to chain another operation
+      const result = await executeQuery(
+        db,
+        jsonSetPipe(baseValue, (s) =>
+          s.tags
+            .$default(['default-tag1', 'default-tag2'])
+            .$set(['final-tags']),
+        ),
+      )
+
+      expect(result).toEqual({ user: { name: 'John' }, tags: ['final-tags'] })
+    })
+
+    it('should apply defaults only to missing properties while preserving existing values', async () => {
+      // Test with missing property - should use default
+      const missingProperty = sql<{
+        user: { name: string }
+        tags?: string[]
+      }>`'{"user": {"name": "John"}}'::jsonb`
+
+      const resultMissing = await executeQuery(
+        db,
+        jsonSetPipe(missingProperty, (s) =>
+          s.tags.$default(['default1', 'default2'])['2'].$set('added'),
+        ),
+      )
+
+      // Test with existing property - should preserve existing
+      const existingProperty = sql<{
+        user: { name: string }
+        tags?: string[]
+      }>`'{"user": {"name": "John"}, "tags": ["existing1", "existing2"]}'::jsonb`
+
+      const resultExisting = await executeQuery(
+        db,
+        jsonSetPipe(existingProperty, (s) =>
+          s.tags.$default(['default1', 'default2'])['2'].$set('added'),
+        ),
+      )
+
+      expect(resultMissing).toEqual({
+        user: { name: 'John' },
+        tags: ['default1', 'default2', 'added'], // Used defaults + modification
+      })
+
+      expect(resultExisting).toEqual({
+        user: { name: 'John' },
+        tags: ['existing1', 'existing2', 'added'], // Preserved existing + modification
+      })
+    })
+
+    it('should handle complex nested defaults', async () => {
+      const baseValue = sql<{
+        user: { name: string }
+        settings?: { preferences?: { theme: string; notifications: boolean } }
+      }>`'{"user": {"name": "John"}}'::jsonb`
+      const setter = jsonSet(baseValue)
+      const result = await executeQuery(
+        db,
+        setter.settings
+          .$default({ preferences: { theme: 'light', notifications: true } })
+          .preferences.$default({ theme: 'dark', notifications: false })
+          .theme.$set('system'),
+      )
+
+      expect(result).toEqual({
+        user: { name: 'John' },
+        settings: { preferences: { theme: 'system', notifications: true } },
+      })
+    })
+
+    it('should work with createMissing parameter', async () => {
+      // Test with existing structure and createMissing: false
+      const baseValue = sql<{
+        user?: { profile?: { avatar: string } }
+      }>`'{"user": {"profile": {"avatar": "existing.jpg"}}}'::jsonb`
+      const result = await executeQuery(
+        db,
+        jsonSetPipe(baseValue, (s) =>
+          s.user
+            .$default({ profile: { avatar: 'default.jpg' } }, false)
+            .profile.$default({ avatar: 'fallback.jpg' })
+            .avatar.$set('final.jpg'),
+        ),
+      )
+
+      // Since user.profile already exists, should work normally
+      expect(result).toEqual({ user: { profile: { avatar: 'final.jpg' } } })
+    })
+
+    it('should handle SQL expressions as default values', async () => {
+      const baseValue = sql<{
+        metadata?: { timestamp: string; version: number }
+      }>`'{}'::jsonb`
+      const defaultValue = sql<{
+        timestamp: string
+        version: number
+      }>`jsonb_build_object('timestamp', now()::text, 'version', 1)`
+      const setter = jsonSet(baseValue)
+      const result = await executeQuery(
+        db,
+        setter.metadata.$default(defaultValue).version.$set(2),
+      )
+
+      expect(result.metadata.version).toEqual(2)
+      expect(result.metadata.timestamp).toBeDefined()
+      expect(typeof result.metadata.timestamp).toBe('string')
+    })
+
+    it('should chain multiple $default operations', async () => {
+      const baseValue = sql<{
+        level1?: { level2?: { value: string } }
+      }>`'{}'::jsonb`
+      const setter = jsonSet(baseValue)
+      const result = await executeQuery(
+        db,
+        setter.level1
+          .$default({ level2: { value: 'default-level2' } })
+          .level2.$default({ value: 'default-value' })
+          .value.$set('final-value'),
+      )
+
+      expect(result).toEqual({ level1: { level2: { value: 'final-value' } } })
+    })
+
+    it('should handle array element defaults', async () => {
+      const baseValue = sql<{
+        items?: Array<{ name: string; count?: number }>
+      }>`'{"items": [{"name": "item1"}]}'::jsonb`
+      // Since items already exist, $default won't be used, but we can test the chaining
+      const result = await executeQuery(
+        db,
+        jsonSetPipe(baseValue, (s) =>
+          s.items
+            .$default([{ name: 'default-item', count: 0 }])
+            .$set([{ name: 'new-item', count: 5 }]),
+        ),
+      )
+
+      expect(result).toEqual({ items: [{ name: 'new-item', count: 5 }] })
+    })
+
+    it('should handle empty object as default', async () => {
+      const baseValue = sql<{ config?: Record<string, any> }>`'{}'::jsonb`
+      // $default returns a setter, so we need to chain an operation
+      const result = await executeQuery(
+        db,
+        jsonSetPipe(baseValue, (s) =>
+          s.config.$default({}).$set({ newKey: 'newValue' }),
+        ),
+      )
+
+      expect(result).toEqual({ config: { newKey: 'newValue' } })
+    })
+
+    it('should handle $default with null vs empty vs missing arrays', async () => {
+      const withNull = sql<{ items?: string[] }>`'{"items": null}'::jsonb`
+      const withEmpty = sql<{ items?: string[] }>`'{"items": []}'::jsonb`
+      const missing = sql<{ items?: string[] }>`'{}'::jsonb`
+
+      // Test adding to arrays with $default - should behave differently
+      const results = await Promise.all([
+        // Null array: should use default, then add to it
+        executeQuery(
+          db,
+          jsonSet(withNull).items.$default(['item1'])['1'].$set('item2'),
+        ),
+        // Empty array: should preserve empty, then add to it
+        executeQuery(
+          db,
+          jsonSet(withEmpty).items.$default(['item1'])['0'].$set('item2'),
+        ),
+        // Missing array: should use default, then add to it
+        executeQuery(
+          db,
+          jsonSet(missing).items.$default(['item1'])['1'].$set('item2'),
+        ),
+        executeQuery(
+          db,
+          jsonSet(withEmpty).items.$default(['item1'])['2'].$set('item2'),
+        ),
+      ])
+
+      expect(results[0]).toEqual({ items: ['item1', 'item2'] })
+      expect(results[1]).toEqual({ items: ['item2'] })
+      expect(results[2]).toEqual({ items: ['item1', 'item2'] })
+
+      // TODO: this is an interesting case, postgres does not create an empty values in the array
+      // when setting an item at out of bounds index, need to find if thats documented anywhere
+      expect(results[3]).toEqual({ items: ['item2'] })
+    })
+
+    it('should handle deeply nested $default chains with partial structures', async () => {
+      const baseValue = sql<{
+        app?: {
+          config?: {
+            database?: { host: string; port: number }
+            cache?: { enabled: boolean; ttl: number }
+          }
+          features?: string[]
+        }
+      }>`'{}'::jsonb`
+
+      const result = await executeQuery(
+        db,
+        jsonSetPipe(baseValue, (s) =>
+          s.app
+            .$default({
+              config: { database: { host: 'localhost', port: 5432 } },
+              features: [],
+            })
+            .config.database.port.$set(3306),
+        ),
+      )
+
+      expect(result).toEqual({
+        app: {
+          config: { database: { host: 'localhost', port: 3306 } },
+          features: [],
+        },
+      })
+    })
+
+    it('should apply defaults only to missing properties while preserving existing ones', async () => {
+      const baseValue = sql<{
+        user: { name: string }
+        settings?: { theme: string; notifications: boolean }
+        metadata?: { created: string }
+      }>`'{"user": {"name": "John"}, "settings": {"theme": "dark"}}'::jsonb`
+
+      const result = await executeQuery(
+        db,
+        jsonSetPipe(
+          baseValue,
+          (s) =>
+            s.settings
+              .$default({ theme: 'light', notifications: true })
+              .notifications.$set(false),
+          (s) =>
+            s.metadata
+              .$default({ created: '2023-01-01' })
+              .created.$set('2024-01-01'),
+        ),
+      )
+
+      expect(result).toEqual({
+        user: { name: 'John' },
+        settings: { theme: 'dark', notifications: false }, // theme preserved, notifications added
+        metadata: { created: '2024-01-01' }, // created from default then overridden
+      })
+    })
+
+    it('should handle complex default values with nested structures', async () => {
+      const baseValue = sql<{
+        config?: {
+          database: { connections: Array<{ host: string; port: number }> }
+          cache: {
+            providers: Array<{ name: string; config: Record<string, any> }>
+          }
+        }
+      }>`'{}'::jsonb`
+
+      const complexDefault = {
+        database: {
+          connections: [
+            { host: 'primary.db', port: 5432 },
+            { host: 'replica.db', port: 5432 },
+          ],
+        },
+        cache: {
+          providers: [
+            { name: 'redis', config: { host: 'localhost', port: 6379 } },
+            { name: 'memory', config: { maxSize: '100MB' } },
+          ],
+        },
+      }
+
+      const result = await executeQuery(
+        db,
+        jsonSet(baseValue)
+          .config.$default(complexDefault)
+          .database.connections['0'].port.$set(3306),
+      )
+
+      expect(result.config.database.connections[0].port).toBe(3306)
+      expect(result.config.cache.providers).toHaveLength(2)
+      expect(result.config.cache.providers[0].name).toBe('redis')
+    })
+
+    it('should demonstrate chained $default behavior with existing vs missing nested properties', async () => {
+      const baseValue = sql<{
+        app?: {
+          settings?: { theme: string; debug?: boolean }
+          metadata?: { version: string }
+        }
+      }>`'{"app": {"settings": {"theme": "dark"}}}'::jsonb`
+
+      const result = await executeQuery(
+        db,
+        jsonSetPipe(
+          baseValue,
+          (s) =>
+            s.app
+              .$default({
+                settings: { theme: 'light', debug: false },
+                metadata: { version: '1.0.0' },
+              })
+              .settings.$default({ theme: 'blue', debug: true })
+              .debug.$set(false),
+          (s) =>
+            s.app.metadata.$default({ version: '2.0.0' }).version.$set('1.5.0'),
+        ),
+      )
+
+      expect(result).toEqual({
+        app: {
+          settings: { theme: 'dark', debug: false }, // theme preserved from existing, debug from first $default
+          metadata: { version: '1.5.0' }, // metadata from first $default, version overridden
+        },
+      })
+    })
+
+    it('should demonstrate practical $default usage for initializing missing nested structures', async () => {
+      const baseValue = sql<{
+        user: { name: string }
+        preferences?: {
+          theme: string
+          notifications: { email: boolean; push: boolean }
+        }
+      }>`'{"user": {"name": "John"}}'::jsonb`
+
+      // Initialize missing preferences with defaults, then update specific values
+      const result = await executeQuery(
+        db,
+        jsonSetPipe(
+          baseValue,
+          (s) =>
+            s.preferences
+              .$default({
+                theme: 'light',
+                notifications: { email: true, push: true },
+              })
+              .theme.$set('dark'), // Override just the theme
+        ),
+      )
+
+      expect(result).toEqual({
+        user: { name: 'John' },
+        preferences: {
+          theme: 'dark', // Was overridden
+          notifications: {
+            email: true, // From default
+            push: true, // From default
+          },
+        },
+      })
+    })
+
+    it('should work with jsonSetPipe and $default', async () => {
+      const baseValue = sql<{
+        user?: { name: string; settings?: { theme: string } }
+      }>`'{}'::jsonb`
+      const result = await executeQuery(
+        db,
+        jsonSetPipe(
+          baseValue,
+          (s) => s.user.$default({ name: 'Default User' }).name.$set('John'),
+          (s) =>
+            s.user.settings.$default({ theme: 'light' }).theme.$set('dark'),
+        ),
+      )
+
+      expect(result).toEqual({
+        user: { name: 'John', settings: { theme: 'dark' } },
+      })
     })
   })
 
@@ -367,11 +801,7 @@ describe('JSON Integration Tests', () => {
     it('should handle deeply nested null propagation', async () => {
       const deepData = sql<{
         level1: {
-          level2: {
-            level3: {
-              value: string | null
-            } | null
-          } | null
+          level2: { level3: { value: string | null } | null } | null
         } | null
       }>`'{"level1": {"level2": {"level3": null}}}'::jsonb`
 

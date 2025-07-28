@@ -16,6 +16,7 @@
     "email": "ilchishin.denis@gmail.com",
     "url": "https://github.com/denny-il"
   },
+  "license": "MIT",
   "type": "module",
   "exports": {
     ".": {
