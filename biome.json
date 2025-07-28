@@ -3,8 +3,8 @@
   "files": {
     "includes": [
       "**",
-      "!package.json",
-      "!biome.json",
+      "!**/package.json",
+      "!**/biome.json",
       "!**/dist/**",
       "!**/node_modules/**",
       "!**/coverage/**",

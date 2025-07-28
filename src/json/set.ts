@@ -87,12 +87,13 @@ export function jsonSet<Source extends SQLJSONValue<object>>(
       const defaultValueSQL = jsonBuild(value)
       if (path.length === 0)
         throw new Error('Cannot set default value at root level')
-      const pathArray = sql`array[${sql.join(
+      const pathArgs = sql.join(
         path.map((p) => sql`${p}`.inlineParams()),
         sql`,`,
-      )}]::text[]`
+      )
+      const pathArray = sql`array[${pathArgs}]::text[]`
       return _jsonSet(
-        sql`jsonb_set(${source}, ${pathArray}, ${jsonCoalesce(sql`jsonb_extract_path(${source}, ${pathArray})`, defaultValueSQL)}, ${sql`${createMissing}`.inlineParams()})` as Source,
+        sql`jsonb_set(${source}, ${pathArray}, ${jsonCoalesce(sql`jsonb_extract_path(${source}, ${pathArgs})`, defaultValueSQL)}, ${sql`${createMissing}`.inlineParams()})` as Source,
         path,
       )
     }
