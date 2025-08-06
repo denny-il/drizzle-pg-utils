@@ -1,7 +1,7 @@
 import { type SQL, sql } from 'drizzle-orm'
 
 import { describe, expect, expectTypeOf, it } from 'vitest'
-import { jsonMerge } from '../../src/json/merge.ts'
+import { jsonMerge } from '../../src/json/operations/merge.ts'
 import { dialect, table } from '../utils.ts'
 
 describe('JSON Merge Operations', () => {

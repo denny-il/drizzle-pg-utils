@@ -5,22 +5,22 @@ import { Temporal } from 'temporal-polyfill'
 import { beforeAll, describe, expect, it } from 'vitest'
 import {
   _registerZonedDateTimeJSONFix,
-  date,
   interval,
   monthDay,
+  plainDate,
   time,
   timestamp,
   timestampz,
   yearMonth,
-} from '../src/temporal/index.ts'
-import { createDatabase, executeQuery } from './utils.ts'
+} from '../../src/temporal/polyfill.ts'
+import { createDatabase, executeQuery } from '../utils.ts'
 
 // Test table with all temporal column types
 const temporalTable = pgTable(
   'temporal_test',
   {
     id: serial('id').primaryKey(),
-    plainDate: date.column('plain_date'),
+    plainDate: plainDate.column('plain_date'),
     plainTime: time.column('plain_time'),
     plainTimeWithPrecision: time.column('plain_time_precision', {
       precision: 3,
@@ -79,6 +79,86 @@ beforeAll(async () => {
       CONSTRAINT check_month_day_month_day_format CHECK ((month_day)::text ~ '^((0[1-9])|(1([0-2])))-((0[1-9])|([1-2][0-9])|(3[0-1]))$')
     )
   `)
+})
+
+describe('Temporal Export Tests', () => {
+  it('should export temporal', async () => {
+    const temporalImport = await import('@denny-il/drizzle-pg-utils/temporal')
+    expect(temporalImport).toBeDefined()
+    expect(temporalImport.timestamp).toBeDefined()
+    expect(temporalImport.timestampz).toBeDefined()
+    expect(temporalImport.plainDate).toBeDefined()
+    expect(temporalImport.time).toBeDefined()
+    expect(temporalImport.interval).toBeDefined()
+    expect(temporalImport.yearMonth).toBeDefined()
+    expect(temporalImport.monthDay).toBeDefined()
+
+    const temporalPolyfillImport = await import(
+      '@denny-il/drizzle-pg-utils/temporal/polyfill'
+    )
+    expect(temporalPolyfillImport).toBeDefined()
+    expect(temporalPolyfillImport.timestamp).toBeDefined()
+    expect(temporalPolyfillImport.timestampz).toBeDefined()
+    expect(temporalPolyfillImport.plainDate).toBeDefined()
+    expect(temporalPolyfillImport.time).toBeDefined()
+    expect(temporalPolyfillImport.interval).toBeDefined()
+    expect(temporalPolyfillImport.yearMonth).toBeDefined()
+    expect(temporalPolyfillImport.monthDay).toBeDefined()
+
+    const temporalTimestampImport = await import(
+      '@denny-il/drizzle-pg-utils/temporal/timestamp'
+    )
+    expect(temporalTimestampImport.timestamp).toBeDefined()
+    expect(temporalTimestampImport.timestamp).toEqual(
+      temporalPolyfillImport.timestamp,
+    )
+
+    const temporalTimestampzImport = await import(
+      '@denny-il/drizzle-pg-utils/temporal/timestampz'
+    )
+    expect(temporalTimestampzImport.timestampz).toBeDefined()
+    expect(temporalTimestampzImport.timestampz).toEqual(
+      temporalPolyfillImport.timestampz,
+    )
+
+    const temporalPlainDateImport = await import(
+      '@denny-il/drizzle-pg-utils/temporal/plain-date'
+    )
+    expect(temporalPlainDateImport.plainDate).toBeDefined()
+    expect(temporalPlainDateImport.plainDate).toEqual(
+      temporalPolyfillImport.plainDate,
+    )
+
+    const temporalTimeImport = await import(
+      '@denny-il/drizzle-pg-utils/temporal/time'
+    )
+    expect(temporalTimeImport.time).toBeDefined()
+    expect(temporalTimeImport.time).toEqual(temporalPolyfillImport.time)
+
+    const temporalIntervalImport = await import(
+      '@denny-il/drizzle-pg-utils/temporal/interval'
+    )
+    expect(temporalIntervalImport.interval).toBeDefined()
+    expect(temporalIntervalImport.interval).toEqual(
+      temporalPolyfillImport.interval,
+    )
+
+    const temporalYearMonthImport = await import(
+      '@denny-il/drizzle-pg-utils/temporal/year-month'
+    )
+    expect(temporalYearMonthImport.yearMonth).toBeDefined()
+    expect(temporalYearMonthImport.yearMonth).toEqual(
+      temporalPolyfillImport.yearMonth,
+    )
+
+    const temporalMonthDayImport = await import(
+      '@denny-il/drizzle-pg-utils/temporal/month-day'
+    )
+    expect(temporalMonthDayImport.monthDay).toBeDefined()
+    expect(temporalMonthDayImport.monthDay).toEqual(
+      temporalPolyfillImport.monthDay,
+    )
+  })
 })
 
 describe('Temporal Column Types', () => {

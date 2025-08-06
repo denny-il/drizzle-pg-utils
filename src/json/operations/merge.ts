@@ -4,7 +4,7 @@ import {
   type SQLJSONDenullify,
   type SQLJSONIsNullish,
   type SQLJSONValue,
-} from './common.ts'
+} from '../common.ts'
 
 /**
  * Type helper to determine the result type of merging two JSON values

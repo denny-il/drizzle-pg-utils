@@ -26,6 +26,9 @@ importers:
       temporal-polyfill:
         specifier: ^0.3.0
         version: 0.3.0
+      temporal-spec:
+        specifier: ^0.3.0
+        version: 0.3.0
       typescript:
         specifier: 5.7.3
         version: 5.7.3

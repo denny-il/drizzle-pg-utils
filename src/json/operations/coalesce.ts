@@ -4,7 +4,7 @@ import {
   type SQLJSONDenullify,
   type SQLJSONExtractType,
   type SQLJSONValue,
-} from './common.ts'
+} from '../common.ts'
 
 /**
  * Coalesce two JSON values, returning the first non-nullish value.

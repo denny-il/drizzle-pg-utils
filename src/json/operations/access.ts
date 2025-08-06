@@ -7,7 +7,7 @@ import type {
   SQLJSONIsNullish,
   SQLJSONNullify,
   SQLJSONValue,
-} from './common.ts'
+} from '../common.ts'
 
 export type SQLJSONAccess<
   Source extends SQLJSONValue,

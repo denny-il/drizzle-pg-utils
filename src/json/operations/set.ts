@@ -1,15 +1,15 @@
 import { sql } from 'drizzle-orm'
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
 import type { SQL } from 'drizzle-orm/sql'
-import { jsonBuild } from './build.ts'
-import { jsonCoalesce } from './coalesce.ts'
 import {
   normalizeNullish,
   type SQLJSONDenullify,
   type SQLJSONExtractType,
   type SQLJSONIsNullish,
   type SQLJSONValue,
-} from './common.ts'
+} from '../common.ts'
+import { jsonBuild } from './build.ts'
+import { jsonCoalesce } from './coalesce.ts'
 
 export type SQLJSONSetMixedValue<T> =
   | SQL<T>
