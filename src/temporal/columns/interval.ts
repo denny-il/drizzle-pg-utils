@@ -11,7 +11,7 @@ type Config = {
 
 export type TemporalIntervalType = TemporalColumn<{
   config: Config
-  constraits: false
+  constraints: false
 }>
 
 /**

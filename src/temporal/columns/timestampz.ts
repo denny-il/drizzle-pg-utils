@@ -12,7 +12,7 @@ type Config = {
 
 export type TemporalTimestampzType = TemporalColumn<{
   config: Config
-  constraits: false
+  constraints: false
 }>
 
 /**

@@ -10,7 +10,7 @@ type Config = {
 
 export type TemporalYearMonthType = TemporalColumn<{
   config: Config
-  constraits: true
+  constraints: true
 }>
 
 /**

@@ -12,7 +12,7 @@ export type TemporalColumn<
       driverData: string
       config?: any
     }
-    constraits: boolean
+    constraints: boolean
   },
 > = {
   column: ReturnType<
@@ -22,7 +22,7 @@ export type TemporalColumn<
       config?: T['config']['config']
     }>
   >
-} & (T['constraits'] extends true
+} & (T['constraints'] extends true
   ? {
       constraints: (
         config: ExtraConfigColumn<ColumnBaseConfig<ColumnDataType, string>>,

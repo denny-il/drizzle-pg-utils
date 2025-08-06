@@ -19,7 +19,7 @@ type Config = {
 
 export type TemporalTimestampType = TemporalColumn<{
   config: Config
-  constraits: false
+  constraints: false
 }>
 
 /**

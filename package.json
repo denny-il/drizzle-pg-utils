@@ -29,7 +29,7 @@
       "module-sync": "./src/json/index.ts",
       "types": "./src/json/index.ts"
     },
-     "./json/*": {
+    "./json/*": {
       "import": "./src/json/operations/*.ts",
       "module-sync": "./src/json/operations/*.ts",
       "types": "./src/json/operations/*.ts"

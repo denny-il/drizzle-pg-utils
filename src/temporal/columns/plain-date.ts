@@ -10,7 +10,7 @@ type Config = {
 
 export type TemporalPlainDateType = TemporalColumn<{
   config: Config
-  constraits: false
+  constraints: false
 }>
 
 /**
