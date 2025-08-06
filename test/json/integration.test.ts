@@ -1,14 +1,14 @@
 import { sql } from 'drizzle-orm'
 import type { PgliteDatabase } from 'drizzle-orm/pglite'
 import { beforeAll, describe, expect, it } from 'vitest'
-import { jsonAccess } from '../../src/json/access.ts'
+import { jsonAccess } from '../../src/json/operations/access.ts'
 import {
   jsonArrayDelete,
   jsonArrayPush,
   jsonArraySet,
-} from '../../src/json/array.ts'
-import { jsonMerge } from '../../src/json/merge.ts'
-import { jsonSet, jsonSetPipe } from '../../src/json/set.ts'
+} from '../../src/json/operations/array.ts'
+import { jsonMerge } from '../../src/json/operations/merge.ts'
+import { jsonSet, jsonSetPipe } from '../../src/json/operations/set.ts'
 import { createDatabase, executeQuery } from '../utils.ts'
 
 let db: PgliteDatabase
@@ -18,6 +18,60 @@ beforeAll(async () => {
 })
 
 describe('JSON Integration Tests', () => {
+  it('should export', async () => {
+    const jsonImport = await import('@denny-il/drizzle-pg-utils/json')
+    expect(jsonImport).toBeDefined()
+    expect(jsonImport.access).toBeDefined()
+    expect(jsonImport.arrayDelete).toBeDefined()
+    expect(jsonImport.arrayPush).toBeDefined()
+    expect(jsonImport.arraySet).toBeDefined()
+    expect(jsonImport.merge).toBeDefined()
+    expect(jsonImport.set).toBeDefined()
+    expect(jsonImport.setPipe).toBeDefined()
+    expect(jsonImport.build).toBeDefined()
+    expect(jsonImport.coalesce).toBeDefined()
+
+    const jsonImportSet = await import('@denny-il/drizzle-pg-utils/json/set')
+    expect(jsonImportSet.jsonSet).toBeDefined()
+    expect(jsonImportSet.jsonSetPipe).toBeDefined()
+    expect(jsonImportSet.jsonSet).toEqual(jsonImport.set)
+    expect(jsonImportSet.jsonSetPipe).toEqual(jsonImport.setPipe)
+
+    const jsonImportArray = await import(
+      '@denny-il/drizzle-pg-utils/json/array'
+    )
+    expect(jsonImportArray.jsonArrayDelete).toBeDefined()
+    expect(jsonImportArray.jsonArrayPush).toBeDefined()
+    expect(jsonImportArray.jsonArraySet).toBeDefined()
+    expect(jsonImportArray.jsonArrayDelete).toEqual(jsonImport.arrayDelete)
+    expect(jsonImportArray.jsonArrayPush).toEqual(jsonImport.arrayPush)
+    expect(jsonImportArray.jsonArraySet).toEqual(jsonImport.arraySet)
+
+    const jsonImportAccess = await import(
+      '@denny-il/drizzle-pg-utils/json/access'
+    )
+    expect(jsonImportAccess.jsonAccess).toBeDefined()
+    expect(jsonImportAccess.jsonAccess).toEqual(jsonImport.access)
+
+    const jsonImportMerge = await import(
+      '@denny-il/drizzle-pg-utils/json/merge'
+    )
+    expect(jsonImportMerge.jsonMerge).toBeDefined()
+    expect(jsonImportMerge.jsonMerge).toEqual(jsonImport.merge)
+
+    const jsonImportBuild = await import(
+      '@denny-il/drizzle-pg-utils/json/build'
+    )
+    expect(jsonImportBuild.jsonBuild).toBeDefined()
+    expect(jsonImportBuild.jsonBuild).toEqual(jsonImport.build)
+
+    const jsonImportCoalesce = await import(
+      '@denny-il/drizzle-pg-utils/json/coalesce'
+    )
+    expect(jsonImportCoalesce.jsonCoalesce).toBeDefined()
+    expect(jsonImportCoalesce.jsonCoalesce).toEqual(jsonImport.coalesce)
+  })
+
   describe('JSON Accessor Runtime Behavior', () => {
     it('should access nested properties correctly', async () => {
       const value = sql<{

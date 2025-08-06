@@ -7,7 +7,7 @@ A TypeScript library providing type-safe utilities for working with PostgreSQL J
 ### JSON Utilities
 - 🎯 **Type-safe JSONB operations** - Full TypeScript support with proper type inference
 - 🔍 **JSON accessor** - Navigate nested JSON structures with dot notation WITHOUT any runtime schema
-- ✏️ **JSON setter** - Update JSON values at specific paths
+- ✏️ **JSON setter** - Update JSON values at specific paths with default value support for optional properties
 - 🔄 **JSON merge** - Merge JSON objects and arrays following PostgreSQL semantics
 - 📦 **Array operations** - Push, set, and delete array elements
 - 🛡️ **Null safety** - Proper handling of SQL NULL and JSON null values
@@ -15,12 +15,12 @@ A TypeScript library providing type-safe utilities for working with PostgreSQL J
 - ⚠️ **Indexes** — TODO
 
 ### Temporal Utilities
-- ⏰ **Temporal API support** - Modern date/time handling with Temporal polyfill
+- ⏰ **[Temporal API](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal) support** - Modern date/time handling with Temporal polyfill
 - 📅 **PostgreSQL integration** - Direct mapping between Temporal types and PostgreSQL date/time types
 - 🔧 **Custom column types** - Ready-to-use Drizzle column definitions
 - ✅ **Type safety** - Full TypeScript support for all temporal operations
 - 🛡️ **Format validation** - Built-in constraints for text-based temporal types
-- ⚠️ **Compatibility** - Uses [temporal-polyfill](https://github.com/fullcalendar/temporal-polyfill), since not yet supported natively pretty much anywhere
+- ⚠️ **Compatibility** - Two options available: globally available Temporal API or via [temporal-polyfill](https://github.com/fullcalendar/temporal-polyfill) package
 
 ## Installation
 
@@ -37,18 +37,19 @@ yarn add @denny-il/drizzle-pg-utils
 This library provides modular exports for different functionality:
 
 ```typescript
-// Main export - includes all utilities
-import { json, temporal } from '@denny-il/drizzle-pg-utils'
+// Main export - includes JSON utilities only
+import { json } from '@denny-il/drizzle-pg-utils'
 
 // JSON utilities only
 import { access, merge, array, setPipe } from '@denny-il/drizzle-pg-utils/json'
 // or
 import json from '@denny-il/drizzle-pg-utils/json'
 
-// Temporal utilities only
-import { timestamp, timestampz, date } from '@denny-il/drizzle-pg-utils/temporal'
-// or
-import temporal from '@denny-il/drizzle-pg-utils/temporal'
+// Temporal utilities (globally registered Temporal)
+import * as temporal from '@denny-il/drizzle-pg-utils/temporal'
+
+// Temporal utilities (with polyfill)
+import * as temporal from '@denny-il/drizzle-pg-utils/temporal/polyfill'
 ```
 
 Each export is independently importable, allowing you to include only what you need in your bundle.
@@ -121,6 +122,54 @@ const updatedProfile = setter.user.profile.$set({
 
 // Set with createMissing parameter (default: true)
 const setWithoutCreating = setter.user.newField.$set('value', false)
+
+// Set default values for optional properties (only available on nullable/optional fields)
+const setterWithDefault = setter.optionalProperty
+  .$default({ key: 'defaultValue' })  // Set default if property is null/missing
+  .key.$set('actualValue')            // Then continue with normal setting
+
+// Real-world example with optional user profile
+type UserData = {
+  id: number
+  name: string
+  profile?: {
+    avatar?: string
+    preferences?: {
+      theme: 'light' | 'dark'
+      notifications: boolean
+    }
+  }
+}
+
+const userData = sql<UserData>`'{"id": 1, "name": "John"}'::jsonb`
+const userSetter = json.set(userData)
+
+// Initialize optional profile with defaults, then set specific values
+const withProfile = userSetter.profile
+  .$default({
+    avatar: '/default-avatar.png',
+    preferences: { theme: 'light', notifications: true }
+  })
+  .preferences.theme.$set('dark')
+```
+
+#### Why `$default`?
+
+The `$default` method solves a limitation of PostgreSQL's `jsonb_set` function. While `jsonb_set` has a `create_missing` parameter, it only creates the **last missing portion** of the path. If intermediate path segments are missing, `jsonb_set` returns the target unchanged. See the [PostgreSQL documentation](https://www.postgresql.org/docs/current/functions-json.html#:~:text=jsonb_set) for details.
+
+The `$default` method works around this by:
+1. Using `jsonb_extract_path` to check if the intermediate path exists
+2. Using `json_query` with `coalesce` to provide a default structure if missing
+3. Then allowing normal `$set` operations on the now-guaranteed-to-exist structure
+
+```typescript
+// Without $default - this might fail to set the value if 'profile' or 'preferences' doesn't exist
+setter.profile.preferences.theme.$set('dark')
+
+// With $default - this always works
+setter.profile
+  .$default({ preferences: { } })
+  .preferences.theme.$set('dark')
 ```
 
 ### JSON Set Pipe
@@ -253,20 +302,54 @@ await db
     )
   })
   .where(eq(users.id, 1))
+
+// Initialize optional properties with defaults before setting values
+await db
+  .update(users)
+  .set({
+    profile: json.set(users.profile)
+      .preferences.$default({ theme: 'light', notifications: true })
+      .theme.$set('dark')  // Will create preferences object if missing
+  })
+  .where(eq(users.id, 1))
 ```
 
 ## Temporal API Integration
 
 Work with PostgreSQL date/time types using the modern Temporal API.
 
+### Global vs Polyfill
+
+This library provides two versions of temporal utilities:
+
+- **Global** (`@denny-il/drizzle-pg-utils/temporal`) - Uses the globally registered Temporal when available
+- **Polyfill** (`@denny-il/drizzle-pg-utils/temporal/polyfill`) - Uses the temporal-polyfill package
+
+Choose the version that best fits your runtime environment. The polyfill version is recommended for current production use.
+
 ### Setup
+
+When using the polyfill version, make sure to install the temporal-polyfill dependency:
+
+```bash
+npm install temporal-polyfill
+```
+
+For `interval` columns to work correctly with `Temporal.Duration`, you must set PostgreSQL's `intervalstyle` to `'iso_8601'`:
+
+```sql
+SET intervalstyle = 'iso_8601';
+```
+
+Or configure it in your PostgreSQL configuration file for permanent effect.
 
 In case you encounter issues with JSON serialization of `ZonedDateTime`, register the JSON fix that excludes timezone names:
 
 ```typescript
-import { _registerZonedDateTimeJSONFix } from '@denny-il/drizzle-pg-utils/temporal'
+import { _registerZonedDateTimeJSONFix } from '@denny-il/drizzle-pg-utils/temporal/polyfill'
+// or for global: '@denny-il/drizzle-pg-utils/temporal'
 
-// Call once at application startup in case
+// Call once at application startup
 _registerZonedDateTimeJSONFix()
 ```
 
@@ -276,7 +359,7 @@ Define tables with Temporal types with native PostgreSQL support:
 
 ```typescript
 import { pgTable, serial, text } from 'drizzle-orm/pg-core'
-import { timestamp, timestampz, date, time, interval } from '@denny-il/drizzle-pg-utils/temporal'
+import { timestamp, timestampz, plainDate, time, interval } from '@denny-il/drizzle-pg-utils/temporal'
 
 const events = pgTable('events', {
   id: serial('id').primaryKey(),
@@ -284,18 +367,23 @@ const events = pgTable('events', {
   
   // timestamp - PlainDateTime (no timezone)
   scheduledAt: timestamp.column('scheduled_at'),
+  scheduledAtPrecision: timestamp.column('scheduled_at_precise', { precision: 6 }),
   
   // timestamptz - ZonedDateTime (with timezone, stored as UTC)
   createdAt: timestampz.column('created_at'),
+  createdAtPrecision: timestampz.column('created_at_precise', { precision: 3 }),
   
   // date - PlainDate
-  eventDate: date.column('event_date'),
+  eventDate: plainDate.column('event_date'),
   
   // time - PlainTime
-  startTime: time.column('start_time', { precision: 3 }),
+  startTime: time.column('start_time'),
+  startTimePrecision: time.column('start_time_precise', { precision: 3 }),
   
   // interval - Duration (requires PostgreSQL intervalstyle = 'iso_8601')
   duration: interval.column('duration'),
+  durationFields: interval.column('duration_hm', { fields: 'hour to minute' }),
+  durationPrecision: interval.column('duration_precise', { precision: 2 }),
 })
 ```
 
@@ -321,20 +409,33 @@ const reports = pgTable('reports', {
 ### Working with Temporal Values
 
 ```typescript
+// For polyfill version
 import { Temporal } from 'temporal-polyfill'
+// For global version, Temporal is available globally
 
-// Insert data
+// Create temporal values
 const now = Temporal.Now.plainDateTimeISO()
 const zonedNow = Temporal.Now.zonedDateTimeISO('America/New_York')
 const eventDate = Temporal.PlainDate.from('2023-12-25')
-const duration = Temporal.Duration.from('PT2H30M')
+const startTime = Temporal.PlainTime.from('14:30:00')
+const duration = Temporal.Duration.from('PT2H30M15S')
+const yearMonth = Temporal.PlainYearMonth.from('2023-12')
+const monthDay = Temporal.PlainMonthDay.from('12-25')
 
+// Insert data
 await db.insert(events).values({
   name: 'Holiday Party',
   scheduledAt: now,
   createdAt: zonedNow,
   eventDate: eventDate,
+  startTime: startTime,
   duration: duration,
+})
+
+// You can also insert into text-based temporal columns
+await db.insert(reports).values({
+  reportMonth: yearMonth,
+  holidayDate: monthDay,
 })
 ```
 
@@ -360,9 +461,12 @@ Creates a setter for updating JSONB values at specific paths.
 
 - **Parameters:**
   - `source`: JSONB column or SQL expression
-- **Returns:** Proxy object with `$set` methods
-- **Method:**
+- **Returns:** Proxy object with `$set` and `$default` methods
+- **Methods:**
   - `.$set(value, createMissing?)`: Update the value at this path
+  - `.$default(value, createMissing?)`: Set a default value if the property is null/missing, then return a setter for further property access (only available on optional properties)
+
+**Note:** The `$default` method is essential for setting values in deeply nested optional structures because PostgreSQL's `jsonb_set` only creates the last missing portion of a path. If intermediate path segments don't exist, `jsonb_set` returns the target unchanged. `$default` ensures the intermediate structure exists before attempting further operations.
 
 #### `json.setPipe(source, ...operations)`
 
@@ -434,7 +538,7 @@ Creates a PostgreSQL `timestamp with time zone` column for `Temporal.ZonedDateTi
 - **Maps to:** `timestamp[(precision)] with time zone` in PostgreSQL
 - **Note:** Values are stored as UTC and returned as UTC ZonedDateTime instances
 
-#### `date.column(name)`
+#### `plainDate.column(name)`
 
 Creates a PostgreSQL `date` column for `Temporal.PlainDate` values.
 
@@ -460,9 +564,23 @@ Creates a PostgreSQL `interval` column for `Temporal.Duration` values.
 - **Parameters:**
   - `name`: Column name
   - `config?`: Optional configuration with `fields` and `precision`
+    - `fields`: Interval fields restriction (e.g., `'hour to minute'`, `'day to second'`)
+    - `precision`: Fractional seconds precision (0-6)
 - **Returns:** Drizzle column definition
 - **Maps to:** `interval[fields][(precision)]` in PostgreSQL
-- **Requires:** PostgreSQL `intervalstyle` set to `'iso_8601', see [PostgreSQL documentation](https://www.postgresql.org/docs/current/datatype-datetime.html#DATATYPE-INTERVAL-OUTPUT)`
+- **Requires:** PostgreSQL `intervalstyle` set to `'iso_8601'`, see [PostgreSQL documentation](https://www.postgresql.org/docs/current/datatype-datetime.html#DATATYPE-INTERVAL-OUTPUT)
+
+**Example:**
+```typescript
+// Basic interval
+duration: interval.column('duration')
+
+// Hour to minute only
+hourMinutes: interval.column('duration_hm', { fields: 'hour to minute' })
+
+// With precision
+precisionDuration: interval.column('duration_p', { precision: 2 })
+```
 
 #### `yearMonth.column(name)` and `yearMonth.constraints(column, name?)`
 
@@ -495,6 +613,7 @@ Patches `Temporal.ZonedDateTime.prototype.toJSON` to exclude timezone names from
 - **Parameters:** None
 - **Returns:** void
 - **Warning:** Modifies global prototype - call once at application startup
+- **Available in:** Both global and polyfill versions
 
 ## Type Safety
 
@@ -505,6 +624,8 @@ All functions provide full TypeScript support:
 - Return types are properly inferred based on the input JSON schema
 - Nested property access maintains type safety
 - SQL NULL vs JSON null handling is type-aware
+- `$default` method is only available on optional/nullable properties
+- Type inference works correctly through `$default` chains
 
 ### Temporal Utilities
 - Temporal types are fully typed with proper TypeScript integration

@@ -29,10 +29,25 @@
       "module-sync": "./src/json/index.ts",
       "types": "./src/json/index.ts"
     },
+    "./json/*": {
+      "import": "./src/json/operations/*.ts",
+      "module-sync": "./src/json/operations/*.ts",
+      "types": "./src/json/operations/*.ts"
+    },
     "./temporal": {
-      "import": "./src/temporal/index.ts",
-      "module-sync": "./src/temporal/index.ts",
-      "types": "./src/temporal/index.ts"
+      "import": "./src/temporal/global.ts",
+      "module-sync": "./src/temporal/global.ts",
+      "types": "./src/temporal/global.ts"
+    },
+    "./temporal/polyfill": {
+      "import": "./src/temporal/polyfill.ts",
+      "module-sync": "./src/temporal/polyfill.ts",
+      "types": "./src/temporal/polyfill.ts"
+    },
+    "./temporal/*": {
+      "import": "./src/temporal/polyfill/*.ts",
+      "module-sync": "./src/temporal/polyfill/*.ts",
+      "types": "./src/temporal/polyfill/*.ts"
     }
   },
   "publishConfig": {
@@ -47,10 +62,25 @@
         "module-sync": "./dist/json/index.js",
         "types": "./dist/json/index.d.ts"
       },
+      "./json/*": {
+        "import": "./dist/json/operations/*.js",
+        "module-sync": "./dist/json/operations/*.js",
+        "types": "./dist/json/operations/*.d.ts"
+      },
       "./temporal": {
-        "import": "./dist/temporal/index.js",
-        "module-sync": "./dist/temporal/index.js",
-        "types": "./dist/temporal/index.d.ts"
+        "import": "./dist/temporal/global.js",
+        "module-sync": "./dist/temporal/global.js",
+        "types": "./dist/temporal/global.d.ts"
+      },
+      "./temporal/polyfill": {
+        "import": "./dist/temporal/polyfill.js",
+        "module-sync": "./dist/temporal/polyfill.js",
+        "types": "./dist/temporal/polyfill.d.ts" 
+      },
+      "./temporal/*": {
+        "import": "./dist/temporal/polyfill/*.js",
+        "module-sync": "./dist/temporal/polyfill/*.js",
+        "types": "./dist/temporal/polyfill/*.d.ts"
       }
     }
   },
@@ -63,10 +93,6 @@
     "check": "pnpm run check:fmt && pnpm run check:lint && pnpm run check:type",
     "fmt": "biome check --write ."
   },
-  "peerDependencies": {
-    "drizzle-orm": "^0.44.3",
-    "temporal-polyfill": "^0.3.0"
-  },
   "devDependencies": {
     "@biomejs/biome": "^2.1.2",
     "@electric-sql/pglite": "0.3.5",
@@ -74,8 +100,25 @@
     "@typescript/native-preview": "7.0.0-dev.20250726.1",
     "drizzle-orm": "^0.44.3",
     "temporal-polyfill": "^0.3.0",
+    "temporal-spec": "^0.3.0",
     "typescript": "5.7.3",
     "vitest": "^3.2.4"
+  },
+  "peerDependencies": {
+    "drizzle-orm": "^0.44.3",
+    "temporal-polyfill": "^0.3.0",
+    "temporal-spec": "^0.3.0"
+  },
+  "peerDependenciesMeta": {
+    "drizzle-orm": {
+      "optional": true
+    },
+    "temporal-polyfill": {
+      "optional": true
+    },
+    "temporal-spec": {
+      "optional": true
+    }
   },
   "files": [
     "dist",

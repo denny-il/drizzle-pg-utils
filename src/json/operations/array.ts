@@ -1,11 +1,11 @@
 import { isSQLWrapper, type SQL, sql } from 'drizzle-orm'
-import { jsonCoalesce } from './coalesce.ts'
 import type {
   SQLJSONDenullify,
   SQLJSONExtractType,
   SQLJSONNullish,
   SQLJSONValue,
-} from './common.ts'
+} from '../common.ts'
+import { jsonCoalesce } from './coalesce.ts'
 
 type AcceptableValue = any[] | SQLJSONNullish
 

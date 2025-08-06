@@ -4,7 +4,7 @@ import {
   jsonArrayDelete,
   jsonArrayPush,
   jsonArraySet,
-} from '../../src/json/array.ts'
+} from '../../src/json/operations/array.ts'
 import { dialect, table } from '../utils.ts'
 
 describe('JSON Array Operations', () => {

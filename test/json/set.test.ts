@@ -6,7 +6,7 @@ import {
   jsonSetPipe,
   type SQLJSONSet,
   type SQLJSONSetFn,
-} from '../../src/json/set.ts'
+} from '../../src/json/operations/set.ts'
 import { dialect, table } from '../utils.ts'
 
 describe('JSON Set', () => {
