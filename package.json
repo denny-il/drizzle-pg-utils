@@ -94,18 +94,18 @@
     "fmt": "biome check --write ."
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.1.2",
-    "@electric-sql/pglite": "0.3.5",
+    "@biomejs/biome": "^2.2.2",
+    "@electric-sql/pglite": "0.3.7",
     "@types/node": "20",
-    "@typescript/native-preview": "7.0.0-dev.20250726.1",
-    "drizzle-orm": "^0.44.3",
+    "@typescript/native-preview": "7.0.0-dev.20250904.1",
+    "drizzle-orm": "1.0.0-beta.1-2acab7f",
     "temporal-polyfill": "^0.3.0",
     "temporal-spec": "^0.3.0",
     "typescript": "5.7.3",
     "vitest": "^3.2.4"
   },
   "peerDependencies": {
-    "drizzle-orm": "^0.44.3",
+    "drizzle-orm": "1.0.0-beta.1-2acab7f",
     "temporal-polyfill": "^0.3.0",
     "temporal-spec": "^0.3.0"
   },

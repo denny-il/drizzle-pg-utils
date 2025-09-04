@@ -1,4 +1,5 @@
 import { type SQL, sql } from 'drizzle-orm'
+import type { AnyPgColumn } from 'drizzle-orm/pg-core'
 import {
   normalizeNullish,
   type SQLJSONDenullify,
@@ -130,22 +131,22 @@ type SQLJSONMergeResultInternal<Left, Right> =
 export function jsonMerge<
   Left extends SQLJSONValue,
   Right extends SQLJSONValue,
-  LeftType extends Left['_'] extends { brand: 'Column' }
+  LeftType extends Left extends AnyPgColumn
     ? Left['_']['data']
-    : Left['_'] extends { brand: 'SQL' }
+    : Left extends SQL<any> | SQL.Aliased<any>
       ? Left['_']['type']
-      : never = Left['_'] extends { brand: 'Column' }
+      : never = Left extends AnyPgColumn
     ? Left['_']['data']
-    : Left['_'] extends { brand: 'SQL' }
+    : Left extends SQL<any> | SQL.Aliased<any>
       ? Left['_']['type']
       : never,
-  RightType extends Right['_'] extends { brand: 'Column' }
+  RightType extends Right extends AnyPgColumn
     ? Right['_']['data']
-    : Right['_'] extends { brand: 'SQL' }
+    : Right extends SQL<any> | SQL.Aliased<any>
       ? Right['_']['type']
-      : never = Right['_'] extends { brand: 'Column' }
+      : never = Right extends AnyPgColumn
     ? Right['_']['data']
-    : Right['_'] extends { brand: 'SQL' }
+    : Right extends SQL<any> | SQL.Aliased<any>
       ? Right['_']['type']
       : never,
   // For merge operations, we work with the full types including null

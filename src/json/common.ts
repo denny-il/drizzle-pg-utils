@@ -4,7 +4,7 @@ import type { AnyPgColumn } from 'drizzle-orm/pg-core'
 export type SQLJSONValue<T = any> =
   | SQL<T>
   | SQL.Aliased<T>
-  | AnyPgColumn<{ dataType: 'json'; data: T }>
+  | AnyPgColumn<{ dataType: 'object json'; data: T }>
   | AnyPgColumn<{ dataType: 'custom'; data: T }>
 
 export type SQLJSONNullish = null | undefined
@@ -26,9 +26,9 @@ export type SQLJSONDenullify<Type> = Exclude<Type, SQLJSONNullish>
  * Extract the data type from a SQLJSONValue (Column or SQL)
  */
 export type SQLJSONExtractType<Source extends SQLJSONValue> =
-  Source['_'] extends { brand: 'Column' }
+  Source extends AnyPgColumn<any>
     ? Source['_']['data']
-    : Source['_'] extends { brand: 'SQL' } | { brand: 'SQL.Aliased' }
+    : Source extends SQL<any> | SQL.Aliased<any>
       ? Source['_']['type']
       : never
 

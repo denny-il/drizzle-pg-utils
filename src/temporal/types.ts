@@ -25,7 +25,7 @@ export type TemporalColumn<
 } & (T['constraints'] extends true
   ? {
       constraints: (
-        config: ExtraConfigColumn<ColumnBaseConfig<ColumnDataType, string>>,
+        config: ExtraConfigColumn<ColumnBaseConfig<ColumnDataType>>,
         name?: string,
       ) => CheckBuilder[]
     }
