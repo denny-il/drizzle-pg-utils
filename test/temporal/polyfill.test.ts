@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-describe('Temporal Polyfill', async () => {
-  const columns = await import('../../src/temporal/polyfill.ts')
+describe('Temporal Polyfill ', async () => {
+  const columns = await import('@denny-il/drizzle-pg-utils/temporal/polyfill')
 
   it('should work', () => {
     expect(columns).toBeDefined()

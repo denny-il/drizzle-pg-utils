@@ -88,7 +88,7 @@ const updated = setter.user.name.$set('New Name')
 - 🔧 **Custom column types** - Ready-to-use Drizzle column definitions
 - ✅ **Type safety** - Full TypeScript support for all temporal operations
 - 🛡️ **Format validation** - Built-in constraints for text-based temporal types
-- ⚠️ **Compatibility** - Two options available: globally available Temporal API or via [temporal-polyfill](https://github.com/fullcalendar/temporal-polyfill) package
+- ⚠️ **Compatibility** - Use a globally available `Temporal`, or pass your own implementation to the exported `create*` factories
 
 ```typescript
 import { timestamp, timestampz } from '@denny-il/drizzle-pg-utils/temporal'
@@ -98,6 +98,15 @@ const events = pgTable('events', {
   scheduledAt: timestamp.column('scheduled_at'),
   createdAt: timestampz.column('created_at'),
 })
+```
+
+If you do not want to rely on a global `Temporal`, import your implementation yourself and create bound helpers:
+
+```typescript
+import { Temporal } from 'temporal-polyfill'
+import { createInterval } from '@denny-il/drizzle-pg-utils/temporal'
+
+const interval = createInterval(Temporal)
 ```
 
 ## Documentation
