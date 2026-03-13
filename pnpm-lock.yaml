@@ -21,8 +21,8 @@ importers:
         specifier: 7.0.0-dev.20260308.1
         version: 7.0.0-dev.20260308.1
       drizzle-orm:
-        specifier: 1.0.0-beta.16-ea816b6
-        version: 1.0.0-beta.16-ea816b6(@electric-sql/pglite@0.3.15)(@types/mssql@9.1.9)(mssql@11.0.1)
+        specifier: 1.0.0-beta.17-67b1795
+        version: 1.0.0-beta.17-67b1795(@electric-sql/pglite@0.3.15)(@types/mssql@9.1.9)(mssql@11.0.1)
       temporal-polyfill:
         specifier: ^0.3.0
         version: 0.3.0
@@ -582,8 +582,8 @@ packages:
     resolution: {integrity: sha512-N+MeXYoqr3pOgn8xfyRPREN7gHakLYjhsHhWGT3fWAiL4IkAt0iDw14QiiEm2bE30c5XX5q0FtAA3CK5f9/BUg==}
     engines: {node: '>=12'}
 
-  drizzle-orm@1.0.0-beta.16-ea816b6:
-    resolution: {integrity: sha512-k9gT4f0O9Qvah5YK/zL+FZonQ8TPyVxcG/ojN4dzO0fHP8hs8tBno8lqmJo53g0JLWv3Q2nsTUoyBRKM2TljFw==}
+  drizzle-orm@1.0.0-beta.17-67b1795:
+    resolution: {integrity: sha512-QuCubYKl1zgAP4SaNeqiRObfAWSYKRvVVp8s7uQSeOOEbyN6GiuhHaPTxNRoMPazR8/40d+j1rz6N7RUPcA3Jg==}
     peerDependencies:
       '@aws-sdk/client-rds-data': '>=3'
       '@cloudflare/workers-types': '>=4'
@@ -596,7 +596,6 @@ packages:
       '@op-engineering/op-sqlite': '>=2'
       '@opentelemetry/api': ^1.4.1
       '@planetscale/database': '>=1.13'
-      '@prisma/client': '*'
       '@sinclair/typebox': '>=0.34.8'
       '@sqlitecloud/drivers': '>=1.0.653'
       '@tidbcloud/serverless': '*'
@@ -619,7 +618,6 @@ packages:
       mysql2: '>=2'
       pg: '>=8'
       postgres: '>=3'
-      prisma: '*'
       sql.js: '>=1'
       sqlite3: '>=5'
       typebox: '>=1.0.0'
@@ -647,8 +645,6 @@ packages:
       '@opentelemetry/api':
         optional: true
       '@planetscale/database':
-        optional: true
-      '@prisma/client':
         optional: true
       '@sinclair/typebox':
         optional: true
@@ -689,8 +685,6 @@ packages:
       pg:
         optional: true
       postgres:
-        optional: true
-      prisma:
         optional: true
       sql.js:
         optional: true
@@ -1504,7 +1498,7 @@ snapshots:
 
   define-lazy-prop@3.0.0: {}
 
-  drizzle-orm@1.0.0-beta.16-ea816b6(@electric-sql/pglite@0.3.15)(@types/mssql@9.1.9)(mssql@11.0.1):
+  drizzle-orm@1.0.0-beta.17-67b1795(@electric-sql/pglite@0.3.15)(@types/mssql@9.1.9)(mssql@11.0.1):
     dependencies:
       '@types/mssql': 9.1.9
       mssql: 11.0.1
