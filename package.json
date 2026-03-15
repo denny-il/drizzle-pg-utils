@@ -110,6 +110,11 @@
     "drizzle-orm": "1.0.0-beta.17-67b1795",
     "temporal-polyfill": "^0.3.2"
   },
+  "peerDependenciesMeta": {
+    "temporal-polyfill": {
+      "optional": true
+    }
+  },
   "files": [
     "dist",
     "LICENSE.md",
