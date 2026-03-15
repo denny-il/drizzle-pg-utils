@@ -1,6 +1,6 @@
 import { SQL } from 'drizzle-orm'
 import { customType } from 'drizzle-orm/pg-core'
-import type { Temporal } from 'temporal-spec'
+
 import type { TemporalColumn } from '../types.ts'
 
 /**
@@ -11,16 +11,17 @@ export type TimeConfig = {
   precision?: number
 }
 
-type Config = {
-  data: Temporal.PlainDateTime
+type Config<T extends typeof globalThis.Temporal> = {
+  data: InstanceType<T['PlainDateTime']>
   driverData: string
   config?: TimeConfig
 }
 
-export type TemporalTimestampType = TemporalColumn<{
-  config: Config
-  constraints: false
-}>
+export type TemporalTimestampType<T extends typeof globalThis.Temporal> =
+  TemporalColumn<{
+    config: Config<T>
+    constraints: false
+  }>
 
 /**
  * Creates a PostgreSQL timestamp column type for Temporal.PlainDateTime values.
@@ -29,16 +30,20 @@ export type TemporalTimestampType = TemporalColumn<{
  * @param Temporal - The Temporal implementation to use
  * @returns Column factory function
  */
-export function createTimestamp(
-  Temporal: typeof import('temporal-spec').Temporal,
-): TemporalTimestampType {
+export function createTimestamp<T extends typeof globalThis.Temporal>(
+  Temporal: T,
+  options?: globalThis.Temporal.PlainDateTimeToStringOptions,
+): TemporalTimestampType<T> {
   return {
-    column: customType<Config>({
+    column: customType<Config<T>>({
       dataType: (config?: TimeConfig) =>
         `timestamp${typeof config?.precision !== 'undefined' ? ` (${config.precision})` : ''}`,
-      fromDriver: (val: string) => Temporal.PlainDateTime.from(val),
-      toDriver: (val: Temporal.PlainDateTime | SQL) =>
-        val instanceof SQL ? val : val.toString({ calendarName: 'never' }),
+      fromDriver: (val: string) =>
+        Temporal.PlainDateTime.from(val) as InstanceType<T['PlainDateTime']>,
+      toDriver: (val: InstanceType<T['PlainDateTime']> | SQL) =>
+        val instanceof SQL
+          ? val
+          : val.toString({ calendarName: 'never', ...options }),
     }),
   }
 }

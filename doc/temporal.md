@@ -21,7 +21,7 @@ Work with PostgreSQL date/time types using the modern Temporal API.
 - 🔧 **Custom column types** - Ready-to-use Drizzle column definitions
 - ✅ **Type safety** - Full TypeScript support for all temporal operations
 - 🛡️ **Format validation** - Built-in constraints for text-based temporal types
-- ⚠️ **Compatibility** - Two options available: globally available Temporal API or via [temporal-polyfill](https://github.com/fullcalendar/temporal-polyfill) package
+- ⚠️ **Compatibility** - Use helpers bound to `globalThis.Temporal`, helpers bound to `temporal-polyfill`, or bind your own compatible Temporal implementation with the exported `create*` factories
 
 ## Quick Start
 
@@ -29,9 +29,14 @@ Here's a quick example to get you started:
 
 ```typescript
 import { pgTable, serial, text } from 'drizzle-orm/pg-core'
-import { timestamp, timestampz, plainDate, time, interval } from '@denny-il/drizzle-pg-utils/temporal'
-// For polyfill version
-import { Temporal } from 'temporal-polyfill'
+import 'temporal-polyfill/global'
+import {
+  interval,
+  plainDate,
+  time,
+  timestamp,
+  timestampz,
+} from '@denny-il/drizzle-pg-utils/temporal/global'
 
 // Define your table with temporal columns
 const events = pgTable('events', {
@@ -71,25 +76,95 @@ npm install @denny-il/drizzle-pg-utils
 ### Import Options
 
 ```typescript
-// Temporal utilities (globally registered Temporal)
-import * as temporal from '@denny-il/drizzle-pg-utils/temporal'
+// Factory functions, shared types, and _registerZonedDateTimeJSONFix
+import {
+  createInterval,
+  createMonthDay,
+  createPlainDate,
+  createTime,
+  createTimestamp,
+  createTimestampz,
+  createYearMonth,
+  _registerZonedDateTimeJSONFix,
+} from '@denny-il/drizzle-pg-utils/temporal'
 
-// Temporal utilities (with polyfill)
-import * as temporal from '@denny-il/drizzle-pg-utils/temporal/polyfill'
+// Preconfigured columns using globalThis.Temporal
+import {
+  interval,
+  monthDay,
+  plainDate,
+  time,
+  timestamp,
+  timestampz,
+  yearMonth,
+} from '@denny-il/drizzle-pg-utils/temporal/global'
+
+// Preconfigured columns using temporal-polyfill
+import {
+  interval,
+  monthDay,
+  plainDate,
+  time,
+  timestamp,
+  timestampz,
+  yearMonth,
+} from '@denny-il/drizzle-pg-utils/temporal/polyfill'
 ```
 
-### Global vs Polyfill
+### Runtime Setup
 
-This library provides two versions of temporal utilities:
+This package exposes three Temporal entrypoints depending on how you want to bind the Temporal implementation.
 
-- **Global** (`@denny-il/drizzle-pg-utils/temporal`) - Uses the globally registered Temporal when available
-- **Polyfill** (`@denny-il/drizzle-pg-utils/temporal/polyfill`) - Uses the temporal-polyfill package
+#### Option 1: Use `/global`
 
-Choose the version that best fits your runtime environment. The polyfill version is recommended for current production use.
+Use this when your runtime already has `globalThis.Temporal`, or when you register a polyfill globally yourself.
 
-### Installing Dependencies
+```typescript
+import 'temporal-polyfill/global'
+import { interval, plainDate, time, timestamp, timestampz } from '@denny-il/drizzle-pg-utils/temporal/global'
+```
 
-When using the polyfill version, install the temporal-polyfill dependency:
+#### Option 2: Use `/polyfill`
+
+Use this when you want ready-made helpers bound directly to `temporal-polyfill` without relying on `globalThis.Temporal`.
+
+```typescript
+import { Temporal } from 'temporal-polyfill'
+import { interval, plainDate, time, timestamp, timestampz } from '@denny-il/drizzle-pg-utils/temporal/polyfill'
+
+const now = Temporal.Now.plainDateTimeISO()
+```
+
+#### Option 3: Use `/temporal` factories
+
+If you do not want to rely on a global, import your Temporal implementation yourself and build the column helpers explicitly.
+
+```typescript
+import { Temporal } from 'temporal-polyfill'
+import {
+  createInterval,
+  createMonthDay,
+  createPlainDate,
+  createTime,
+  createTimestamp,
+  createTimestampz,
+  createYearMonth,
+} from '@denny-il/drizzle-pg-utils/temporal'
+
+const interval = createInterval(Temporal)
+const monthDay = createMonthDay(Temporal)
+const plainDate = createPlainDate(Temporal)
+const time = createTime(Temporal)
+const timestamp = createTimestamp(Temporal)
+const timestampz = createTimestampz(Temporal)
+const yearMonth = createYearMonth(Temporal)
+```
+
+The factory entrypoint does not export prebound columns. It only exports the generic `create*` helpers, shared types, and `_registerZonedDateTimeJSONFix()`.
+
+### Installing a Polyfill
+
+If your runtime does not provide `Temporal`, install and wire up a polyfill yourself:
 
 ```bash
 npm install temporal-polyfill
@@ -116,19 +191,23 @@ intervalstyle = 'iso_8601'
 If you encounter issues with JSON serialization of `ZonedDateTime`, register the JSON fix:
 
 ```typescript
-import { _registerZonedDateTimeJSONFix } from '@denny-il/drizzle-pg-utils/temporal/polyfill'
-// or for global: '@denny-il/drizzle-pg-utils/temporal'
+import { Temporal } from 'temporal-polyfill'
+import { _registerZonedDateTimeJSONFix } from '@denny-il/drizzle-pg-utils/temporal'
 
 // Call once at application startup
-_registerZonedDateTimeJSONFix()
+_registerZonedDateTimeJSONFix(Temporal)
 ```
+
+If you are using `globalThis.Temporal`, calling `_registerZonedDateTimeJSONFix()` with no arguments is enough.
+
+This patch only affects `ZonedDateTime.prototype.toJSON()`. Database serialization for `timestampz` columns already uses `toString({ timeZoneName: 'never', offset: 'auto' })` internally.
 
 ## Query Examples
 
 ### Insert + Filter
 
 ```typescript
-import { sql } from 'drizzle-orm'
+import { gte, sql } from 'drizzle-orm'
 import { pgTable, serial } from 'drizzle-orm/pg-core'
 import { Temporal } from 'temporal-polyfill'
 import {
@@ -160,6 +239,11 @@ const upcoming = await db
   .from(events)
   .where(sql`${events.scheduledDate} >= '2023-06-01'::date`)
 
+const upcomingWithDrizzleTypedOperator = await db
+  .select()
+  .from(events)
+  .where(gte(events.scheduledDate, Temporal.PlainDate.from('2023-06-01')))
+
 const inserted = await db
   .select()
   .from(events)
@@ -187,7 +271,7 @@ Define tables with Temporal types with native PostgreSQL support:
 
 ```typescript
 import { pgTable, serial, text } from 'drizzle-orm/pg-core'
-import { timestamp, timestampz, plainDate, time, interval } from '@denny-il/drizzle-pg-utils/temporal'
+import { timestamp, timestampz, plainDate, time, interval } from '@denny-il/drizzle-pg-utils/temporal/global'
 
 const events = pgTable('events', {
   id: serial('id').primaryKey(),
@@ -221,7 +305,7 @@ For year-month and month-day values stored as text with optional validation:
 
 ```typescript
 import { pgTable, serial } from 'drizzle-orm/pg-core'
-import { yearMonth, monthDay } from '@denny-il/drizzle-pg-utils/temporal'
+import { yearMonth, monthDay } from '@denny-il/drizzle-pg-utils/temporal/global'
 
 const reports = pgTable('reports', {
   id: serial('id').primaryKey(),
@@ -239,9 +323,8 @@ const reports = pgTable('reports', {
 ### Creating Temporal Values
 
 ```typescript
-// For polyfill version
+// Use whichever Temporal implementation your application provides.
 import { Temporal } from 'temporal-polyfill'
-// For global version, Temporal is available globally
 
 // Create temporal values
 const now = Temporal.Now.plainDateTimeISO()
@@ -277,6 +360,12 @@ const upcomingEvents = await db
   .select()
   .from(events)
   .where(gt(events.eventDate, Temporal.Now.plainDateISO()))
+
+// Drizzle comparison helpers also work directly with Temporal values
+const eventsFromJune = await db
+  .select()
+  .from(events)
+  .where(gte(events.eventDate, Temporal.PlainDate.from('2023-06-01')))
 
 // Update temporal values
 await db
@@ -334,12 +423,84 @@ await db
 
 All temporal functions provide full TypeScript support:
 
-- **Temporal types are fully typed** - Complete TypeScript integration with proper Temporal type definitions
+- **Factory-bound types stay specific** - `create*` helpers preserve the instance types of the Temporal implementation you pass in
 - **Column definitions include precise type information** - Drizzle column types accurately reflect the underlying Temporal types
 - **Automatic conversion between PostgreSQL and Temporal types** - Seamless mapping with type safety preserved
 - **Type-safe constraint validation** - Text-based temporal types include compile-time format validation
 
+## Factory Functions
+
+Every temporal helper has a matching `create*` export that binds the helper to a Temporal implementation you provide.
+
+```typescript
+import { Temporal } from 'temporal-polyfill'
+import {
+  createInterval,
+  createMonthDay,
+  createPlainDate,
+  createTime,
+  createTimestamp,
+  createTimestampz,
+  createYearMonth,
+} from '@denny-il/drizzle-pg-utils/temporal'
+
+const interval = createInterval(Temporal)
+const monthDay = createMonthDay(Temporal)
+const plainDate = createPlainDate(Temporal)
+const time = createTime(Temporal)
+const timestamp = createTimestamp(Temporal)
+const timestampz = createTimestampz(Temporal)
+const yearMonth = createYearMonth(Temporal)
+```
+
+Every `create*` helper also accepts the corresponding Temporal `toString(...)` options as an optional second argument. That lets you centralize serialization rules when values are written to PostgreSQL.
+
+```typescript
+import { Temporal } from 'temporal-polyfill'
+import {
+  createInterval,
+  createTimestamp,
+  createTimestampz,
+} from '@denny-il/drizzle-pg-utils/temporal'
+
+const timestamp = createTimestamp(Temporal, { smallestUnit: 'millisecond' })
+const timestampz = createTimestampz(Temporal, { smallestUnit: 'millisecond' })
+const interval = createInterval(Temporal, { smallestUnit: 'millisecond' })
+```
+
 ## API Reference
+
+### Entrypoints
+
+### `@denny-il/drizzle-pg-utils/temporal`
+
+Exports the generic `create*` factories and shared types. Use this when you want to bind the helpers to your own Temporal implementation.
+
+### `@denny-il/drizzle-pg-utils/temporal/global`
+
+Exports ready-made helpers bound to `globalThis.Temporal`. Use `@denny-il/drizzle-pg-utils/temporal` for factories and `_registerZonedDateTimeJSONFix()`.
+
+### `@denny-il/drizzle-pg-utils/temporal/polyfill`
+
+Exports ready-made helpers bound to `temporal-polyfill`. Use `@denny-il/drizzle-pg-utils/temporal` for factories and `_registerZonedDateTimeJSONFix()`.
+
+### `createTimestamp(Temporal, options?)`, `createTimestampz(Temporal, options?)`, `createPlainDate(Temporal, options?)`, `createTime(Temporal, options?)`, `createInterval(Temporal, options?)`, `createYearMonth(Temporal, options?)`, `createMonthDay(Temporal, options?)`
+
+Creates column helpers bound to the provided Temporal implementation.
+
+- **Parameters:**
+  - `Temporal`: A Temporal implementation compatible with the standard API
+  - `options?`: Optional `toString(...)` options forwarded when values are written to PostgreSQL
+- **Returns:** The same helper shape as the global export, including `.column(...)` and `.constraints(...)` where applicable
+
+**Example:**
+
+```typescript
+import { Temporal } from 'temporal-polyfill'
+import { createTimestampz } from '@denny-il/drizzle-pg-utils/temporal'
+
+const timestampz = createTimestampz(Temporal)
+```
 
 ### `timestamp.column(name, config?)`
 
@@ -417,6 +578,7 @@ Creates a text column for `Temporal.PlainYearMonth` values with format validatio
   - `name?`: Optional constraint name
 - **Returns:** Column definition / Array of check constraints
 - **Format:** `YYYY-MM` (e.g., "2023-07")
+- **Note:** `yearMonth.constraints(...)` validates the stored text shape. Invalid calendar values will still be rejected when rows are decoded back into `Temporal.PlainYearMonth`.
 
 ### `monthDay.column(name)` and `monthDay.constraints(column, name?)`
 
@@ -429,12 +591,14 @@ Creates a text column for `Temporal.PlainMonthDay` values with format validation
   - `name?`: Optional constraint name
 - **Returns:** Column definition / Array of check constraints
 - **Format:** `MM-DD` (e.g., "07-25")
+- **Note:** `monthDay.constraints(...)` validates the stored text shape. Invalid calendar values such as `02-31` can still fail later when rows are decoded back into `Temporal.PlainMonthDay`.
 
-### `_registerZonedDateTimeJSONFix()`
+### `_registerZonedDateTimeJSONFix(Temporal?)`
 
 Patches `Temporal.ZonedDateTime.prototype.toJSON` to exclude timezone names from JSON output.
 
-- **Parameters:** None
+- **Parameters:**
+  - `Temporal?`: Optional Temporal implementation. Defaults to `globalThis.Temporal`
 - **Returns:** void
 - **Warning:** Modifies global prototype - call once at application startup
-- **Available in:** Both global and polyfill versions
+- **Available in:** `@denny-il/drizzle-pg-utils/temporal`

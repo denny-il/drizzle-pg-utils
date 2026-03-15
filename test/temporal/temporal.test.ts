@@ -1,10 +1,10 @@
-import { sql } from 'drizzle-orm'
+import { _registerZonedDateTimeJSONFix } from '@denny-il/drizzle-pg-utils/temporal'
+import { gte, sql } from 'drizzle-orm'
 import { pgTable, serial } from 'drizzle-orm/pg-core'
 import type { PgliteDatabase } from 'drizzle-orm/pglite'
-import { Temporal } from 'temporal-polyfill'
-import { beforeAll, describe, expect, it } from 'vitest'
+import { Temporal, Temporal as TemporalImpl } from 'temporal-polyfill'
+import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import {
-  _registerZonedDateTimeJSONFix,
   interval,
   monthDay,
   plainDate,
@@ -79,107 +79,59 @@ beforeAll(async () => {
       CONSTRAINT check_month_day_month_day_format CHECK ((month_day)::text ~ '^((0[1-9])|(1([0-2])))-((0[1-9])|([1-2][0-9])|(3[0-1]))$')
     )
   `)
+
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS factory_temporal_test (
+      id SERIAL PRIMARY KEY,
+      plain_date DATE,
+      plain_time TIME,
+      plain_datetime TIMESTAMP,
+      zoned_datetime TIMESTAMP(3) WITH TIME ZONE,
+      duration INTERVAL(2),
+      year_month TEXT,
+      month_day TEXT,
+      CONSTRAINT check_year_month_year_month_format CHECK ((year_month)::text ~ '^\\d{4}-((0[1-9])|(1([0-2])))$'),
+      CONSTRAINT check_month_day_month_day_format CHECK ((month_day)::text ~ '^((0[1-9])|(1([0-2])))-((0[1-9])|([1-2][0-9])|(3[0-1]))$')
+    )
+  `)
+})
+
+beforeEach(async () => {
+  await db.delete(temporalTable)
 })
 
 describe('Temporal Export Tests', () => {
   it('should export temporal', async () => {
     const temporalImport = await import('@denny-il/drizzle-pg-utils/temporal')
     expect(temporalImport).toBeDefined()
-    expect(temporalImport.timestamp).toBeDefined()
-    expect(temporalImport.timestampz).toBeDefined()
-    expect(temporalImport.plainDate).toBeDefined()
-    expect(temporalImport.time).toBeDefined()
-    expect(temporalImport.interval).toBeDefined()
-    expect(temporalImport.yearMonth).toBeDefined()
-    expect(temporalImport.monthDay).toBeDefined()
-
-    const temporalPolyfillImport = await import(
-      '@denny-il/drizzle-pg-utils/temporal/polyfill'
-    )
-    expect(temporalPolyfillImport).toBeDefined()
-    expect(temporalPolyfillImport.timestamp).toBeDefined()
-    expect(temporalPolyfillImport.timestampz).toBeDefined()
-    expect(temporalPolyfillImport.plainDate).toBeDefined()
-    expect(temporalPolyfillImport.time).toBeDefined()
-    expect(temporalPolyfillImport.interval).toBeDefined()
-    expect(temporalPolyfillImport.yearMonth).toBeDefined()
-    expect(temporalPolyfillImport.monthDay).toBeDefined()
-
-    const temporalTimestampImport = await import(
-      '@denny-il/drizzle-pg-utils/temporal/timestamp'
-    )
-    expect(temporalTimestampImport.timestamp).toBeDefined()
-    expect(temporalTimestampImport.timestamp).toEqual(
-      temporalPolyfillImport.timestamp,
-    )
-
-    const temporalTimestampzImport = await import(
-      '@denny-il/drizzle-pg-utils/temporal/timestampz'
-    )
-    expect(temporalTimestampzImport.timestampz).toBeDefined()
-    expect(temporalTimestampzImport.timestampz).toEqual(
-      temporalPolyfillImport.timestampz,
-    )
-
-    const temporalPlainDateImport = await import(
-      '@denny-il/drizzle-pg-utils/temporal/plain-date'
-    )
-    expect(temporalPlainDateImport.plainDate).toBeDefined()
-    expect(temporalPlainDateImport.plainDate).toEqual(
-      temporalPolyfillImport.plainDate,
-    )
-
-    const temporalTimeImport = await import(
-      '@denny-il/drizzle-pg-utils/temporal/time'
-    )
-    expect(temporalTimeImport.time).toBeDefined()
-    expect(temporalTimeImport.time).toEqual(temporalPolyfillImport.time)
-
-    const temporalIntervalImport = await import(
-      '@denny-il/drizzle-pg-utils/temporal/interval'
-    )
-    expect(temporalIntervalImport.interval).toBeDefined()
-    expect(temporalIntervalImport.interval).toEqual(
-      temporalPolyfillImport.interval,
-    )
-
-    const temporalYearMonthImport = await import(
-      '@denny-il/drizzle-pg-utils/temporal/year-month'
-    )
-    expect(temporalYearMonthImport.yearMonth).toBeDefined()
-    expect(temporalYearMonthImport.yearMonth).toEqual(
-      temporalPolyfillImport.yearMonth,
-    )
-
-    const temporalMonthDayImport = await import(
-      '@denny-il/drizzle-pg-utils/temporal/month-day'
-    )
-    expect(temporalMonthDayImport.monthDay).toBeDefined()
-    expect(temporalMonthDayImport.monthDay).toEqual(
-      temporalPolyfillImport.monthDay,
-    )
+    expect(temporalImport.createPlainDate).toBeDefined()
+    expect(temporalImport.createTime).toBeDefined()
+    expect(temporalImport.createTimestamp).toBeDefined()
+    expect(temporalImport.createTimestampz).toBeDefined()
+    expect(temporalImport.createInterval).toBeDefined()
+    expect(temporalImport.createYearMonth).toBeDefined()
+    expect(temporalImport.createMonthDay).toBeDefined()
   })
 })
 
 describe('Temporal Column Types', () => {
   describe('date column', () => {
     it('should handle PlainDate values correctly', async () => {
-      const testDate = Temporal.PlainDate.from('2023-07-25')
+      const testDate = TemporalImpl.PlainDate.from('2023-07-25')
 
-      // Clear any existing data first
-      await db.delete(temporalTable)
+      await db.insert(temporalTable).values([
+        {
+          plainDate: testDate,
+        },
+      ])
 
-      await db.insert(temporalTable).values({
-        plainDate: testDate,
-      })
-
-      const result = await db
+      const [result] = await db
         .select({ plainDate: temporalTable.plainDate })
         .from(temporalTable)
         .limit(1)
 
-      expect(result[0]?.plainDate).toBeInstanceOf(Temporal.PlainDate)
-      expect(result[0]?.plainDate?.toString()).toBe('2023-07-25')
+      expect(result!.plainDate).toBeInstanceOf(TemporalImpl.PlainDate)
+      expect(result!.plainDate!.toString()).toBe('2023-07-25')
     })
 
     it('should work with SQL expressions', async () => {
@@ -192,17 +144,14 @@ describe('Temporal Column Types', () => {
 
   describe('time column', () => {
     it('should handle PlainTime values correctly', async () => {
-      const testTime = Temporal.PlainTime.from('14:30:45.123')
-
-      // Clear any existing data first
-      await db.delete(temporalTable)
+      const testTime = TemporalImpl.PlainTime.from('14:30:45.123')
 
       await db.insert(temporalTable).values({
         plainTime: testTime,
         plainTimeWithPrecision: testTime,
       })
 
-      const result = await db
+      const [result] = await db
         .select({
           plainTime: temporalTable.plainTime,
           plainTimeWithPrecision: temporalTable.plainTimeWithPrecision,
@@ -210,33 +159,47 @@ describe('Temporal Column Types', () => {
         .from(temporalTable)
         .limit(1)
 
-      expect(result[0]?.plainTime).toBeInstanceOf(Temporal.PlainTime)
-      expect(result[0]?.plainTimeWithPrecision).toBeInstanceOf(
-        Temporal.PlainTime,
+      expect(result!.plainTime).toBeInstanceOf(TemporalImpl.PlainTime)
+      expect(result!.plainTimeWithPrecision).toBeInstanceOf(
+        TemporalImpl.PlainTime,
       )
 
       // Time without precision should truncate microseconds but may keep some precision
-      expect(result[0]?.plainTime?.toString()).toMatch(/^14:30:45(\.\d+)?$/)
+      expect(result!.plainTime!.toString()).toMatch(/^14:30:45(\.\d+)?$/)
       // Time with precision(3) should keep milliseconds
-      expect(result[0]?.plainTimeWithPrecision?.toString()).toBe('14:30:45.123')
+      expect(result!.plainTimeWithPrecision!.toString()).toBe('14:30:45.123')
+    })
+
+    it('should apply configured millisecond precision', async () => {
+      await db.insert(temporalTable).values({
+        plainTimeWithPrecision: TemporalImpl.PlainTime.from('14:30:45.1234'),
+      })
+
+      const [result] = await db
+        .select({
+          plainTimeWithPrecision: temporalTable.plainTimeWithPrecision,
+        })
+        .from(temporalTable)
+        .limit(1)
+
+      expect(result!.plainTimeWithPrecision!.millisecond).toBe(123)
+      expect(result!.plainTimeWithPrecision!.microsecond).toBe(0)
+      expect(result!.plainTimeWithPrecision!.nanosecond).toBe(0)
     })
   })
 
   describe('timestamp column', () => {
     it('should handle PlainDateTime values correctly', async () => {
-      const testDateTime = Temporal.PlainDateTime.from(
+      const testDateTime = TemporalImpl.PlainDateTime.from(
         '2023-07-25T14:30:45.123456',
       )
-
-      // Clear any existing data first
-      await db.delete(temporalTable)
 
       await db.insert(temporalTable).values({
         plainDateTime: testDateTime,
         plainDateTimeWithPrecision: testDateTime,
       })
 
-      const result = await db
+      const [result] = await db
         .select({
           plainDateTime: temporalTable.plainDateTime,
           plainDateTimeWithPrecision: temporalTable.plainDateTimeWithPrecision,
@@ -244,17 +207,17 @@ describe('Temporal Column Types', () => {
         .from(temporalTable)
         .limit(1)
 
-      expect(result[0]?.plainDateTime).toBeInstanceOf(Temporal.PlainDateTime)
-      expect(result[0]?.plainDateTimeWithPrecision).toBeInstanceOf(
-        Temporal.PlainDateTime,
+      expect(result!.plainDateTime).toBeInstanceOf(TemporalImpl.PlainDateTime)
+      expect(result!.plainDateTimeWithPrecision).toBeInstanceOf(
+        TemporalImpl.PlainDateTime,
       )
 
       // Timestamp without precision should truncate microseconds but may keep some precision
-      expect(result[0]?.plainDateTime?.toString()).toMatch(
+      expect(result!.plainDateTime!.toString()).toMatch(
         /^2023-07-25T14:30:45(\.\d+)?$/,
       )
       // Timestamp with precision(6) should keep microseconds
-      expect(result[0]?.plainDateTimeWithPrecision?.toString()).toBe(
+      expect(result!.plainDateTimeWithPrecision!.toString()).toBe(
         '2023-07-25T14:30:45.123456',
       )
     })
@@ -262,19 +225,16 @@ describe('Temporal Column Types', () => {
 
   describe('timestampz column', () => {
     it('should handle ZonedDateTime values correctly', async () => {
-      const testZonedDateTime = Temporal.ZonedDateTime.from(
+      const testZonedDateTime = TemporalImpl.ZonedDateTime.from(
         '2023-07-25T14:30:45.123[America/New_York]',
       )
-
-      // Clear any existing data first
-      await db.delete(temporalTable)
 
       await db.insert(temporalTable).values({
         zonedDateTime: testZonedDateTime,
         zonedDateTimeWithPrecision: testZonedDateTime,
       })
 
-      const result = await db
+      const [result] = await db
         .select({
           zonedDateTime: temporalTable.zonedDateTime,
           zonedDateTimeWithPrecision: temporalTable.zonedDateTimeWithPrecision,
@@ -282,45 +242,72 @@ describe('Temporal Column Types', () => {
         .from(temporalTable)
         .limit(1)
 
-      expect(result[0]?.zonedDateTime).toBeInstanceOf(Temporal.ZonedDateTime)
-      expect(result[0]?.zonedDateTimeWithPrecision).toBeInstanceOf(
-        Temporal.ZonedDateTime,
+      expect(result!.zonedDateTime).toBeInstanceOf(TemporalImpl.ZonedDateTime)
+      expect(result!.zonedDateTimeWithPrecision).toBeInstanceOf(
+        TemporalImpl.ZonedDateTime,
       )
 
       // Both should be in UTC timezone
-      expect(result[0]?.zonedDateTime?.timeZoneId).toBe('UTC')
-      expect(result[0]?.zonedDateTimeWithPrecision?.timeZoneId).toBe('UTC')
+      expect(result!.zonedDateTime!.timeZoneId).toBe('UTC')
+      expect(result!.zonedDateTimeWithPrecision!.timeZoneId).toBe('UTC')
 
       // Check that the instant is preserved (converted to UTC)
       const originalInstant = testZonedDateTime.toInstant()
-      expect(
-        result[0]?.zonedDateTime?.toInstant().equals(originalInstant),
-      ).toBe(true)
+      expect(result!.zonedDateTime!.toInstant().equals(originalInstant)).toBe(
+        true,
+      )
     })
 
-    it('should work with ZonedDateTime JSON fix', () => {
-      _registerZonedDateTimeJSONFix()
-
-      const zdt = Temporal.ZonedDateTime.from(
-        '2023-07-25T10:00:00[America/New_York]',
+    it('should apply configured millisecond precision', async () => {
+      const testZonedDateTime = TemporalImpl.ZonedDateTime.from(
+        '2023-07-25T14:30:45.1234[America/New_York]',
       )
-      const jsonString = JSON.stringify(zdt)
 
-      // Should not include timezone name
-      expect(jsonString).not.toMatch(/\[America\/New_York\]/)
-      expect(jsonString).toMatch(
-        /^"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}"$/,
-      )
+      await db.insert(temporalTable).values({
+        zonedDateTimeWithPrecision: testZonedDateTime,
+      })
+
+      const [result] = await db
+        .select({
+          zonedDateTimeWithPrecision: temporalTable.zonedDateTimeWithPrecision,
+        })
+        .from(temporalTable)
+        .limit(1)
+
+      expect(result!.zonedDateTimeWithPrecision!.timeZoneId).toBe('UTC')
+      expect(result!.zonedDateTimeWithPrecision!.millisecond).toBe(123)
+      expect(result!.zonedDateTimeWithPrecision!.microsecond).toBe(0)
+      expect(result!.zonedDateTimeWithPrecision!.nanosecond).toBe(0)
+    })
+
+    it('should work with ZonedDateTime JSON fix using the global Temporal', () => {
+      const originalToJSON = TemporalImpl.ZonedDateTime.prototype.toJSON
+
+      try {
+        const zdt = TemporalImpl.ZonedDateTime.from(
+          '2023-07-25T10:00:00[America/New_York]',
+        )
+
+        expect(JSON.stringify(zdt)).toMatch(/\[America\/New_York\]/)
+
+        _registerZonedDateTimeJSONFix(TemporalImpl)
+
+        const jsonString = JSON.stringify(zdt)
+
+        expect(jsonString).not.toMatch(/\[America\/New_York\]/)
+        expect(jsonString).toMatch(
+          /^"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}"$/,
+        )
+      } finally {
+        TemporalImpl.ZonedDateTime.prototype.toJSON = originalToJSON
+      }
     })
   })
 
   describe('interval column', () => {
     it('should handle Duration values correctly', async () => {
-      const testDuration = Temporal.Duration.from('PT2H30M15S') // Simplified to avoid fractional seconds
-      const hourMinuteDuration = Temporal.Duration.from('PT1H45M')
-
-      // Clear any existing data first
-      await db.delete(temporalTable)
+      const testDuration = TemporalImpl.Duration.from('PT2H30M15S') // Simplified to avoid fractional seconds
+      const hourMinuteDuration = TemporalImpl.Duration.from('PT1H45M')
 
       await db.insert(temporalTable).values({
         duration: testDuration,
@@ -328,7 +315,7 @@ describe('Temporal Column Types', () => {
         durationWithPrecision: testDuration,
       })
 
-      const result = await db
+      const [result] = await db
         .select({
           duration: temporalTable.duration,
           durationWithFields: temporalTable.durationWithFields,
@@ -337,27 +324,44 @@ describe('Temporal Column Types', () => {
         .from(temporalTable)
         .limit(1)
 
-      expect(result[0]?.duration).toBeInstanceOf(Temporal.Duration)
-      expect(result[0]?.durationWithFields).toBeInstanceOf(Temporal.Duration)
-      expect(result[0]?.durationWithPrecision).toBeInstanceOf(Temporal.Duration)
+      expect(result!.duration).toBeInstanceOf(TemporalImpl.Duration)
+      expect(result!.durationWithFields).toBeInstanceOf(TemporalImpl.Duration)
+      expect(result!.durationWithPrecision).toBeInstanceOf(
+        TemporalImpl.Duration,
+      )
 
       // Duration should preserve the values
-      expect(result[0]?.duration?.hours).toBe(2)
-      expect(result[0]?.duration?.minutes).toBe(30)
-      expect(result[0]?.duration?.seconds).toBe(15)
+      expect(result!.duration!.hours).toBe(2)
+      expect(result!.duration!.minutes).toBe(30)
+      expect(result!.duration!.seconds).toBe(15)
 
       // Hour to minute duration should only have hours and minutes
-      expect(result[0]?.durationWithFields?.hours).toBe(1)
-      expect(result[0]?.durationWithFields?.minutes).toBe(45)
+      expect(result!.durationWithFields!.hours).toBe(1)
+      expect(result!.durationWithFields!.minutes).toBe(45)
+    })
+
+    it('should apply configured fractional-second precision', async () => {
+      await db.insert(temporalTable).values({
+        durationWithPrecision: TemporalImpl.Duration.from('PT2H30M15.674S'),
+      })
+
+      const [result] = await db
+        .select({
+          durationWithPrecision: temporalTable.durationWithPrecision,
+        })
+        .from(temporalTable)
+        .limit(1)
+
+      expect(result!.durationWithPrecision!.seconds).toBe(15)
+      expect(result!.durationWithPrecision!.milliseconds).toBe(670)
+      expect(result!.durationWithPrecision!.microseconds).toBe(0)
+      expect(result!.durationWithPrecision!.nanoseconds).toBe(0)
     })
   })
 
   describe('yearMonth column', () => {
     it('should handle PlainYearMonth values correctly', async () => {
-      const testYearMonth = Temporal.PlainYearMonth.from('2023-07')
-
-      // Clear any existing data first
-      await db.delete(temporalTable)
+      const testYearMonth = TemporalImpl.PlainYearMonth.from('2023-07')
 
       await db.insert(temporalTable).values({
         yearMonthValue: testYearMonth,
@@ -368,8 +372,10 @@ describe('Temporal Column Types', () => {
         .from(temporalTable)
         .limit(1)
 
-      expect(result[0]?.yearMonthValue).toBeInstanceOf(Temporal.PlainYearMonth)
-      expect(result[0]?.yearMonthValue?.toString()).toBe('2023-07')
+      expect(result[0]!.yearMonthValue).toBeInstanceOf(
+        TemporalImpl.PlainYearMonth,
+      )
+      expect(result[0]!.yearMonthValue!.toString()).toBe('2023-07')
     })
 
     it('should enforce format constraints', async () => {
@@ -390,22 +396,19 @@ describe('Temporal Column Types', () => {
 
   describe('monthDay column', () => {
     it('should handle PlainMonthDay values correctly', async () => {
-      const testMonthDay = Temporal.PlainMonthDay.from('07-25')
-
-      // Clear any existing data first
-      await db.delete(temporalTable)
+      const testMonthDay = TemporalImpl.PlainMonthDay.from('07-25')
 
       await db.insert(temporalTable).values({
         monthDayValue: testMonthDay,
       })
 
-      const result = await db
+      const [result] = await db
         .select({ monthDayValue: temporalTable.monthDayValue })
         .from(temporalTable)
         .limit(1)
 
-      expect(result[0]?.monthDayValue).toBeInstanceOf(Temporal.PlainMonthDay)
-      expect(result[0]?.monthDayValue?.toString()).toBe('07-25')
+      expect(result!.monthDayValue).toBeInstanceOf(TemporalImpl.PlainMonthDay)
+      expect(result!.monthDayValue!.toString()).toBe('07-25')
     })
 
     it('should enforce format constraints', async () => {
@@ -424,34 +427,44 @@ describe('Temporal Column Types', () => {
         db.execute(sql`INSERT INTO temporal_test (month_day) VALUES ('02-32')`),
       ).rejects.toThrow()
     })
+
+    it('should reject invalid calendar values when decoding stored text', async () => {
+      await db.execute(
+        sql`INSERT INTO temporal_test (month_day) VALUES ('02-31')`,
+      )
+
+      await expect(
+        db
+          .select({ monthDayValue: temporalTable.monthDayValue })
+          .from(temporalTable)
+          .limit(1),
+      ).rejects.toThrow(/Invalid isoDay/)
+    })
   })
 })
 
 describe('Integration Tests', () => {
   it('should work with complex queries and all temporal types', async () => {
-    // Clear any existing data first
-    await db.delete(temporalTable)
-
     // Insert a complete record with all temporal types
     const testData = {
-      plainDate: Temporal.PlainDate.from('2023-07-25'),
-      plainTime: Temporal.PlainTime.from('14:30:45'),
-      plainTimeWithPrecision: Temporal.PlainTime.from('14:30:45.123'),
-      plainDateTime: Temporal.PlainDateTime.from('2023-07-25T14:30:45'),
-      plainDateTimeWithPrecision: Temporal.PlainDateTime.from(
+      plainDate: TemporalImpl.PlainDate.from('2023-07-25'),
+      plainTime: TemporalImpl.PlainTime.from('14:30:45'),
+      plainTimeWithPrecision: TemporalImpl.PlainTime.from('14:30:45.123'),
+      plainDateTime: TemporalImpl.PlainDateTime.from('2023-07-25T14:30:45'),
+      plainDateTimeWithPrecision: TemporalImpl.PlainDateTime.from(
         '2023-07-25T14:30:45.123456',
       ),
-      zonedDateTime: Temporal.ZonedDateTime.from(
+      zonedDateTime: TemporalImpl.ZonedDateTime.from(
         '2023-07-25T14:30:45[America/New_York]',
       ),
-      zonedDateTimeWithPrecision: Temporal.ZonedDateTime.from(
+      zonedDateTimeWithPrecision: TemporalImpl.ZonedDateTime.from(
         '2023-07-25T14:30:45.123[Europe/London]',
       ),
-      duration: Temporal.Duration.from('PT2H30M'),
-      durationWithFields: Temporal.Duration.from('PT1H45M'),
-      durationWithPrecision: Temporal.Duration.from('PT2H30M15S'), // Simplified duration
-      yearMonthValue: Temporal.PlainYearMonth.from('2023-07'),
-      monthDayValue: Temporal.PlainMonthDay.from('07-25'),
+      duration: TemporalImpl.Duration.from('PT2H30M'),
+      durationWithFields: TemporalImpl.Duration.from('PT1H45M'),
+      durationWithPrecision: TemporalImpl.Duration.from('PT2H30M15S'), // Simplified duration
+      yearMonthValue: TemporalImpl.PlainYearMonth.from('2023-07'),
+      monthDayValue: TemporalImpl.PlainMonthDay.from('07-25'),
     }
 
     const insertResult = await db
@@ -470,27 +483,27 @@ describe('Integration Tests', () => {
     const record = selectResult[0]!
 
     // Verify all temporal types are correctly roundtripped
-    expect(record.plainDate).toBeInstanceOf(Temporal.PlainDate)
-    expect(record.plainDate?.toString()).toBe('2023-07-25')
+    expect(record.plainDate).toBeInstanceOf(TemporalImpl.PlainDate)
+    expect(record.plainDate!.toString()).toBe('2023-07-25')
 
-    expect(record.plainTime).toBeInstanceOf(Temporal.PlainTime)
-    expect(record.plainTime?.toString()).toBe('14:30:45')
+    expect(record.plainTime).toBeInstanceOf(TemporalImpl.PlainTime)
+    expect(record.plainTime!.toString()).toBe('14:30:45')
 
-    expect(record.plainDateTime).toBeInstanceOf(Temporal.PlainDateTime)
-    expect(record.plainDateTime?.toString()).toBe('2023-07-25T14:30:45')
+    expect(record.plainDateTime).toBeInstanceOf(TemporalImpl.PlainDateTime)
+    expect(record.plainDateTime!.toString()).toBe('2023-07-25T14:30:45')
 
-    expect(record.zonedDateTime).toBeInstanceOf(Temporal.ZonedDateTime)
-    expect(record.zonedDateTime?.timeZoneId).toBe('UTC')
+    expect(record.zonedDateTime).toBeInstanceOf(TemporalImpl.ZonedDateTime)
+    expect(record.zonedDateTime!.timeZoneId).toBe('UTC')
 
-    expect(record.duration).toBeInstanceOf(Temporal.Duration)
-    expect(record.duration?.hours).toBe(2)
-    expect(record.duration?.minutes).toBe(30)
+    expect(record.duration).toBeInstanceOf(TemporalImpl.Duration)
+    expect(record.duration!.hours).toBe(2)
+    expect(record.duration!.minutes).toBe(30)
 
-    expect(record.yearMonthValue).toBeInstanceOf(Temporal.PlainYearMonth)
-    expect(record.yearMonthValue?.toString()).toBe('2023-07')
+    expect(record.yearMonthValue).toBeInstanceOf(TemporalImpl.PlainYearMonth)
+    expect(record.yearMonthValue!.toString()).toBe('2023-07')
 
-    expect(record.monthDayValue).toBeInstanceOf(Temporal.PlainMonthDay)
-    expect(record.monthDayValue?.toString()).toBe('07-25')
+    expect(record.monthDayValue).toBeInstanceOf(TemporalImpl.PlainMonthDay)
+    expect(record.monthDayValue!.toString()).toBe('07-25')
   })
 
   it('should work with SQL expressions and temporal functions', async () => {
@@ -513,10 +526,32 @@ describe('Integration Tests', () => {
     expect(futureDate).toMatch(/^\d{4}-\d{2}-\d{2}$/)
   })
 
-  it('should handle null values correctly', async () => {
-    // Clear any existing data first
-    await db.delete(temporalTable)
+  it('should accept SQL expressions when inserting temporal columns', async () => {
+    await db.insert(temporalTable).values({
+      plainDate: sql`DATE '2023-07-25'`,
+      plainTime: sql`TIME '14:30:45.123'`,
+      plainDateTime: sql`TIMESTAMP '2023-07-25 14:30:45.123456'`,
+      zonedDateTime: sql`TIMESTAMP WITH TIME ZONE '2023-07-25 14:30:45.123-04'`,
+      duration: sql`INTERVAL '2 hours 30 minutes 15 seconds'`,
+      yearMonthValue: sql`'2023-07'`,
+      monthDayValue: sql`'07-25'`,
+    })
 
+    const result = await db.select().from(temporalTable).limit(1)
+    const record = result[0]!
+
+    expect(record.plainDate!.toString()).toBe('2023-07-25')
+    expect(record.plainTime!.toString()).toBe('14:30:45.123')
+    expect(record.plainDateTime!.toString()).toBe('2023-07-25T14:30:45.123456')
+    expect(record.zonedDateTime!.timeZoneId).toBe('UTC')
+    expect(record.duration!.hours).toBe(2)
+    expect(record.duration!.minutes).toBe(30)
+    expect(record.duration!.seconds).toBe(15)
+    expect(record.yearMonthValue!.toString()).toBe('2023-07')
+    expect(record.monthDayValue!.toString()).toBe('07-25')
+  })
+
+  it('should handle null values correctly', async () => {
     // Insert record with null temporal values
     const insertResult = await db.insert(temporalTable).values({}).returning()
     expect(insertResult).toHaveLength(1)
@@ -541,8 +576,8 @@ describe('Integration Tests', () => {
 
   it('should work with date/time comparisons and filtering', async () => {
     // Insert test data with different dates
-    const testDate1 = Temporal.PlainDate.from('2023-01-01')
-    const testDate2 = Temporal.PlainDate.from('2023-12-31')
+    const testDate1 = TemporalImpl.PlainDate.from('2023-01-01')
+    const testDate2 = TemporalImpl.PlainDate.from('2023-12-31')
 
     await db.insert(temporalTable).values({ plainDate: testDate1 })
     await db.insert(temporalTable).values({ plainDate: testDate2 })
@@ -551,7 +586,9 @@ describe('Integration Tests', () => {
     const results = await db
       .select({ plainDate: temporalTable.plainDate })
       .from(temporalTable)
-      .where(sql`${temporalTable.plainDate} >= '2023-06-01'::date`)
+      .where(
+        gte(temporalTable.plainDate, Temporal.PlainDate.from('2023-06-01')),
+      )
 
     expect(results.length).toBeGreaterThan(0)
     results.forEach((result) => {

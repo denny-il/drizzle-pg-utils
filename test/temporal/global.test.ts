@@ -1,8 +1,7 @@
-import 'temporal-polyfill/global'
 import { describe, expect, it } from 'vitest'
 
 describe('Temporal Global ', async () => {
-  const columns = await import('../../src/temporal/global.ts')
+  const columns = await import('@denny-il/drizzle-pg-utils/temporal/global')
 
   it('should work', () => {
     expect(columns).toBeDefined()

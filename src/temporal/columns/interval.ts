@@ -1,18 +1,18 @@
 import { SQL } from 'drizzle-orm'
 import { customType, type IntervalConfig } from 'drizzle-orm/pg-core'
-import type { Temporal } from 'temporal-spec'
 import type { TemporalColumn } from '../types.ts'
 
-type Config = {
-  data: Temporal.Duration
+type Config<T extends typeof globalThis.Temporal> = {
+  data: InstanceType<T['Duration']>
   driverData: string
   config?: IntervalConfig
 }
 
-export type TemporalIntervalType = TemporalColumn<{
-  config: Config
-  constraints: false
-}>
+export type TemporalIntervalType<T extends typeof globalThis.Temporal> =
+  TemporalColumn<{
+    config: Config<T>
+    constraints: false
+  }>
 
 /**
  * Creates a PostgreSQL interval column type for Temporal.Duration values.
@@ -24,16 +24,18 @@ export type TemporalIntervalType = TemporalColumn<{
  * @param Temporal - The Temporal implementation to use
  * @returns Column factory function
  */
-export function createInterval(
-  Temporal: typeof import('temporal-spec').Temporal,
-): TemporalIntervalType {
+export function createInterval<T extends typeof globalThis.Temporal>(
+  Temporal: T,
+  options?: globalThis.Temporal.DurationToStringOptions,
+): TemporalIntervalType<T> {
   return {
-    column: customType<Config>({
+    column: customType<Config<T>>({
       dataType: (config?: IntervalConfig) =>
         `interval${config?.fields ? ` ${config.fields}` : ''}${typeof config?.precision !== 'undefined' ? ` (${config.precision})` : ''}`,
-      fromDriver: (val: string) => Temporal.Duration.from(val),
-      toDriver: (val: Temporal.Duration | SQL) =>
-        val instanceof SQL ? val : val.toString(),
+      fromDriver: (val: string) =>
+        Temporal.Duration.from(val) as InstanceType<T['Duration']>,
+      toDriver: (val: InstanceType<T['Duration']> | SQL) =>
+        val instanceof SQL ? val : val.toString({ ...options }),
     }),
   }
 }

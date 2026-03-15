@@ -17,7 +17,8 @@
     "url": "https://github.com/denny-il"
   },
   "repository": {
-    "url": "https://github.com/denny-il/drizzle-pg-utils"
+    "type": "git",
+    "url": "git+https://github.com/denny-il/drizzle-pg-utils.git"
   },
   "license": "MIT",
   "type": "module",
@@ -38,6 +39,11 @@
       "types": "./src/json/operations/*.ts"
     },
     "./temporal": {
+      "import": "./src/temporal/index.ts",
+      "module-sync": "./src/temporal/index.ts",
+      "types": "./src/temporal/index.ts"
+    },
+    "./temporal/global": {
       "import": "./src/temporal/global.ts",
       "module-sync": "./src/temporal/global.ts",
       "types": "./src/temporal/global.ts"
@@ -46,11 +52,6 @@
       "import": "./src/temporal/polyfill.ts",
       "module-sync": "./src/temporal/polyfill.ts",
       "types": "./src/temporal/polyfill.ts"
-    },
-    "./temporal/*": {
-      "import": "./src/temporal/polyfill/*.ts",
-      "module-sync": "./src/temporal/polyfill/*.ts",
-      "types": "./src/temporal/polyfill/*.ts"
     }
   },
   "publishConfig": {
@@ -71,6 +72,11 @@
         "types": "./dist/json/operations/*.d.ts"
       },
       "./temporal": {
+        "import": "./dist/temporal/index.js",
+        "module-sync": "./dist/temporal/index.js",
+        "types": "./dist/temporal/index.d.ts"
+      },
+      "./temporal/global": {
         "import": "./dist/temporal/global.js",
         "module-sync": "./dist/temporal/global.js",
         "types": "./dist/temporal/global.d.ts"
@@ -79,17 +85,12 @@
         "import": "./dist/temporal/polyfill.js",
         "module-sync": "./dist/temporal/polyfill.js",
         "types": "./dist/temporal/polyfill.d.ts"
-      },
-      "./temporal/*": {
-        "import": "./dist/temporal/polyfill/*.js",
-        "module-sync": "./dist/temporal/polyfill/*.js",
-        "types": "./dist/temporal/polyfill/*.d.ts"
       }
     }
   },
   "scripts": {
     "test": "vitest run",
-    "build": "tsgo -p tsconfig.build.json",
+    "build": "tsgo --build tsconfig.build.json",
     "check:type": "tsgo --noEmit",
     "check:lint": "biome lint .",
     "check:fmt": "biome format .",
@@ -97,29 +98,20 @@
     "fmt": "biome check --write ."
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.3.14",
+    "@biomejs/biome": "2.4.6",
     "@electric-sql/pglite": "0.3.15",
     "@types/node": "20",
-    "@typescript/native-preview": "7.0.0-dev.20260204.1",
-    "drizzle-orm": "1.0.0-beta.16-ea816b6",
-    "temporal-polyfill": "^0.3.0",
-    "temporal-spec": "^0.3.0",
-    "typescript": "5.9.3",
-    "vitest": "^4.0.18"
+    "@typescript/native-preview": "7.0.0-dev.20260308.1",
+    "drizzle-orm": "1.0.0-beta.17-67b1795",
+    "temporal-polyfill": "^0.3.2",
+    "vitest": "4.0.18"
   },
   "peerDependencies": {
-    "drizzle-orm": "1.0.0-beta.16-ea816b6",
-    "temporal-polyfill": "^0.3.0",
-    "temporal-spec": "^0.3.0"
+    "drizzle-orm": "1.0.0-beta.17-67b1795",
+    "temporal-polyfill": "^0.3.2"
   },
   "peerDependenciesMeta": {
-    "drizzle-orm": {
-      "optional": true
-    },
     "temporal-polyfill": {
-      "optional": true
-    },
-    "temporal-spec": {
       "optional": true
     }
   },
@@ -128,5 +120,5 @@
     "LICENSE.md",
     "README.md"
   ],
-  "packageManager": "pnpm@10.28.2+sha512.41872f037ad22f7348e3b1debbaf7e867cfd448f2726d9cf74c08f19507c31d2c8e7a11525b983febc2df640b5438dee6023ebb1f84ed43cc2d654d2bc326264"
+  "packageManager": "pnpm@10.31.0+sha512.e3927388bfaa8078ceb79b748ffc1e8274e84d75163e67bc22e06c0d3aed43dd153151cbf11d7f8301ff4acb98c68bdc5cadf6989532801ffafe3b3e4a63c268"
 }

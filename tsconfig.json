@@ -3,9 +3,9 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "lib": [
-      "ES2023"
+      "ESNext",
     ],
-    "target": "esnext",
+    "target": "ESNext",
     "module": "nodenext",
     "moduleDetection": "force",
     "noEmit": true,
@@ -23,7 +23,6 @@
     "noPropertyAccessFromIndexSignature": false
   },
   "include": [
-    "src/**/*",
-    "test/**/*"
+    "src/**/*"
   ]
 }
