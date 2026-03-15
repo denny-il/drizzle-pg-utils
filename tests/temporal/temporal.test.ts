@@ -1,4 +1,3 @@
-import { _registerZonedDateTimeJSONFix } from '@denny-il/drizzle-pg-utils/temporal'
 import { gte, sql } from 'drizzle-orm'
 import { pgTable, serial } from 'drizzle-orm/pg-core'
 import type { PgliteDatabase } from 'drizzle-orm/pglite'
@@ -224,14 +223,12 @@ describe('Temporal Column Types', () => {
   })
 
   describe('timestampz column', () => {
-    it('should handle ZonedDateTime values correctly', async () => {
-      const testZonedDateTime = TemporalImpl.ZonedDateTime.from(
-        '2023-07-25T14:30:45.123[America/New_York]',
-      )
+    it('should handle Instant values correctly', async () => {
+      const testInstant = TemporalImpl.Instant.from('2023-07-25T18:30:45.123Z')
 
       await db.insert(temporalTable).values({
-        zonedDateTime: testZonedDateTime,
-        zonedDateTimeWithPrecision: testZonedDateTime,
+        zonedDateTime: testInstant,
+        zonedDateTimeWithPrecision: testInstant,
       })
 
       const [result] = await db
@@ -242,29 +239,19 @@ describe('Temporal Column Types', () => {
         .from(temporalTable)
         .limit(1)
 
-      expect(result!.zonedDateTime).toBeInstanceOf(TemporalImpl.ZonedDateTime)
+      expect(result!.zonedDateTime).toBeInstanceOf(TemporalImpl.Instant)
       expect(result!.zonedDateTimeWithPrecision).toBeInstanceOf(
-        TemporalImpl.ZonedDateTime,
+        TemporalImpl.Instant,
       )
-
-      // Both should be in UTC timezone
-      expect(result!.zonedDateTime!.timeZoneId).toBe('UTC')
-      expect(result!.zonedDateTimeWithPrecision!.timeZoneId).toBe('UTC')
-
-      // Check that the instant is preserved (converted to UTC)
-      const originalInstant = testZonedDateTime.toInstant()
-      expect(result!.zonedDateTime!.toInstant().equals(originalInstant)).toBe(
-        true,
-      )
+      expect(result!.zonedDateTime!.equals(testInstant)).toBe(true)
+      expect(result!.zonedDateTimeWithPrecision!.equals(testInstant)).toBe(true)
     })
 
     it('should apply configured millisecond precision', async () => {
-      const testZonedDateTime = TemporalImpl.ZonedDateTime.from(
-        '2023-07-25T14:30:45.1234[America/New_York]',
-      )
+      const testInstant = TemporalImpl.Instant.from('2023-07-25T18:30:45.1234Z')
 
       await db.insert(temporalTable).values({
-        zonedDateTimeWithPrecision: testZonedDateTime,
+        zonedDateTimeWithPrecision: testInstant,
       })
 
       const [result] = await db
@@ -274,33 +261,14 @@ describe('Temporal Column Types', () => {
         .from(temporalTable)
         .limit(1)
 
-      expect(result!.zonedDateTimeWithPrecision!.timeZoneId).toBe('UTC')
-      expect(result!.zonedDateTimeWithPrecision!.millisecond).toBe(123)
-      expect(result!.zonedDateTimeWithPrecision!.microsecond).toBe(0)
-      expect(result!.zonedDateTimeWithPrecision!.nanosecond).toBe(0)
-    })
-
-    it('should work with ZonedDateTime JSON fix using the global Temporal', () => {
-      const originalToJSON = TemporalImpl.ZonedDateTime.prototype.toJSON
-
-      try {
-        const zdt = TemporalImpl.ZonedDateTime.from(
-          '2023-07-25T10:00:00[America/New_York]',
-        )
-
-        expect(JSON.stringify(zdt)).toMatch(/\[America\/New_York\]/)
-
-        _registerZonedDateTimeJSONFix(TemporalImpl)
-
-        const jsonString = JSON.stringify(zdt)
-
-        expect(jsonString).not.toMatch(/\[America\/New_York\]/)
-        expect(jsonString).toMatch(
-          /^"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}"$/,
-        )
-      } finally {
-        TemporalImpl.ZonedDateTime.prototype.toJSON = originalToJSON
-      }
+      expect(result!.zonedDateTimeWithPrecision).toBeInstanceOf(
+        TemporalImpl.Instant,
+      )
+      expect(
+        result!.zonedDateTimeWithPrecision!.equals(
+          TemporalImpl.Instant.from('2023-07-25T18:30:45.123Z'),
+        ),
+      ).toBe(true)
     })
   })
 
@@ -454,11 +422,9 @@ describe('Integration Tests', () => {
       plainDateTimeWithPrecision: TemporalImpl.PlainDateTime.from(
         '2023-07-25T14:30:45.123456',
       ),
-      zonedDateTime: TemporalImpl.ZonedDateTime.from(
-        '2023-07-25T14:30:45[America/New_York]',
-      ),
-      zonedDateTimeWithPrecision: TemporalImpl.ZonedDateTime.from(
-        '2023-07-25T14:30:45.123[Europe/London]',
+      zonedDateTime: TemporalImpl.Instant.from('2023-07-25T18:30:45Z'),
+      zonedDateTimeWithPrecision: TemporalImpl.Instant.from(
+        '2023-07-25T13:30:45.123Z',
       ),
       duration: TemporalImpl.Duration.from('PT2H30M'),
       durationWithFields: TemporalImpl.Duration.from('PT1H45M'),
@@ -492,8 +458,14 @@ describe('Integration Tests', () => {
     expect(record.plainDateTime).toBeInstanceOf(TemporalImpl.PlainDateTime)
     expect(record.plainDateTime!.toString()).toBe('2023-07-25T14:30:45')
 
-    expect(record.zonedDateTime).toBeInstanceOf(TemporalImpl.ZonedDateTime)
-    expect(record.zonedDateTime!.timeZoneId).toBe('UTC')
+    expect(record.zonedDateTime).toBeInstanceOf(TemporalImpl.Instant)
+    expect(record.zonedDateTime!.toString()).toBe('2023-07-25T18:30:45Z')
+    expect(record.zonedDateTimeWithPrecision).toBeInstanceOf(
+      TemporalImpl.Instant,
+    )
+    expect(record.zonedDateTimeWithPrecision!.toString()).toBe(
+      '2023-07-25T13:30:45.123Z',
+    )
 
     expect(record.duration).toBeInstanceOf(TemporalImpl.Duration)
     expect(record.duration!.hours).toBe(2)
@@ -543,7 +515,8 @@ describe('Integration Tests', () => {
     expect(record.plainDate!.toString()).toBe('2023-07-25')
     expect(record.plainTime!.toString()).toBe('14:30:45.123')
     expect(record.plainDateTime!.toString()).toBe('2023-07-25T14:30:45.123456')
-    expect(record.zonedDateTime!.timeZoneId).toBe('UTC')
+    expect(record.zonedDateTime).toBeInstanceOf(TemporalImpl.Instant)
+    expect(record.zonedDateTime!.toString()).toBe('2023-07-25T18:30:45.123Z')
     expect(record.duration!.hours).toBe(2)
     expect(record.duration!.minutes).toBe(30)
     expect(record.duration!.seconds).toBe(15)
