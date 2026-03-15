@@ -11,11 +11,11 @@ import {
 describe('JSON Common Types and Utilities', () => {
   describe('Type Utilities', () => {
     it('SQLJSONExtractType extracts correct types', () => {
-      const sqlExpr = sql<{
+      const _sqlExpr = sql<{
         test: string
         num: number
       }>`'{"test": "value", "num": 42}'::jsonb`
-      type ExtractedType = SQLJSONExtractType<typeof sqlExpr>
+      type ExtractedType = SQLJSONExtractType<typeof _sqlExpr>
       expectTypeOf<ExtractedType>().toEqualTypeOf<{
         test: string
         num: number
