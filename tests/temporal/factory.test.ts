@@ -88,15 +88,20 @@ describe('Temporal Factory Tests', () => {
   })
 
   it('should support factory-created columns with a caller-provided Temporal implementation', async () => {
+    const testInstant = PolyfillTemporal.Instant.from(
+      '2023-08-15T09:10:11.1234Z',
+    )
+    const persistedInstant = PolyfillTemporal.Instant.from(
+      '2023-08-15T09:10:11.123Z',
+    )
+
     await db.insert(factoryTemporalTable).values({
       plainDate: PolyfillTemporal.PlainDate.from('2023-08-15'),
       plainTime: PolyfillTemporal.PlainTime.from('09:10:11.1234'),
       plainDateTime: PolyfillTemporal.PlainDateTime.from(
         '2023-08-15T09:10:11.123456',
       ),
-      zonedDateTime: PolyfillTemporal.ZonedDateTime.from(
-        '2023-08-15T09:10:11.1234[America/New_York]',
-      ),
+      zonedDateTime: testInstant,
       duration: PolyfillTemporal.Duration.from('PT1H2M3.674S'),
       yearMonthValue: PolyfillTemporal.PlainYearMonth.from('2023-08'),
       monthDayValue: PolyfillTemporal.PlainMonthDay.from('08-15'),
@@ -108,8 +113,8 @@ describe('Temporal Factory Tests', () => {
     expect(result!.plainDate?.toString()).toBe('2023-08-15')
     expect(result!.plainTime).toBeInstanceOf(PolyfillTemporal.PlainTime)
     expect(result!.plainDateTime).toBeInstanceOf(PolyfillTemporal.PlainDateTime)
-    expect(result!.zonedDateTime).toBeInstanceOf(PolyfillTemporal.ZonedDateTime)
-    expect(result!.zonedDateTime?.timeZoneId).toBe('UTC')
+    expect(result!.zonedDateTime).toBeInstanceOf(PolyfillTemporal.Instant)
+    expect(result!.zonedDateTime?.equals(persistedInstant)).toBe(true)
     expect(result!.duration).toBeInstanceOf(PolyfillTemporal.Duration)
     expect(result!.yearMonthValue).toBeInstanceOf(
       PolyfillTemporal.PlainYearMonth,

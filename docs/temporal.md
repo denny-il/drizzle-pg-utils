@@ -52,7 +52,7 @@ There are three ways to import Temporal helpers, depending on your runtime and p
 
 | Import path | Use it when | Exports |
 | --- | --- | --- |
-| `@denny-il/drizzle-pg-utils/temporal` | You want to bind helpers yourself. | `create*` factories, shared types, `_registerZonedDateTimeJSONFix()` |
+| `@denny-il/drizzle-pg-utils/temporal` | You want to bind helpers yourself. | `create*` factories, shared types |
 | `@denny-il/drizzle-pg-utils/temporal/global` | Your runtime already has `globalThis.Temporal`, or you install a global polyfill yourself. | Prebound helpers using `globalThis.Temporal` |
 | `@denny-il/drizzle-pg-utils/temporal/polyfill` | You want helpers already bound to `temporal-polyfill` without touching globals. | Prebound helpers using `temporal-polyfill` |
 
@@ -99,7 +99,7 @@ const events = pgTable('events', {
 await db.insert(events).values({
   name: 'Planning session',
   scheduledAt: Temporal.PlainDateTime.from('2026-03-15T09:30:00'),
-  createdAt: Temporal.ZonedDateTime.from('2026-03-15T09:30:00+01:00[Europe/Kyiv]'),
+  createdAt: Temporal.Instant.from('2026-03-15T08:30:00Z'),
   eventDate: Temporal.PlainDate.from('2026-03-15'),
   startTime: Temporal.PlainTime.from('09:30:00'),
   duration: Temporal.Duration.from('PT45M'),
@@ -127,7 +127,7 @@ SET intervalstyle = 'iso_8601';
 | Helper | Temporal value | PostgreSQL type | Notes |
 | --- | --- | --- | --- |
 | `timestamp` | `Temporal.PlainDateTime` | `timestamp[(precision)]` | No timezone |
-| `timestampz` | `Temporal.ZonedDateTime` | `timestamp[(precision)] with time zone` | Reads back as UTC |
+| `timestampz` | `Temporal.Instant` | `timestamp[(precision)] with time zone` | Stores an absolute instant |
 | `plainDate` | `Temporal.PlainDate` | `date` | Date only |
 | `time` | `Temporal.PlainTime` | `time[(precision)]` | Time only |
 | `interval` | `Temporal.Duration` | `interval[fields][(precision)]` | Requires `intervalstyle = 'iso_8601'` |
@@ -136,29 +136,27 @@ SET intervalstyle = 'iso_8601';
 
 ## Important Behavior
 
-### `timestampz` stores an instant, not a named timezone
+### `timestampz` stores an instant
 
-When you write a `Temporal.ZonedDateTime`, PostgreSQL stores the instant. When you read it back, this package returns a `Temporal.ZonedDateTime` in `UTC`.
+`timestampz` maps directly to `Temporal.Instant`. If you already have a `Temporal.ZonedDateTime`, convert it with `.toInstant()` before writing.
 
 ```typescript
-const input = Temporal.ZonedDateTime.from(
-  '2026-03-15T09:30:00+01:00[Europe/Kyiv]',
-)
+const input = Temporal.ZonedDateTime.from('2026-03-15T09:30:00+01:00[Europe/Kyiv]')
 
-await db.insert(events).values({ createdAt: input })
+await db.insert(events).values({ createdAt: input.toInstant() })
 
 const [row] = await db
   .select({ createdAt: events.createdAt })
   .from(events)
 
-row!.createdAt.timeZoneId
-// 'UTC'
+row!.createdAt instanceof Temporal.Instant
+// true
 
-row!.createdAt.toInstant().equals(input.toInstant())
+row!.createdAt.equals(input.toInstant())
 // true
 ```
 
-If you need a user-facing timezone again, convert on the application side with `.withTimeZone(...)`.
+If you need a user-facing timezone again, convert on the application side with `.toZonedDateTimeISO(...)`.
 
 ### `interval` depends on PostgreSQL output format
 
@@ -181,18 +179,6 @@ These two helpers store strings and decode them back into Temporal values.
 - `yearMonth.constraints(...)` validates the `YYYY-MM` shape.
 - `monthDay.constraints(...)` validates the `MM-DD` shape.
 - The checks are useful, but they are still shape checks. Invalid calendar values can still fail later during Temporal parsing.
-
-### JSON serialization fix is opt-in
-
-`timestampz` database writes already serialize correctly. `_registerZonedDateTimeJSONFix()` only matters if you also want `JSON.stringify(...)` to omit the bracketed timezone name.
-
-```typescript
-import { _registerZonedDateTimeJSONFix } from '@denny-il/drizzle-pg-utils/temporal'
-
-_registerZonedDateTimeJSONFix()
-```
-
-Pass a Temporal implementation explicitly if you are not using `globalThis.Temporal`.
 
 ## Factories and Serialization Defaults
 
@@ -238,4 +224,3 @@ Every `create*` helper returns the same helper shape as the prebound entrypoints
 - `createTimestamp(Temporal, options?)`
 - `createTimestampz(Temporal, options?)`
 - `createYearMonth(Temporal, options?)`
-- `_registerZonedDateTimeJSONFix(Temporal?)`
