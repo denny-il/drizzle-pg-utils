@@ -14,9 +14,9 @@ npm install @denny-il/drizzle-pg-utils
 ### Query Example (Select + Update)
 
 ```typescript
-import { sql, eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { jsonb, pgTable, serial, text } from 'drizzle-orm/pg-core'
-import json from '@denny-il/drizzle-pg-utils/json'
+import { json } from '@denny-il/drizzle-pg-utils'
 
 type Profile = {
   user: {
@@ -62,16 +62,12 @@ await db
 ## Features
 
 ### JSON Utilities
-- 🎯 **Type-safe JSONB operations** - Full TypeScript support with proper type inference
-- 🔍 **JSON accessor** - Navigate nested JSON structures with dot notation WITHOUT any runtime schema
-- ✏️ **JSON setter** - Update JSON values at specific paths with default value support for optional properties
-- 🔄 **JSON merge** - Merge JSON objects and arrays following PostgreSQL semantics
-- 📦 **Array operations** - Push, set, and delete array elements
-- 🛡️ **Null safety** - Proper handling of SQL NULL and JSON null values
-- ⚠️ **Compatibility** - Requires runtime with [Proxy](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy#browser_compatibility) support
+- Access nested JSONB paths with full TypeScript inference and no runtime schema.
+- Update deep branches atomically with `set(...)` and `setPipe(...)`.
+- Build, merge, coalesce, and modify arrays with typed SQL helpers.
 
 ```typescript
-import json from '@denny-il/drizzle-pg-utils/json'
+import { json } from '@denny-il/drizzle-pg-utils'
 
 // Access nested properties with type safety
 const accessor = json.access(users.profile)
@@ -83,12 +79,9 @@ const updated = setter.user.name.$set('New Name')
 ```
 
 ### Temporal Utilities
-- ⏰ **[Temporal API](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal) support** - Modern date/time API
-- 📅 **PostgreSQL integration** - Direct mapping between Temporal types and PostgreSQL date/time types
-- 🔧 **Custom column types** - Ready-to-use Drizzle column definitions
-- ✅ **Type safety** - Full TypeScript support for all temporal operations
-- 🛡️ **Format validation** - Built-in constraints for text-based temporal types
-- ⚠️ **Compatibility** - Choose prebound helpers from `/temporal/global` or `/temporal/polyfill`, or bind your own implementation with the exported `create*` factories
+- Map PostgreSQL date and time columns directly to Temporal values.
+- Choose any of the three equal entrypoints: `/temporal`, `/temporal/global`, or `/temporal/polyfill`.
+- Add optional database constraints for `yearMonth` and `monthDay` text columns.
 
 ```typescript
 import { timestamp, timestampz } from '@denny-il/drizzle-pg-utils/temporal/global'
@@ -100,20 +93,12 @@ const events = pgTable('events', {
 })
 ```
 
-If you do not want to rely on a global `Temporal`, import your implementation yourself and create bound helpers:
-
-```typescript
-import { Temporal } from 'temporal-polyfill'
-import { createInterval, createTimestampz } from '@denny-il/drizzle-pg-utils/temporal'
-
-const interval = createInterval(Temporal)
-const timestampz = createTimestampz(Temporal)
-```
+See `docs/temporal.md` for setup choices, runtime behavior, and examples.
 
 ## Documentation
 
-- **[JSON Utilities](./doc/json.md)** - Complete guide to JSON operations
-- **[Temporal Utilities](./doc/temporal.md)** - Working with PostgreSQL date/time types using Temporal API
+- **[JSON Utilities](./docs/json.md)** - Complete guide to JSON operations
+- **[Temporal Utilities](./docs/temporal.md)** - Working with PostgreSQL date/time types using Temporal API
 
 ## License
 
