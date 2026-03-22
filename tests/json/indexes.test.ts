@@ -131,10 +131,6 @@ describe('JSONB Index Compatibility', () => {
     const indexName = `${tableName}_gin_idx`
     const kindAccessor = jsonAccess(indexedTable.data).kind.$text
 
-    await db.$client.exec(
-      `create index "${indexName}" on "${tableName}" using gin (data);`,
-    )
-
     const query = sql`
       select ${kindAccessor} as kind
       from ${indexedTable}
@@ -147,26 +143,28 @@ describe('JSONB Index Compatibility', () => {
       where ${indexedTable.data} @> ${jsonbLiteral({ kind: 'alpha' })}
     `
 
+    // Verify correctness without any index (seqscan baseline).
     const [baselineCount] = await runQuery<{ match_count: number }>(countQuery)
+    const [baselineRow] = await runQuery<{ kind: string }>(query)
+
+    expect(baselineCount?.match_count).toBe(100)
+    expect(baselineRow?.kind).toBe('alpha')
+
+    await db.$client.exec(
+      `create index "${indexName}" on "${tableName}" using gin (data);`,
+    )
 
     const plan = await explainQuery(query)
     const [row] = await runQuery<{ kind: string }>(query)
-    const [indexedCount] = await runQuery<{ match_count: number }>(countQuery)
 
-    expect(baselineCount?.match_count).toBe(100)
     expect(findIndexNames(plan)).toContain(indexName)
     expect(row?.kind).toBe('alpha')
-    expect(indexedCount?.match_count).toBe(100)
   })
 
   it('works with jsonb_path_ops indexes for nested containment queries', async () => {
     const { indexedTable, tableName } = await createSeededTable('path')
     const indexName = `${tableName}_path_idx`
     const emailAccessor = jsonAccess(indexedTable.data).profile.email.$text
-
-    await db.$client.exec(
-      `create index "${indexName}" on "${tableName}" using gin (data jsonb_path_ops);`,
-    )
 
     const query = sql`
       select ${emailAccessor} as email
@@ -183,16 +181,22 @@ describe('JSONB Index Compatibility', () => {
       })}
     `
 
+    // Verify correctness without any index (seqscan baseline).
     const [baselineCount] = await runQuery<{ match_count: number }>(countQuery)
+    const [baselineRow] = await runQuery<{ email: string }>(query)
+
+    expect(baselineCount?.match_count).toBe(1)
+    expect(baselineRow?.email).toBe('user42@example.com')
+
+    await db.$client.exec(
+      `create index "${indexName}" on "${tableName}" using gin (data jsonb_path_ops);`,
+    )
 
     const plan = await explainQuery(query)
     const [row] = await runQuery<{ email: string }>(query)
-    const [indexedCount] = await runQuery<{ match_count: number }>(countQuery)
 
-    expect(baselineCount?.match_count).toBe(1)
     expect(findIndexNames(plan)).toContain(indexName)
     expect(row?.email).toBe('user42@example.com')
-    expect(indexedCount?.match_count).toBe(1)
   })
 
   it('supports btree expression indexes built from jsonAccess $text expressions', async () => {
@@ -251,15 +255,25 @@ describe('JSONB Index Compatibility', () => {
 
     expect(indexExpression).toBe(`jsonb_extract_path(data, 'tags')`)
 
+    // Verify correctness without any index (seqscan baseline).
+    const baselineRows = await runQuery<{
+      first_tag_name: string
+      second_tag_name: string
+    }>(baselineQuery)
+
+    expect(baselineRows).toHaveLength(20)
+    expect(new Set(baselineRows.map((row) => row.first_tag_name))).toEqual(
+      new Set(['tag3']),
+    )
+    expect(new Set(baselineRows.map((row) => row.second_tag_name))).toEqual(
+      new Set(['common']),
+    )
+
     await db.$client.exec(
       `create index "${indexName}" on "${tableName}" using gin ((${indexExpression}));`,
     )
     const registeredExpression = await getRegisteredIndexExpression(indexName)
 
-    const baselineRows = await runQuery<{
-      first_tag_name: string
-      second_tag_name: string
-    }>(baselineQuery)
     const plan = await explainQuery(baselineQuery)
     const indexedRows = await runQuery<{
       first_tag_name: string
@@ -268,13 +282,6 @@ describe('JSONB Index Compatibility', () => {
 
     expect(registeredExpression).toBe(
       `jsonb_extract_path(data, VARIADIC ARRAY['tags'::text])`,
-    )
-    expect(baselineRows).toHaveLength(20)
-    expect(new Set(baselineRows.map((row) => row.first_tag_name))).toEqual(
-      new Set(['tag3']),
-    )
-    expect(new Set(baselineRows.map((row) => row.second_tag_name))).toEqual(
-      new Set(['common']),
     )
     expect(findIndexNames(plan)).toContain(indexName)
     expect(indexedRows).toEqual(baselineRows)
