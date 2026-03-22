@@ -1,6 +1,7 @@
+import { randomUUID } from 'node:crypto'
 import { type SQLWrapper, sql } from 'drizzle-orm'
 import { jsonb, pgTable } from 'drizzle-orm/pg-core'
-import { beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { jsonAccess } from '../../src/json/operations/access.ts'
 import { createDatabase, dialect } from '../utils.ts'
 
@@ -17,24 +18,43 @@ type IndexedJsonDocument = {
 }
 
 let db: Awaited<ReturnType<typeof createDatabase>>
+const createdTables: string[] = []
+const tableNameSuffixLength = 8
 
 beforeAll(async () => {
   db = await createDatabase()
-  await db.$client.exec('set enable_seqscan = off;')
+})
+
+afterAll(async () => {
+  if (createdTables.length === 0) return
+
+  await db.$client.exec(
+    createdTables
+      .map((tableName) => `drop table if exists "${tableName}";`)
+      .join('\n'),
+  )
 })
 
 const jsonbLiteral = (value: unknown) => sql`${JSON.stringify(value)}::jsonb`
 
 const explainQuery = async (query: SQLWrapper) => {
   const compiled = dialect.sqlToQuery(query)
-  const result = await db.$client.query(
-    `explain ${compiled.sql}`,
-    compiled.params,
-  )
+  // Disable sequential scans only while collecting the plan so these tests
+  // can assert that the relevant index shape is usable.
+  await db.$client.exec('set enable_seqscan = off;')
 
-  return result.rows
-    .map((row) => String((row as Record<string, unknown>)['QUERY PLAN']))
-    .join('\n')
+  try {
+    const result = await db.$client.query(
+      `explain ${compiled.sql}`,
+      compiled.params,
+    )
+
+    return result.rows
+      .map((row) => String((row as Record<string, unknown>)['QUERY PLAN']))
+      .join('\n')
+  } finally {
+    await db.$client.exec('set enable_seqscan = on;')
+  }
 }
 
 const runQuery = async <TRow extends Record<string, unknown>>(
@@ -46,7 +66,7 @@ const runQuery = async <TRow extends Record<string, unknown>>(
 }
 
 const createSeededTable = async (suffix: string) => {
-  const tableName = `jsonb_index_${suffix}`
+  const tableName = `jsonb_idx_${suffix}_${randomUUID().replaceAll('-', '').slice(0, tableNameSuffixLength)}`
   const indexedTable = pgTable(tableName, {
     data: jsonb('data').$type<IndexedJsonDocument>().notNull(),
   })
@@ -72,6 +92,7 @@ const createSeededTable = async (suffix: string) => {
     )
     from generate_series(1, 200) as g;
   `)
+  createdTables.push(tableName)
 
   return { indexedTable, tableName }
 }
@@ -79,7 +100,7 @@ const createSeededTable = async (suffix: string) => {
 describe('JSONB Index Compatibility', () => {
   it('works with default GIN indexes on the full jsonb column', async () => {
     const { indexedTable, tableName } = await createSeededTable('gin')
-    const indexName = `${tableName}_data_gin_idx`
+    const indexName = `${tableName}_gin_idx`
     const kindAccessor = jsonAccess(indexedTable.data).kind.$text
 
     await db.$client.exec(
@@ -101,8 +122,8 @@ describe('JSONB Index Compatibility', () => {
   })
 
   it('works with jsonb_path_ops indexes for nested containment queries', async () => {
-    const { indexedTable, tableName } = await createSeededTable('path_ops')
-    const indexName = `${tableName}_data_path_ops_idx`
+    const { indexedTable, tableName } = await createSeededTable('path')
+    const indexName = `${tableName}_path_idx`
     const emailAccessor = jsonAccess(indexedTable.data).profile.email.$text
 
     await db.$client.exec(
@@ -125,8 +146,8 @@ describe('JSONB Index Compatibility', () => {
   })
 
   it('supports btree expression indexes built from jsonAccess $text expressions', async () => {
-    const { indexedTable, tableName } = await createSeededTable('btree_expr')
-    const indexName = `${tableName}_profile_email_idx`
+    const { indexedTable, tableName } = await createSeededTable('text')
+    const indexName = `${tableName}_email_idx`
     const emailAccessor = jsonAccess(indexedTable.data).profile.email.$text
     const indexExpression = dialect.sqlToQuery(
       jsonAccess(sql<IndexedJsonDocument>`data`).profile.email.$text,
@@ -150,8 +171,8 @@ describe('JSONB Index Compatibility', () => {
   })
 
   it('supports GIN expression indexes built from jsonAccess $value expressions', async () => {
-    const { indexedTable, tableName } = await createSeededTable('gin_expr')
-    const indexName = `${tableName}_tags_gin_idx`
+    const { indexedTable, tableName } = await createSeededTable('value')
+    const indexName = `${tableName}_tags_idx`
     const tagsAccessor = jsonAccess(indexedTable.data).tags.$value
     const secondTagName = jsonAccess(indexedTable.data).tags['1'].name.$text
     const indexExpression = dialect.sqlToQuery(
