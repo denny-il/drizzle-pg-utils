@@ -17,6 +17,11 @@ type IndexedJsonDocument = {
   }
 }
 
+type ExplainPlanNode = {
+  'Index Name'?: string
+  Plans?: ExplainPlanNode[]
+}
+
 let db: Awaited<ReturnType<typeof createDatabase>>
 const createdTables: string[] = []
 const tableNameSuffixLength = 8
@@ -39,21 +44,24 @@ const jsonbLiteral = (value: unknown) => sql`${JSON.stringify(value)}::jsonb`
 
 const explainQuery = async (query: SQLWrapper) => {
   const compiled = dialect.sqlToQuery(query)
-  // Disable sequential scans only while collecting the plan so these tests
-  // can assert that the relevant index shape is usable.
-  await db.$client.exec('set enable_seqscan = off;')
+  await db.$client.exec('begin')
 
   try {
+    // Keep the planner override transaction-scoped so it cannot leak into the
+    // query correctness checks that run outside EXPLAIN.
+    await db.$client.exec('set local enable_seqscan = off;')
     const result = await db.$client.query(
-      `explain ${compiled.sql}`,
+      `explain (format json) ${compiled.sql}`,
       compiled.params,
     )
 
-    return result.rows
-      .map((row) => String((row as Record<string, unknown>)['QUERY PLAN']))
-      .join('\n')
+    return (
+      (result.rows[0] as Record<string, any>)['QUERY PLAN'] as Array<{
+        Plan: ExplainPlanNode
+      }>
+    )[0]!.Plan
   } finally {
-    await db.$client.exec('set enable_seqscan = on;')
+    await db.$client.exec('rollback')
   }
 }
 
@@ -65,6 +73,25 @@ const runQuery = async <TRow extends Record<string, unknown>>(
   return result.rows as TRow[]
 }
 
+const findIndexNames = (plan: ExplainPlanNode): string[] => [
+  ...(plan['Index Name'] ? [plan['Index Name']] : []),
+  ...(plan.Plans?.flatMap(findIndexNames) ?? []),
+]
+
+const getRegisteredIndexExpression = async (indexName: string) => {
+  const result = await db.$client.query(
+    `
+      select pg_get_expr(i.indexprs, i.indrelid) as expression
+      from pg_index i
+      join pg_class c on c.oid = i.indexrelid
+      where c.relname = $1
+    `,
+    [indexName],
+  )
+
+  return result.rows[0]?.expression as string | undefined
+}
+
 const createSeededTable = async (suffix: string) => {
   const tableName = `jsonb_idx_${suffix}_${randomUUID().replaceAll('-', '').slice(0, tableNameSuffixLength)}`
   const indexedTable = pgTable(tableName, {
@@ -73,7 +100,6 @@ const createSeededTable = async (suffix: string) => {
 
   await db.$client.exec(`
     create table "${tableName}" (
-      id serial primary key,
       data jsonb not null
     );
 
@@ -113,12 +139,22 @@ describe('JSONB Index Compatibility', () => {
       where ${indexedTable.data} @> ${jsonbLiteral({ kind: 'alpha' })}
       limit 1
     `
+    const countQuery = sql`
+      select count(*)::int as match_count
+      from ${indexedTable}
+      where ${indexedTable.data} @> ${jsonbLiteral({ kind: 'alpha' })}
+    `
+
+    const [baselineCount] = await runQuery<{ match_count: number }>(countQuery)
 
     const plan = await explainQuery(query)
     const [row] = await runQuery<{ kind: string }>(query)
+    const [indexedCount] = await runQuery<{ match_count: number }>(countQuery)
 
-    expect(plan).toContain(indexName)
+    expect(baselineCount?.match_count).toBe(100)
+    expect(findIndexNames(plan)).toContain(indexName)
     expect(row?.kind).toBe('alpha')
+    expect(indexedCount?.match_count).toBe(100)
   })
 
   it('works with jsonb_path_ops indexes for nested containment queries', async () => {
@@ -137,12 +173,24 @@ describe('JSONB Index Compatibility', () => {
         profile: { email: 'user42@example.com' },
       })}
     `
+    const countQuery = sql`
+      select count(*)::int as match_count
+      from ${indexedTable}
+      where ${indexedTable.data} @> ${jsonbLiteral({
+        profile: { email: 'user42@example.com' },
+      })}
+    `
+
+    const [baselineCount] = await runQuery<{ match_count: number }>(countQuery)
 
     const plan = await explainQuery(query)
     const [row] = await runQuery<{ email: string }>(query)
+    const [indexedCount] = await runQuery<{ match_count: number }>(countQuery)
 
-    expect(plan).toContain(indexName)
+    expect(baselineCount?.match_count).toBe(1)
+    expect(findIndexNames(plan)).toContain(indexName)
     expect(row?.email).toBe('user42@example.com')
+    expect(indexedCount?.match_count).toBe(1)
   })
 
   it('supports btree expression indexes built from jsonAccess $text expressions', async () => {
@@ -152,21 +200,32 @@ describe('JSONB Index Compatibility', () => {
     const indexExpression = dialect.sqlToQuery(
       jsonAccess(sql<IndexedJsonDocument>`data`).profile.email.$text,
     ).sql
-
-    await db.$client.exec(
-      `create index "${indexName}" on "${tableName}" (${indexExpression});`,
-    )
-
-    const query = sql`
+    const baselineQuery = sql`
       select ${emailAccessor} as email
       from ${indexedTable}
       where ${emailAccessor} = ${'user42@example.com'}
     `
 
-    const plan = await explainQuery(query)
-    const [row] = await runQuery<{ email: string }>(query)
+    expect(indexExpression).toBe(
+      `jsonb_extract_path_text(data, 'profile','email')`,
+    )
+    expect(await getRegisteredIndexExpression(indexName)).toBeUndefined()
 
-    expect(plan).toContain(indexName)
+    const baselineRows = await runQuery<{ email: string }>(baselineQuery)
+
+    await db.$client.exec(
+      `create index "${indexName}" on "${tableName}" (${indexExpression});`,
+    )
+    const registeredExpression = await getRegisteredIndexExpression(indexName)
+
+    const plan = await explainQuery(baselineQuery)
+    const [row] = await runQuery<{ email: string }>(baselineQuery)
+
+    expect(baselineRows).toEqual([{ email: 'user42@example.com' }])
+    expect(registeredExpression).toBe(
+      `jsonb_extract_path_text(data, VARIADIC ARRAY['profile'::text, 'email'::text])`,
+    )
+    expect(findIndexNames(plan)).toContain(indexName)
     expect(row?.email).toBe('user42@example.com')
   })
 
@@ -174,26 +233,48 @@ describe('JSONB Index Compatibility', () => {
     const { indexedTable, tableName } = await createSeededTable('value')
     const indexName = `${tableName}_tags_idx`
     const tagsAccessor = jsonAccess(indexedTable.data).tags.$value
+    const firstTagName = jsonAccess(indexedTable.data).tags['0'].name.$text
     const secondTagName = jsonAccess(indexedTable.data).tags['1'].name.$text
     const indexExpression = dialect.sqlToQuery(
       jsonAccess(sql<IndexedJsonDocument>`data`).tags.$value,
     ).sql
+    const baselineQuery = sql`
+      select
+        ${firstTagName} as first_tag_name,
+        ${secondTagName} as second_tag_name
+      from ${indexedTable}
+      where ${tagsAccessor} @> ${jsonbLiteral([{ name: 'tag3' }])}
+      order by ${firstTagName}, ${secondTagName}
+    `
+
+    expect(indexExpression).toBe(`jsonb_extract_path(data, 'tags')`)
 
     await db.$client.exec(
       `create index "${indexName}" on "${tableName}" using gin ((${indexExpression}));`,
     )
+    const registeredExpression = await getRegisteredIndexExpression(indexName)
 
-    const query = sql`
-      select ${secondTagName} as second_tag_name
-      from ${indexedTable}
-      where ${tagsAccessor} @> ${jsonbLiteral([{ name: 'common' }])}
-      limit 1
-    `
+    const baselineRows = await runQuery<{
+      first_tag_name: string
+      second_tag_name: string
+    }>(baselineQuery)
+    const plan = await explainQuery(baselineQuery)
+    const indexedRows = await runQuery<{
+      first_tag_name: string
+      second_tag_name: string
+    }>(baselineQuery)
 
-    const plan = await explainQuery(query)
-    const [row] = await runQuery<{ second_tag_name: string }>(query)
-
-    expect(plan).toContain(indexName)
-    expect(row?.second_tag_name).toBe('common')
+    expect(registeredExpression).toBe(
+      `jsonb_extract_path(data, VARIADIC ARRAY['tags'::text])`,
+    )
+    expect(baselineRows).toHaveLength(20)
+    expect(baselineRows.every((row) => row.first_tag_name === 'tag3')).toBe(
+      true,
+    )
+    expect(baselineRows.every((row) => row.second_tag_name === 'common')).toBe(
+      true,
+    )
+    expect(findIndexNames(plan)).toContain(indexName)
+    expect(indexedRows).toEqual(baselineRows)
   })
 })
