@@ -22,6 +22,12 @@ type ExplainPlanNode = {
   Plans?: ExplainPlanNode[]
 }
 
+type ExplainQueryRow = {
+  'QUERY PLAN': Array<{
+    Plan: ExplainPlanNode
+  }>
+}
+
 let db: Awaited<ReturnType<typeof createDatabase>>
 const createdTables: string[] = []
 const tableNameSuffixLength = 8
@@ -55,11 +61,7 @@ const explainQuery = async (query: SQLWrapper) => {
       compiled.params,
     )
 
-    return (
-      (result.rows[0] as Record<string, any>)['QUERY PLAN'] as Array<{
-        Plan: ExplainPlanNode
-      }>
-    )[0]!.Plan
+    return (result.rows[0] as ExplainQueryRow)['QUERY PLAN'][0]!.Plan
   } finally {
     await db.$client.exec('rollback')
   }
@@ -268,11 +270,11 @@ describe('JSONB Index Compatibility', () => {
       `jsonb_extract_path(data, VARIADIC ARRAY['tags'::text])`,
     )
     expect(baselineRows).toHaveLength(20)
-    expect(baselineRows.every((row) => row.first_tag_name === 'tag3')).toBe(
-      true,
+    expect(new Set(baselineRows.map((row) => row.first_tag_name))).toEqual(
+      new Set(['tag3']),
     )
-    expect(baselineRows.every((row) => row.second_tag_name === 'common')).toBe(
-      true,
+    expect(new Set(baselineRows.map((row) => row.second_tag_name))).toEqual(
+      new Set(['common']),
     )
     expect(findIndexNames(plan)).toContain(indexName)
     expect(indexedRows).toEqual(baselineRows)
