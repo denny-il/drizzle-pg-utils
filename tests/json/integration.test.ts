@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm'
+import { jsonb, pgTable, serial } from 'drizzle-orm/pg-core'
 import type { PgliteDatabase } from 'drizzle-orm/pglite'
-import { beforeAll, describe, expect, it } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { jsonAccess } from '../../src/json/operations/access.ts'
 import {
   jsonArrayDelete,
@@ -13,8 +14,32 @@ import { createDatabase, executeQuery } from '../utils.ts'
 
 let db: PgliteDatabase
 
+type JsonQueryProfile = {
+  user: { id: number; name: string }
+  settings?: { theme: string } | null
+}
+
+const jsonQueryTable = pgTable('json_query_test', {
+  id: serial('id').primaryKey(),
+  profile: jsonb('profile').$type<JsonQueryProfile>().notNull(),
+  tags: jsonb('tags').$type<string[]>().notNull(),
+  extras: jsonb('extras').$type<{ role: string } | null>(),
+})
+
 beforeAll(async () => {
   db = await createDatabase()
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS json_query_test (
+      id SERIAL PRIMARY KEY,
+      profile JSONB NOT NULL,
+      tags JSONB NOT NULL,
+      extras JSONB
+    )
+  `)
+})
+
+beforeEach(async () => {
+  await db.delete(jsonQueryTable)
 })
 
 describe('JSON Integration Tests', () => {
@@ -796,6 +821,95 @@ describe('JSON Integration Tests', () => {
       const result = await executeQuery(db, pushedArray)
 
       expect(result).toEqual([1, 2, 42])
+    })
+  })
+
+  describe('JSON utils with subqueries and CTEs', () => {
+    it('should work with fields selected from a subquery', async () => {
+      await db.insert(jsonQueryTable).values({
+        profile: { user: { id: 1, name: 'Jane' }, settings: { theme: 'light' } },
+        tags: ['base'],
+        extras: { role: 'admin' },
+      })
+
+      const source = db
+        .select({
+          profile: jsonQueryTable.profile,
+          tags: jsonQueryTable.tags,
+          extras: jsonQueryTable.extras,
+        })
+        .from(jsonQueryTable)
+        .as('json_source')
+
+      const [result] = await db
+        .select({
+          userName: jsonAccess(source.profile).user.name.$text,
+          promotedProfile: jsonSet(source.profile).user.id.$set(2),
+          mergedProfile: jsonMerge(
+            source.profile,
+            sql`'{"flags": {"active": true}}'::jsonb`,
+          ),
+          appendedTags: jsonArrayPush(source.tags, 'subquery'),
+          role: jsonAccess(source.extras).role.$text,
+        })
+        .from(source)
+
+      expect(result).toEqual({
+        userName: 'Jane',
+        promotedProfile: {
+          user: { id: 2, name: 'Jane' },
+          settings: { theme: 'light' },
+        },
+        mergedProfile: {
+          user: { id: 1, name: 'Jane' },
+          settings: { theme: 'light' },
+          flags: { active: true },
+        },
+        appendedTags: ['base', 'subquery'],
+        role: 'admin',
+      })
+    })
+
+    it('should work with fields selected from a CTE', async () => {
+      await db.insert(jsonQueryTable).values({
+        profile: { user: { id: 3, name: 'Sam' }, settings: null },
+        tags: ['draft', 'published'],
+        extras: null,
+      })
+
+      const jsonCte = db.$with('json_cte').as(
+        db
+          .select({
+            profile: jsonQueryTable.profile,
+            tags: jsonQueryTable.tags,
+            extras: jsonQueryTable.extras,
+          })
+          .from(jsonQueryTable),
+      )
+
+      const [result] = await db
+        .with(jsonCte)
+        .select({
+          defaultedProfile: jsonSet(jsonCte.profile)
+            .settings.$default({ theme: 'light' })
+            .theme.$set('dark'),
+          replacedTags: jsonArraySet(jsonCte.tags, 1, 'archived'),
+          trimmedTags: jsonArrayDelete(jsonArrayPush(jsonCte.tags, 'history'), 0),
+          role: jsonAccess(
+            jsonCoalesce(jsonCte.extras, sql`'{"role": "guest"}'::jsonb`),
+          ).role.$text,
+        })
+        .from(jsonCte)
+
+      expect(result).toEqual({
+        defaultedProfile: {
+          user: { id: 3, name: 'Sam' },
+          settings: { theme: 'dark' },
+        },
+        replacedTags: ['draft', 'archived'],
+        trimmedTags: ['published', 'history'],
+        role: 'guest',
+      })
     })
   })
 
