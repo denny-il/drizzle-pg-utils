@@ -8,6 +8,7 @@ import {
   jsonArrayPush,
   jsonArraySet,
 } from '../../src/json/operations/array.ts'
+import { jsonCoalesce } from '../../src/json/operations/coalesce.ts'
 import { jsonMerge } from '../../src/json/operations/merge.ts'
 import { jsonSet, jsonSetPipe } from '../../src/json/operations/set.ts'
 import { createDatabase, executeQuery } from '../utils.ts'
@@ -827,7 +828,10 @@ describe('JSON Integration Tests', () => {
   describe('JSON utils with subqueries and CTEs', () => {
     it('should work with fields selected from a subquery', async () => {
       await db.insert(jsonQueryTable).values({
-        profile: { user: { id: 1, name: 'Jane' }, settings: { theme: 'light' } },
+        profile: {
+          user: { id: 1, name: 'Jane' },
+          settings: { theme: 'light' },
+        },
         tags: ['base'],
         extras: { role: 'admin' },
       })
@@ -894,7 +898,10 @@ describe('JSON Integration Tests', () => {
             .settings.$default({ theme: 'light' })
             .theme.$set('dark'),
           replacedTags: jsonArraySet(jsonCte.tags, 1, 'archived'),
-          trimmedTags: jsonArrayDelete(jsonArrayPush(jsonCte.tags, 'history'), 0),
+          trimmedTags: jsonArrayDelete(
+            jsonArrayPush(jsonCte.tags, 'history'),
+            0,
+          ),
           role: jsonAccess(
             jsonCoalesce(jsonCte.extras, sql`'{"role": "guest"}'::jsonb`),
           ).role.$text,
