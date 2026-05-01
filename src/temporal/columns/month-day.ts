@@ -36,7 +36,7 @@ export function createMonthDay<T extends typeof globalThis.Temporal>(
     constraints: (column, name = `check_${column.name}_month_day_format`) => [
       check(
         name,
-        sql`(${column})::text ~ '^((0[1-9])|(1([0-2])))-((0[1-9])|([1-2][0-9])|(3[0-1]))$'`,
+        sql`(${column})::text ~ '^(((0[13578])|(1[02]))-((0[1-9])|([1-2][0-9])|(3[0-1]))|((0[469])|11)-((0[1-9])|([1-2][0-9])|30)|02-((0[1-9])|(1[0-9])|(2[0-9])))$'`,
       ),
     ],
   }

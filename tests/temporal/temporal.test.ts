@@ -74,8 +74,24 @@ beforeAll(async () => {
       duration_precision INTERVAL(2),
       year_month TEXT,
       month_day TEXT,
-      CONSTRAINT check_year_month_year_month_format CHECK ((year_month)::text ~ '^\\d{4}-((0[1-9])|(1([0-2])))$'),
-      CONSTRAINT check_month_day_month_day_format CHECK ((month_day)::text ~ '^((0[1-9])|(1([0-2])))-((0[1-9])|([1-2][0-9])|(3[0-1]))$')
+      CONSTRAINT check_year_month_year_month_format CHECK ((year_month)::text ~ '^(\\d{4}|[+]\\d{6}|-\\d{6})-((0[1-9])|(1([0-2])))$'
+        AND (year_month)::text !~ '^-000000-'
+        AND (
+          (year_month)::text ~ '^\\d{4}-'
+          OR (
+            substring((year_month)::text from 1 for 7)::integer > -271821
+            AND substring((year_month)::text from 1 for 7)::integer < 275760
+          )
+          OR (
+            substring((year_month)::text from 1 for 7)::integer = -271821
+            AND substring((year_month)::text from 9 for 2)::integer >= 4
+          )
+          OR (
+            substring((year_month)::text from 1 for 7)::integer = 275760
+            AND substring((year_month)::text from 9 for 2)::integer <= 9
+          )
+        )),
+      CONSTRAINT check_month_day_month_day_format CHECK ((month_day)::text ~ '^(((0[13578])|(1[02]))-((0[1-9])|([1-2][0-9])|(3[0-1]))|((0[469])|11)-((0[1-9])|([1-2][0-9])|30)|02-((0[1-9])|(1[0-9])|(2[0-9])))$')
     )
   `)
 
@@ -89,8 +105,24 @@ beforeAll(async () => {
       duration INTERVAL(2),
       year_month TEXT,
       month_day TEXT,
-      CONSTRAINT check_year_month_year_month_format CHECK ((year_month)::text ~ '^\\d{4}-((0[1-9])|(1([0-2])))$'),
-      CONSTRAINT check_month_day_month_day_format CHECK ((month_day)::text ~ '^((0[1-9])|(1([0-2])))-((0[1-9])|([1-2][0-9])|(3[0-1]))$')
+      CONSTRAINT check_year_month_year_month_format CHECK ((year_month)::text ~ '^(\\d{4}|[+]\\d{6}|-\\d{6})-((0[1-9])|(1([0-2])))$'
+        AND (year_month)::text !~ '^-000000-'
+        AND (
+          (year_month)::text ~ '^\\d{4}-'
+          OR (
+            substring((year_month)::text from 1 for 7)::integer > -271821
+            AND substring((year_month)::text from 1 for 7)::integer < 275760
+          )
+          OR (
+            substring((year_month)::text from 1 for 7)::integer = -271821
+            AND substring((year_month)::text from 9 for 2)::integer >= 4
+          )
+          OR (
+            substring((year_month)::text from 1 for 7)::integer = 275760
+            AND substring((year_month)::text from 9 for 2)::integer <= 9
+          )
+        )),
+      CONSTRAINT check_month_day_month_day_format CHECK ((month_day)::text ~ '^(((0[13578])|(1[02]))-((0[1-9])|([1-2][0-9])|(3[0-1]))|((0[469])|11)-((0[1-9])|([1-2][0-9])|30)|02-((0[1-9])|(1[0-9])|(2[0-9])))$')
     )
   `)
 })
@@ -360,6 +392,50 @@ describe('Temporal Column Types', () => {
         ),
       ).rejects.toThrow()
     })
+
+    it.each([
+      '0000-01',
+      '0001-01',
+      '9999-12',
+      '+010000-01',
+      '-000001-01',
+      '+275760-09',
+      '-271821-04',
+    ])('should accept edge year-month format %s', async (value) => {
+      await db.execute(
+        sql`INSERT INTO temporal_test (year_month) VALUES (${value})`,
+      )
+
+      const [result] = await db
+        .select({ yearMonthValue: temporalTable.yearMonthValue })
+        .from(temporalTable)
+        .limit(1)
+
+      expect(result!.yearMonthValue).toBeInstanceOf(TemporalImpl.PlainYearMonth)
+      expect(result!.yearMonthValue!.toString()).toBe(
+        TemporalImpl.PlainYearMonth.from(value).toString(),
+      )
+    })
+
+    it.each([
+      '1-01',
+      '001-01',
+      '10000-01',
+      '2023-1',
+      '2023-00',
+      '2023-13',
+      '-000000-01',
+      '+275760-10',
+      '+275761-01',
+      '-271821-03',
+      '-271822-12',
+    ])('should reject malformed year-month format %s', async (value) => {
+      await expect(
+        db.execute(
+          sql`INSERT INTO temporal_test (year_month) VALUES (${value})`,
+        ),
+      ).rejects.toThrow()
+    })
   })
 
   describe('monthDay column', () => {
@@ -396,17 +472,44 @@ describe('Temporal Column Types', () => {
       ).rejects.toThrow()
     })
 
-    it('should reject invalid calendar values when decoding stored text', async () => {
+    it.each([
+      '01-01',
+      '02-29',
+      '04-30',
+      '12-31',
+    ])('should accept edge month-day format %s', async (value) => {
       await db.execute(
-        sql`INSERT INTO temporal_test (month_day) VALUES ('02-31')`,
+        sql`INSERT INTO temporal_test (month_day) VALUES (${value})`,
       )
 
+      const [result] = await db
+        .select({ monthDayValue: temporalTable.monthDayValue })
+        .from(temporalTable)
+        .limit(1)
+
+      expect(result!.monthDayValue).toBeInstanceOf(TemporalImpl.PlainMonthDay)
+      expect(result!.monthDayValue!.toString()).toBe(value)
+    })
+
+    it.each([
+      '1-01',
+      '01-1',
+      '00-01',
+      '01-00',
+      '13-01',
+      '12-32',
+      '02-30',
+      '02-31',
+      '04-31',
+      '06-31',
+      '09-31',
+      '11-31',
+    ])('should reject malformed month-day format %s', async (value) => {
       await expect(
-        db
-          .select({ monthDayValue: temporalTable.monthDayValue })
-          .from(temporalTable)
-          .limit(1),
-      ).rejects.toThrow(/Invalid isoDay/)
+        db.execute(
+          sql`INSERT INTO temporal_test (month_day) VALUES (${value})`,
+        ),
+      ).rejects.toThrow()
     })
   })
 })
