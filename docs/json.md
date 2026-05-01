@@ -11,31 +11,40 @@ The JSON helpers work with both JSONB columns and ad hoc SQL expressions typed a
 ```typescript
 const profile = json.access(users.profile)
 
-const theme = profile.user.preferences.theme.$value
-const themeText = profile.user.preferences.theme.$text
-const firstTag = profile.user.preferences.tags['0'].$value
+const rows = await db
+  .select({
+    theme: profile.user.preferences.theme.$value,
+    themeText: profile.user.preferences.theme.$text,
+    firstTag: profile.user.preferences.tags['0'].$value,
+  })
+  .from(users)
 ```
 
 ### Atomic multi-step updates
 
 ```typescript
-const updatedProfile = json.setPipe(
-  users.profile,
-  (s) => s.user.preferences.$default({ theme: 'light', tags: [] }),
-  (s) => s.user.preferences.theme.$set('dark'),
-  (s) => s.user.preferences.tags['0'].$set('intro'),
-)
+await db.update(users).set({
+  profile: json.setPipe(
+    users.profile,
+    (s) => s.user.preferences.$default({ theme: 'light', tags: [] }),
+    (s) => s.user.preferences.theme.$set('dark'),
+    (s) => s.user.preferences.tags['0'].$set('intro'),
+  ),
+})
 ```
 
 ### Build and merge JSONB in SQL
 
 ```typescript
-const payload = json.build({
-  source: 'api',
-  tags: ['typescript', 'drizzle'],
+await db.update(users).set({
+  profile: json.merge(
+    users.profile,
+    json.build({
+      source: 'api',
+      tags: ['typescript', 'drizzle'],
+    }),
+  ),
 })
-
-const merged = json.merge(users.profile, payload)
 ```
 
 ## Choose an Import Style
@@ -59,7 +68,7 @@ npm install @denny-il/drizzle-pg-utils
 This example uses the root namespace import for consistency.
 
 ```typescript
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { jsonb, pgTable, serial, text } from 'drizzle-orm/pg-core'
 import { json } from '@denny-il/drizzle-pg-utils'
 
@@ -96,6 +105,97 @@ await db
       (s) => s.user.preferences.theme.$set('dark'),
       (s) => s.user.preferences.tags['0'].$set('intro'),
       (s) => s.metadata.$default({}).lastLogin.$set('2026-03-15T09:30:00Z'),
+    ),
+  })
+  .where(eq(users.id, darkUsers[0]!.id))
+```
+
+## Query Examples
+
+The helpers are meant to live inside normal Drizzle queries, not as separate object transforms.
+
+### Select and filter by nested JSONB value
+
+```typescript
+import { eq } from 'drizzle-orm'
+
+const profile = json.access(users.profile)
+
+const darkUsers = await db
+  .select({
+    id: users.id,
+    name: profile.user.name.$text,
+    theme: profile.user.preferences.theme.$value,
+  })
+  .from(users)
+  .where(eq(profile.user.preferences.theme.$value, 'dark'))
+```
+
+### Update nested JSONB values atomically
+
+```typescript
+await db
+  .update(users)
+  .set({
+    profile: json.setPipe(
+      users.profile,
+      (s) => s.user.preferences.$default({ theme: 'light', tags: [] }),
+      (s) => s.user.name.$set('Jane'),
+      (s) => s.user.preferences.theme.$set('dark'),
+      (s) => s.user.preferences.tags['0'].$set('intro'),
+    ),
+  })
+  .where(eq(users.id, darkUsers[0]!.id))
+```
+
+This follows the same pattern tested with `jsonSetPipe(...)`: every step sees the JSONB expression produced by the previous step.
+
+### Use SQL values inside JSON updates
+
+```typescript
+import { eq, sql } from 'drizzle-orm'
+
+await db
+  .update(users)
+  .set({
+    profile: json.set(users.profile).metadata.$default({}).lastLogin.$set(
+      sql`now()::text`,
+    ),
+  })
+  .where(eq(users.id, darkUsers[0]!.id))
+```
+
+### Build and merge JSONB in an update
+
+```typescript
+import { eq, sql } from 'drizzle-orm'
+
+await db
+  .update(users)
+  .set({
+    profile: json.merge(
+      users.profile,
+      json.build({
+        metadata: {
+          importedAt: sql`now()::text`,
+          source: 'api',
+        },
+      }),
+    ),
+  })
+  .where(eq(users.id, darkUsers[0]!.id))
+```
+
+### Update JSON arrays
+
+```typescript
+const tags = json.access(users.profile).user.preferences.tags.$value
+
+await db
+  .update(users)
+  .set({
+    profile: json.set(users.profile).user.preferences.tags.$set(
+      json.arrayPush(tags, 'drizzle'),
     ),
   })
   .where(eq(users.id, darkUsers[0]!.id))
@@ -165,10 +265,17 @@ That behavior is useful, but it also means `merge(...)` is not a plain wrapper a
 `build(...)` accepts plain JS values, nested objects, arrays, and SQL expressions, then turns them into JSONB SQL.
 
 ```typescript
-const auditEntry = json.build({
-  at: sql`now()::text`,
-  actorId: users.id,
-  action: 'profile-updated',
+await db.update(users).set({
+  profile: json.merge(
+    users.profile,
+    json.build({
+      audit: {
+        at: sql`now()::text`,
+        actorId: users.id,
+        action: 'profile-updated',
+      },
+    }),
+  ),
 })
 ```
 
@@ -181,39 +288,49 @@ That makes it a good companion for `set(...)`, `setPipe(...)`, and `merge(...)`.
 ```typescript
 const profile = json.access(users.profile)
 
-const rows = await db.select({
-  name: profile.user.name.$text,
-  theme: profile.user.preferences.theme.$value,
-})
+const rows = await db
+  .select({
+    name: profile.user.name.$text,
+    theme: profile.user.preferences.theme.$value,
+  })
+  .from(users)
 ```
 
 ### Update one path
 
 ```typescript
-const nextProfile = json
-  .set(users.profile)
-  .user.preferences.theme.$set('dark')
+await db
+  .update(users)
+  .set({
+    profile: json.set(users.profile).user.preferences.theme.$set('dark'),
+  })
+  .where(eq(users.id, userId))
 ```
 
 ### Update several paths in one expression
 
 ```typescript
-const nextProfile = json.setPipe(
-  users.profile,
-  (s) => s.user.name.$set('Den'),
-  (s) => s.user.preferences.$default({ theme: 'light', tags: [] }),
-  (s) => s.user.preferences.tags['0'].$set('postgres'),
-)
+await db.update(users).set({
+  profile: json.setPipe(
+    users.profile,
+    (s) => s.user.name.$set('Den'),
+    (s) => s.user.preferences.$default({ theme: 'light', tags: [] }),
+    (s) => s.user.preferences.tags['0'].$set('postgres'),
+  ),
+})
 ```
 
 ### Merge overlay data
 
 ```typescript
-const overlay = json.build({
-  metadata: { importedAt: '2026-03-15T09:30:00Z' },
+await db.update(users).set({
+  profile: json.merge(
+    users.profile,
+    json.build({
+      metadata: { importedAt: '2026-03-15T09:30:00Z' },
+    }),
+  ),
 })
-
-const merged = json.merge(users.profile, overlay)
 ```
 
 ### Work with arrays
@@ -221,9 +338,11 @@ const merged = json.merge(users.profile, overlay)
 ```typescript
 const tags = json.access(users.profile).user.preferences.tags.$value
 
-const appended = json.arrayPush(tags, 'drizzle')
-const replaced = json.arraySet(tags, 0, 'typescript')
-const removed = json.arrayDelete(tags, -1)
+await db.update(users).set({
+  profile: json.set(users.profile).user.preferences.tags.$set(
+    json.arrayPush(tags, 'drizzle'),
+  ),
+})
 ```
 
 ## Minimal Reference

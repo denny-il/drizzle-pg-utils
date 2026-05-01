@@ -176,9 +176,9 @@ intervalstyle = 'iso_8601'
 
 These two helpers store strings and decode them back into Temporal values.
 
-- `yearMonth.constraints(...)` validates the `YYYY-MM` shape.
-- `monthDay.constraints(...)` validates the `MM-DD` shape.
-- The checks are useful, but they are still shape checks. Invalid calendar values can still fail later during Temporal parsing.
+- `yearMonth.constraints(...)` validates Temporal-compatible `YYYY-MM` and signed expanded-year strings like `+010000-01`.
+- `monthDay.constraints(...)` validates Temporal-compatible `MM-DD` strings, including month-specific day bounds like `02-29` and rejecting `02-30`.
+- The checks are designed to match `Temporal.PlainYearMonth.from(...)` and `Temporal.PlainMonthDay.from(...)` string parsing for ISO values.
 
 ## Factories and Serialization Defaults
 
@@ -202,6 +202,75 @@ const interval = createInterval(Temporal, { smallestUnit: 'millisecond' })
 ```
 
 Every `create*` helper returns the same helper shape as the prebound entrypoints.
+
+## Query Examples
+
+### Insert and select Temporal values
+
+```typescript
+await db.insert(events).values({
+  eventDate: Temporal.PlainDate.from('2023-07-25'),
+  startTime: Temporal.PlainTime.from('14:30:45.123'),
+  scheduledAt: Temporal.PlainDateTime.from('2023-07-25T14:30:45.123456'),
+  createdAt: Temporal.Instant.from('2023-07-25T18:30:45.123Z'),
+  duration: Temporal.Duration.from('PT2H30M15S'),
+})
+
+const [event] = await db
+  .select({
+    eventDate: events.eventDate,
+    startTime: events.startTime,
+    scheduledAt: events.scheduledAt,
+    createdAt: events.createdAt,
+    duration: events.duration,
+  })
+  .from(events)
+  .limit(1)
+```
+
+Selected values decode back to Temporal instances.
+
+### Filter with Temporal values
+
+```typescript
+import { gte } from 'drizzle-orm'
+
+const upcoming = await db
+  .select({ eventDate: events.eventDate })
+  .from(events)
+  .where(gte(events.eventDate, Temporal.PlainDate.from('2023-06-01')))
+```
+
+### Insert SQL expressions into Temporal columns
+
+```typescript
+import { sql } from 'drizzle-orm'
+
+await db.insert(events).values({
+  eventDate: sql`DATE '2023-07-25'`,
+  startTime: sql`TIME '14:30:45.123'`,
+  scheduledAt: sql`TIMESTAMP '2023-07-25 14:30:45.123456'`,
+  createdAt: sql`TIMESTAMP WITH TIME ZONE '2023-07-25 14:30:45.123-04'`,
+  duration: sql`INTERVAL '2 hours 30 minutes 15 seconds'`,
+})
+```
+
+### Use partial-date constraints in table definitions
+
+```typescript
+const reports = pgTable(
+  'reports',
+  {
+    id: serial('id').primaryKey(),
+    reportMonth: yearMonth.column('report_month'),
+    holidayDate: monthDay.column('holiday_date'),
+  },
+  (table) => ({
+    ...yearMonth.constraints(table.reportMonth),
+    ...monthDay.constraints(table.holidayDate),
+  }),
+)
+```
 
 ## Minimal Reference
 
