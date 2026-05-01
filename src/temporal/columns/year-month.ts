@@ -34,7 +34,26 @@ export function createYearMonth<T extends typeof globalThis.Temporal>(
         val instanceof SQL ? val : val.toString({ ...options }),
     }),
     constraints: (column, name = `check_${column.name}_year_month_format`) => [
-      check(name, sql`(${column})::text ~ '^\\d{4}-((0[1-9])|(1([0-2])))$'`),
+      check(
+        name,
+        sql`(${column})::text ~ '^(\\d{4}|[+]\\d{6}|-\\d{6})-((0[1-9])|(1([0-2])))$'
+          AND (${column})::text !~ '^-000000-'
+          AND (
+            (${column})::text ~ '^\\d{4}-'
+            OR (
+              substring((${column})::text from 1 for 7)::integer > -271821
+              AND substring((${column})::text from 1 for 7)::integer < 275760
+            )
+            OR (
+              substring((${column})::text from 1 for 7)::integer = -271821
+              AND substring((${column})::text from 9 for 2)::integer >= 4
+            )
+            OR (
+              substring((${column})::text from 1 for 7)::integer = 275760
+              AND substring((${column})::text from 9 for 2)::integer <= 9
+            )
+          )`,
+      ),
     ],
   }
 }

@@ -63,8 +63,24 @@ beforeAll(async () => {
       duration INTERVAL(2),
       year_month TEXT,
       month_day TEXT,
-      CONSTRAINT check_year_month_year_month_format CHECK ((year_month)::text ~ '^\\d{4}-((0[1-9])|(1([0-2])))$'),
-      CONSTRAINT check_month_day_month_day_format CHECK ((month_day)::text ~ '^((0[1-9])|(1([0-2])))-((0[1-9])|([1-2][0-9])|(3[0-1]))$')
+      CONSTRAINT check_year_month_year_month_format CHECK ((year_month)::text ~ '^(\\d{4}|[+]\\d{6}|-\\d{6})-((0[1-9])|(1([0-2])))$'
+        AND (year_month)::text !~ '^-000000-'
+        AND (
+          (year_month)::text ~ '^\\d{4}-'
+          OR (
+            substring((year_month)::text from 1 for 7)::integer > -271821
+            AND substring((year_month)::text from 1 for 7)::integer < 275760
+          )
+          OR (
+            substring((year_month)::text from 1 for 7)::integer = -271821
+            AND substring((year_month)::text from 9 for 2)::integer >= 4
+          )
+          OR (
+            substring((year_month)::text from 1 for 7)::integer = 275760
+            AND substring((year_month)::text from 9 for 2)::integer <= 9
+          )
+        )),
+      CONSTRAINT check_month_day_month_day_format CHECK ((month_day)::text ~ '^(((0[13578])|(1[02]))-((0[1-9])|([1-2][0-9])|(3[0-1]))|((0[469])|11)-((0[1-9])|([1-2][0-9])|30)|02-((0[1-9])|(1[0-9])|(2[0-9])))$')
     )
   `)
 })
