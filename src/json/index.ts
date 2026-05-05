@@ -6,5 +6,6 @@ export {
 } from './operations/array.ts'
 export { jsonBuild as build } from './operations/build.ts'
 export { jsonCoalesce as coalesce } from './operations/coalesce.ts'
+export { jsonContains as contains } from './operations/contains.ts'
 export { jsonMerge as merge } from './operations/merge.ts'
 export { jsonSet as set, jsonSetPipe as setPipe } from './operations/set.ts'

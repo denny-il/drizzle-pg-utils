@@ -4,7 +4,7 @@
 
 ```typescript
 import { json } from '@denny-il/drizzle-pg-utils'
-import { access, setPipe, merge } from '@denny-il/drizzle-pg-utils/json'
+import { access, contains, setPipe, merge } from '@denny-il/drizzle-pg-utils/json'
 import { jsonSet } from '@denny-il/drizzle-pg-utils/json/set'
 ```
 
@@ -58,6 +58,8 @@ Use `.$default(...)` before writing through optional or nullable intermediate ob
 | `setPipe(source, ...ops)` | Chain multiple JSON updates |
 | `build(value)` | Convert JS values and SQL snippets into JSONB SQL |
 | `coalesce(source, fallback)` | Treat SQL `NULL` and JSON `null` as empty |
+| `contains(source)` | Typed JSONB containment builder; use `.$contains(...)` |
+| `contains(source, value)` | Direct JSONB root containment predicate |
 | `merge(left, right)` | Apply PostgreSQL JSONB `||` semantics with SQL `NULL` normalized |
 | `arrayPush(target, ...values)` | Append values to JSON array; nullish arrays become `[]` |
 | `arraySet(target, index, value)` | Replace array element; nullish arrays become `[]` |
@@ -83,6 +85,25 @@ await db.update(users).set({
 `json.build(...)` accepts plain JS values, nested objects, arrays, and SQL expressions.
 
 ## Query Patterns
+
+### Index-friendly JSONB containment
+
+```typescript
+await db
+  .select({ id: users.id })
+  .from(users)
+  .where(
+    contains(users.profile).user.preferences.$contains({ theme: 'dark' }),
+  )
+```
+
+This emits `profile @> ...`, so full-column GIN and `jsonb_path_ops` indexes can be used. Direct form is also available:
+
+```typescript
+contains(users.profile, {
+  user: { preferences: { theme: 'dark' } },
+})
+```
 
 ### SQL value in JSON update
 

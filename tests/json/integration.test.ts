@@ -6,6 +6,9 @@ import {
   jsonArrayPush,
   jsonArraySet,
 } from '../../src/json/operations/array.ts'
+import { jsonBuild } from '../../src/json/operations/build.ts'
+import { jsonCoalesce } from '../../src/json/operations/coalesce.ts'
+import { jsonContains } from '../../src/json/operations/contains.ts'
 import { jsonMerge } from '../../src/json/operations/merge.ts'
 import { jsonSet, jsonSetPipe } from '../../src/json/operations/set.ts'
 import { createDatabase, executeQuery, type TestDatabase } from '../utils.ts'
@@ -29,6 +32,7 @@ describe('JSON Integration Tests', () => {
     expect(jsonImport.setPipe).toBeDefined()
     expect(jsonImport.build).toBeDefined()
     expect(jsonImport.coalesce).toBeDefined()
+    expect(jsonImport.contains).toBeDefined()
 
     const jsonImportSet = await import('@denny-il/drizzle-pg-utils/json/set')
     expect(jsonImportSet.jsonSet).toBeDefined()
@@ -69,9 +73,103 @@ describe('JSON Integration Tests', () => {
     )
     expect(jsonImportCoalesce.jsonCoalesce).toBeDefined()
     expect(jsonImportCoalesce.jsonCoalesce).toEqual(jsonImport.coalesce)
+
+    const jsonImportContains = await import(
+      '@denny-il/drizzle-pg-utils/json/contains'
+    )
+    expect(jsonImportContains.jsonContains).toBeDefined()
+    expect(jsonImportContains.jsonContains).toEqual(jsonImport.contains)
   })
 
   describe('JSON Accessor Runtime Behavior', () => {
+    it('should test root containment correctly', async () => {
+      const value = sql<{
+        user: { id: number; name: string }
+      }>`'{"user": {"id": 123, "name": "John"}}'::jsonb`
+      const result = await executeQuery(
+        db,
+        jsonContains(value, { user: { id: 123 } }),
+      )
+
+      expect(result).toBe(true)
+    })
+
+    it('should test containment with jsonBuild values', async () => {
+      const value = sql<{
+        user: { id: number; name: string }
+      }>`'{"user": {"id": 123, "name": "John"}}'::jsonb`
+      const result = await executeQuery(
+        db,
+        jsonContains(
+          value,
+          jsonBuild({
+            user: { name: 'John' },
+          }),
+        ),
+      )
+
+      expect(result).toBe(true)
+    })
+
+    it('should test containment through proxy paths', async () => {
+      const value = sql<{
+        user: { id: number; name: string }
+      }>`'{"user": {"id": 123, "name": "John"}}'::jsonb`
+      const result = await executeQuery(
+        db,
+        jsonContains(value).user.$contains({ name: 'John' }),
+      )
+
+      expect(result).toBe(true)
+    })
+
+    it('should test containment against merged JSON values', async () => {
+      const base = sql<{
+        id: number
+      }>`'{"id": 123}'::jsonb`
+      const overlay = jsonBuild({
+        name: 'John',
+      })
+      const result = await executeQuery(
+        db,
+        jsonContains(jsonMerge(base, overlay), {
+          id: 123,
+          name: 'John',
+        }),
+      )
+
+      expect(result).toBe(true)
+    })
+
+    it('should test containment against coalesced JSON values', async () => {
+      const nullableValue = sql<{
+        user: { id: number }
+      } | null>`NULL::jsonb`
+      const result = await executeQuery(
+        db,
+        jsonContains(
+          jsonCoalesce(nullableValue, jsonBuild({ user: { id: 123 } })),
+          {
+            user: { id: 123 },
+          },
+        ),
+      )
+
+      expect(result).toBe(true)
+    })
+
+    it('should test containment against accessed JSON subdocuments', async () => {
+      const value = sql<{
+        user: { id: number; name: string }
+      }>`'{"user": {"id": 123, "name": "John"}}'::jsonb`
+      const result = await executeQuery(
+        db,
+        jsonContains(jsonAccess(value).user.$value, { name: 'John' }),
+      )
+
+      expect(result).toBe(true)
+    })
+
     it('should access nested properties correctly', async () => {
       const value = sql<{
         user: { id: number; name: string }

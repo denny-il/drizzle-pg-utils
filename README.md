@@ -65,6 +65,7 @@ await db
 
 ### JSON Utilities
 - Access nested JSONB paths with full TypeScript inference and no runtime schema.
+- Query JSONB containment with typed path traversal and full-column index-friendly SQL.
 - Update deep branches atomically with `set(...)` and `setPipe(...)`.
 - Build, merge, coalesce, and modify arrays with typed SQL helpers.
 
@@ -81,6 +82,16 @@ const rows = await db
   })
   .from(users)
   .where(eq(accessor.user.preferences.theme.$value, 'dark'))
+
+// Query JSONB containment while keeping the predicate rooted at users.profile
+const darkUsers = await db
+  .select({ id: users.id })
+  .from(users)
+  .where(
+    json
+      .contains(users.profile)
+      .user.preferences.$contains({ theme: 'dark' }),
+  )
 
 // Update values at specific paths
 await db
