@@ -27,7 +27,6 @@ export function createPlainDate<T extends typeof globalThis.Temporal>(
 ): TemporalPlainDateType<T> {
   return {
     column: customType<Config<T>>({
-      codec: 'date:string',
       dataType: () => 'date',
       fromDriver: (val: string) =>
         Temporal.PlainDate.from(val) as InstanceType<T['PlainDate']>,
