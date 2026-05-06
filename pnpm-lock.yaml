@@ -21,8 +21,8 @@ importers:
         specifier: 7.0.0-dev.20260430.1
         version: 7.0.0-dev.20260430.1
       drizzle-orm:
-        specifier: 1.0.0-rc.1
-        version: 1.0.0-rc.1(@electric-sql/pglite@0.4.5)(@types/mssql@9.1.9(@azure/core-client@1.10.1))(mssql@11.0.1(@azure/core-client@1.10.1))
+        specifier: 1.0.0-rc.2
+        version: 1.0.0-rc.2(@electric-sql/pglite@0.4.5)(@types/mssql@9.1.9(@azure/core-client@1.10.1))(mssql@11.0.1(@azure/core-client@1.10.1))
       temporal-polyfill:
         specifier: ^0.3.2
         version: 0.3.2
@@ -630,8 +630,8 @@ packages:
     resolution: {integrity: sha512-N+MeXYoqr3pOgn8xfyRPREN7gHakLYjhsHhWGT3fWAiL4IkAt0iDw14QiiEm2bE30c5XX5q0FtAA3CK5f9/BUg==}
     engines: {node: '>=12'}
 
-  drizzle-orm@1.0.0-rc.1:
-    resolution: {integrity: sha512-jGCqAgxpz+OSHP2jQGooUHBxnFMTYl0TTRSfULBl52VNf7CtyNRnazUi+VdbSxvJrDP2lnIsmUh5O+HhKeSJCg==}
+  drizzle-orm@1.0.0-rc.2:
+    resolution: {integrity: sha512-UXYDkbplF5wX0hwxll+80QhEwUvAJLBu+tAK/d4fna18kLE6VuliAzufF/ieDEIJeSnLRYgtmsXD6x1Xuy1kIg==}
     peerDependencies:
       '@aws-sdk/client-rds-data': '>=3'
       '@cloudflare/workers-types': '>=4'
@@ -1610,7 +1610,7 @@ snapshots:
   define-lazy-prop@3.0.0:
     optional: true
 
-  drizzle-orm@1.0.0-rc.1(@electric-sql/pglite@0.4.5)(@types/mssql@9.1.9(@azure/core-client@1.10.1))(mssql@11.0.1(@azure/core-client@1.10.1)):
+  drizzle-orm@1.0.0-rc.2(@electric-sql/pglite@0.4.5)(@types/mssql@9.1.9(@azure/core-client@1.10.1))(mssql@11.0.1(@azure/core-client@1.10.1)):
     optionalDependencies:
       '@electric-sql/pglite': 0.4.5
       '@types/mssql': 9.1.9(@azure/core-client@1.10.1)
