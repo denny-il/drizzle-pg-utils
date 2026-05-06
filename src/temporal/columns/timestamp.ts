@@ -36,7 +36,6 @@ export function createTimestamp<T extends typeof globalThis.Temporal>(
 ): TemporalTimestampType<T> {
   return {
     column: customType<Config<T>>({
-      codec: 'timestamp:string',
       dataType: (config?: TimeConfig) =>
         `timestamp${typeof config?.precision !== 'undefined' ? ` (${config.precision})` : ''}`,
       fromDriver: (val: string) =>
