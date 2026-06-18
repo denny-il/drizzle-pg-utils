@@ -9,6 +9,10 @@ import { jsonBuild } from './build.ts'
 
 type AcceptableValue = any[] | SQLJSONNullish
 
+function jsonbLiteral(value: unknown) {
+  return sql`${JSON.stringify(value === undefined ? null : value)}::jsonb`
+}
+
 function valueOrEmptyArray<T extends SQLJSONValue<AcceptableValue>>(
   value: T,
 ): SQL<SQLJSONDenullify<SQLJSONExtractType<T>>> {
@@ -48,7 +52,7 @@ export function jsonArrayPush<
   ...values: Array<ElementType | SQLJSONValue<ElementType>>
 ): SQL<SQLJSONDenullify<SourceType>> {
   const _values = values.map((value) =>
-    isSQLWrapper(value) ? value : sql`${JSON.stringify(value)}::jsonb`,
+    isSQLWrapper(value) ? value : jsonbLiteral(value),
   )
   const _value = sql`jsonb_build_array(${sql.join(_values, sql`, `)})`
   return sql`${valueOrEmptyArray(target)} || ${_value}`
@@ -88,7 +92,7 @@ export function jsonArraySet<
 ) {
   const _value = isSQLWrapper(value)
     ? jsonBuild(value as any)
-    : sql`${JSON.stringify(value)}::jsonb`
+    : jsonbLiteral(value)
   return sql<SourceType>`jsonb_set(${valueOrEmptyArray(target)}, '{${sql`${index}`.inlineParams()}}', ${_value})`
 }
 

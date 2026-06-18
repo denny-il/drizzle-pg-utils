@@ -757,12 +757,28 @@ describe('JSON Integration Tests', () => {
       expect(result).toEqual(['a', 'b', 'c'])
     })
 
+    it('should push undefined values as JSON null', async () => {
+      const baseArray = sql<Array<string | null>>`'["a"]'::jsonb`
+      const pushedArray = jsonArrayPush(baseArray, undefined)
+      const result = await executeQuery(db, pushedArray)
+
+      expect(result).toEqual(['a', null])
+    })
+
     it('should set array elements by index', async () => {
       const baseArray = sql<string[]>`'["a", "b", "c"]'::jsonb`
       const updatedArray = jsonArraySet(baseArray, 1, 'updated')
       const result = await executeQuery(db, updatedArray)
 
       expect(result).toEqual(['a', 'updated', 'c'])
+    })
+
+    it('should set undefined values as JSON null', async () => {
+      const baseArray = sql<Array<string | null>>`'["a", "b"]'::jsonb`
+      const updatedArray = jsonArraySet(baseArray, 1, undefined)
+      const result = await executeQuery(db, updatedArray)
+
+      expect(result).toEqual(['a', null])
     })
 
     it('should delete array elements by index', async () => {
