@@ -792,16 +792,17 @@ describe('JSON Integration Tests', () => {
     it('should handle out-of-bounds array operations gracefully', async () => {
       const baseArray = sql<string[]>`'["a", "b"]'::jsonb`
 
-      // Set out of bounds - PostgreSQL jsonb_set doesn't extend with nulls like I expected
-      const extendedArray = jsonArraySet(baseArray, 5, 'far')
-      const extendedResult = await executeQuery(db, extendedArray)
+      const setPastEnd = jsonArraySet(baseArray, 5, 'far')
+      const setBeforeStart = jsonArraySet(baseArray, -5, 'far')
+      const pastEndResult = await executeQuery(db, setPastEnd)
+      const beforeStartResult = await executeQuery(db, setBeforeStart)
 
       // Delete out of bounds (should be no-op)
       const deleteOutOfBounds = jsonArrayDelete(baseArray, 10)
       const deleteResult = await executeQuery(db, deleteOutOfBounds)
 
-      // PostgreSQL behavior: setting out of bounds just appends at the end
-      expect(extendedResult).toEqual(['a', 'b', 'far'])
+      expect(pastEndResult).toEqual(['a', 'b'])
+      expect(beforeStartResult).toEqual(['a', 'b'])
       expect(deleteResult).toEqual(['a', 'b'])
     })
 

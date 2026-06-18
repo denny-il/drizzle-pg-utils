@@ -93,7 +93,7 @@ export function jsonArraySet<
   const _value = isSQLWrapper(value)
     ? jsonBuild(value as any)
     : jsonbLiteral(value)
-  return sql<SourceType>`jsonb_set(${valueOrEmptyArray(target)}, '{${sql`${index}`.inlineParams()}}', ${_value})`
+  return sql<SourceType>`jsonb_set(${valueOrEmptyArray(target)}, '{${sql`${index}`.inlineParams()}}', ${_value}, false)`
 }
 
 /**
