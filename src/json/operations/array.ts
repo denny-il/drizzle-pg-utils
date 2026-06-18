@@ -5,17 +5,16 @@ import type {
   SQLJSONNullish,
   SQLJSONValue,
 } from '../common.ts'
-import { jsonCoalesce } from './coalesce.ts'
+import { jsonBuild } from './build.ts'
 
 type AcceptableValue = any[] | SQLJSONNullish
 
 function valueOrEmptyArray<T extends SQLJSONValue<AcceptableValue>>(
   value: T,
 ): SQL<SQLJSONDenullify<SQLJSONExtractType<T>>> {
-  return jsonCoalesce(
-    value,
-    sql<SQLJSONDenullify<SQLJSONExtractType<T>>>`'[]'::jsonb`,
-  )
+  return sql<
+    SQLJSONDenullify<SQLJSONExtractType<T>>
+  >`coalesce(nullif(${value}, 'null'::jsonb), '[]'::jsonb)`
 }
 
 /**
@@ -88,7 +87,7 @@ export function jsonArraySet<
   value: ElementType | SQLJSONValue<ElementType>,
 ) {
   const _value = isSQLWrapper(value)
-    ? value
+    ? jsonBuild(value as any)
     : sql`${JSON.stringify(value)}::jsonb`
   return sql<SourceType>`jsonb_set(${valueOrEmptyArray(target)}, '{${sql`${index}`.inlineParams()}}', ${_value})`
 }

@@ -1,10 +1,10 @@
 import { type SQL, sql } from 'drizzle-orm'
-import {
-  normalizeNullish,
-  type SQLJSONDenullify,
-  type SQLJSONExtractType,
-  type SQLJSONValue,
+import type {
+  SQLJSONDenullify,
+  SQLJSONExtractType,
+  SQLJSONValue,
 } from '../common.ts'
+import { jsonBuild } from './build.ts'
 
 /**
  * Coalesce two JSON values, returning the first non-nullish value.
@@ -19,5 +19,5 @@ export function jsonCoalesce<
 ): SQL<
   SQLJSONDenullify<SQLJSONExtractType<Source>> | SQLJSONExtractType<Value>
 > {
-  return sql`json_query(${normalizeNullish(source)}, 'strict $ ? (@ != null)' default ${value} on empty)::jsonb`
+  return sql`coalesce(nullif(${source}, 'null'::jsonb), ${jsonBuild(value as any)})`
 }

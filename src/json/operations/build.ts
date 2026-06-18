@@ -34,9 +34,24 @@ export type SQLJSONBuildUnwrapType<T extends SQLJSONBuildMixedType> =
 export function jsonBuild<T extends SQLJSONBuildMixedType>(
   value: T,
 ): SQL<SQLJSONBuildUnwrapType<T>> {
+  function isEmptyStringChunk(chunk: unknown) {
+    const value = (chunk as { value?: unknown }).value
+    return Array.isArray(value) && value.length === 1 && value[0] === ''
+  }
+
+  function isBareParamSQL(value: SQLWrapper) {
+    const queryChunks = (value as { queryChunks?: unknown[] }).queryChunks
+    return (
+      Array.isArray(queryChunks) &&
+      queryChunks.length === 3 &&
+      isEmptyStringChunk(queryChunks[0]) &&
+      isEmptyStringChunk(queryChunks[2])
+    )
+  }
+
   function processValue(value: any): SQLWrapper {
-    // If it's already an SQL object, return as-is
-    if (isSQLWrapper(value)) return value
+    if (isSQLWrapper(value))
+      return isBareParamSQL(value) ? value : sql`to_jsonb(${value})`
 
     // Handle arrays with mixed JS/SQL values
     if (Array.isArray(value)) {
