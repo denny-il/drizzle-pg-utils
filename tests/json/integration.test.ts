@@ -234,7 +234,7 @@ describe('JSON Integration Tests', () => {
       }>`'{"user": {"age": 30}}'::jsonb`
       const setter = jsonSet(baseValue)
 
-      const query = setter.user.age.$set(sql<number>`42`)
+      const query = setter.user.age.$set(sql<number>`42::integer`)
       const result = await executeQuery(db, query)
 
       expect(result).toEqual({ user: { age: 42 } })

@@ -7,7 +7,6 @@ import {
   createDatabase,
   dialect,
   executeQuery,
-  getRows,
   type TestDatabase,
 } from '../utils.ts'
 
@@ -132,11 +131,10 @@ describe('JSON Merge SQL injection and misuse resistance', () => {
       db,
       jsonMerge(jsonBuild({ safe: true }), jsonBuild(right)),
     )
-    const sentinel = await db.execute(
-      sql`select count(*)::int as count from merge_sentinel`,
-    )
 
     expect(result).toEqual({ safe: true, [maliciousKey]: maliciousValue })
-    expect(getRows(sentinel)).toEqual([{ count: 1 }])
+    await expect(
+      executeQuery(db, sql`(select count(*)::int from merge_sentinel)`),
+    ).resolves.toBe(1)
   })
 })

@@ -1,4 +1,4 @@
-import type { PGlite } from '@electric-sql/pglite'
+import { PGlite } from '@electric-sql/pglite'
 import {
   type AnyRelations,
   type EmptyRelations,
@@ -6,9 +6,15 @@ import {
   sql,
 } from 'drizzle-orm'
 import { jsonb, PgDialect, pgTable } from 'drizzle-orm/pg-core'
-import type { PgliteDatabase } from 'drizzle-orm/pglite'
-import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
-import type { Sql } from 'postgres'
+import {
+  drizzle as drizzlePglite,
+  type PgliteDatabase,
+} from 'drizzle-orm/pglite'
+import {
+  drizzle as drizzlePostgres,
+  type PostgresJsDatabase,
+} from 'drizzle-orm/postgres-js'
+import postgres, { type Sql } from 'postgres'
 
 export const dialect = new PgDialect()
 
@@ -36,26 +42,18 @@ export const createDatabase = async <
   options: CreateDatabaseOptions<TRelations> = {},
 ): Promise<TestDatabase<TRelations>> => {
   if (process.env.DATABASE_URL) {
-    const [{ drizzle }, postgres] = await Promise.all([
-      import('drizzle-orm/postgres-js'),
-      import('postgres'),
-    ])
-    const client = postgres.default(process.env.DATABASE_URL, {
+    const client = postgres(process.env.DATABASE_URL, {
       idle_timeout: 1,
       max: 1,
     })
-    return drizzle({
+    return drizzlePostgres({
       client,
       relations: options.relations,
     }) as TestDatabase<TRelations>
   }
 
-  const [{ PGlite }, { drizzle }] = await Promise.all([
-    import('@electric-sql/pglite'),
-    import('drizzle-orm/pglite'),
-  ])
   const pglite = await PGlite.create()
-  return drizzle({
+  return drizzlePglite({
     client: pglite,
     relations: options.relations,
   }) as TestDatabase<TRelations>
@@ -66,9 +64,6 @@ export const executeQuery = async (
   query: SQLWrapper,
 ): Promise<any> => {
   const results = await client.execute(sql`select (${query}) as result`)
-  const rows = getRows<{ result: any }>(results)
+  const rows = Array.isArray(results) ? results : results.rows
   return rows[0]!.result
 }
-
-export const getRows = <TRow>(results: TRow[] | { rows: TRow[] }): TRow[] =>
-  Array.isArray(results) ? results : results.rows

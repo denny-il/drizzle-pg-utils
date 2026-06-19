@@ -6,7 +6,6 @@ import {
   createDatabase,
   dialect,
   executeQuery,
-  getRows,
   type TestDatabase,
 } from '../utils.ts'
 
@@ -44,10 +43,9 @@ describe('JSON Array Push SQL injection handling', () => {
     for (const payload of payloads) expect(query.sql).not.toContain(payload)
     await expect(executeQuery(db, result)).resolves.toEqual(payloads)
 
-    const sentinel = await db.execute(
-      sql`select count(*)::int as count from array_push_sentinel`,
-    )
-    expect(getRows(sentinel)).toEqual([{ count: 1 }])
+    await expect(
+      executeQuery(db, sql`(select count(*)::int from array_push_sentinel)`),
+    ).resolves.toBe(1)
   })
 
   it('keeps malicious object keys and values inside one JSONB parameter', async () => {
