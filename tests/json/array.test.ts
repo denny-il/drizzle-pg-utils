@@ -1,5 +1,6 @@
 import { type SQL, sql } from 'drizzle-orm'
 import { describe, expect, expectTypeOf, it } from 'vitest'
+import type { SQLJSONExtractType } from '../../src/json/common.ts'
 import {
   jsonArrayDelete,
   jsonArrayPush,
@@ -171,6 +172,15 @@ describe('JSON Array Operations', () => {
     it('has correct return type', () => {
       const result = jsonArraySet(numberArray, 1, 42)
       expectTypeOf(result).toEqualTypeOf<import('drizzle-orm').SQL<number[]>>()
+    })
+
+    it('types nullable arrays as concrete arrays', () => {
+      const result = jsonArraySet(nullableArray, 0, 1)
+
+      expectTypeOf<SQLJSONExtractType<typeof result>>().toEqualTypeOf<
+        number[]
+      >()
+      expectTypeOf(result).toEqualTypeOf<SQL<number[]>>()
     })
   })
 

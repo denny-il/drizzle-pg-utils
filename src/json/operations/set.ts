@@ -78,7 +78,7 @@ export function jsonSet<Source extends SQLJSONValue<object>>(
         path.map((p) => sql`${p}`.inlineParams()),
         sql`,`,
       )}]::text[]`
-      return sql`jsonb_set(${source}, ${pathArray}, ${setValueSQL}, ${sql`${createMissing}`.inlineParams()})`
+      return sql`jsonb_set(${source}, ${pathArray}, ${setValueSQL}, ${sql`${!!createMissing}`.inlineParams()})`
     }
 
     function buildDefault(path: string[], value: any, createMissing = true) {
@@ -92,7 +92,7 @@ export function jsonSet<Source extends SQLJSONValue<object>>(
       const pathArray = sql`array[${pathArgs}]::text[]`
       const currentValueSQL = sql`jsonb_extract_path(${source}, ${pathArgs})`
       return _jsonSet(
-        sql`jsonb_set(coalesce(nullif(${source}, 'null'::jsonb), '{}'::jsonb), ${pathArray}, coalesce(nullif(${currentValueSQL}, 'null'::jsonb), ${defaultValueSQL}), ${sql`${createMissing}`.inlineParams()})` as Source,
+        sql`jsonb_set(coalesce(nullif(${source}, 'null'::jsonb), '{}'::jsonb), ${pathArray}, coalesce(nullif(${currentValueSQL}, 'null'::jsonb), ${defaultValueSQL}), ${sql`${!!createMissing}`.inlineParams()})` as Source,
         path,
       )
     }

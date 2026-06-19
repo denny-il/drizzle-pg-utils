@@ -390,6 +390,23 @@ describe('JSON Set', () => {
       // Should not have $default after using $default
       expectTypeOf(defaultResult).not.toHaveProperty('$default')
     })
+
+    it('does not expose array prototype members as JSON paths', () => {
+      const setter = jsonSet(jsonObject)
+
+      expectTypeOf(setter.tags).not.toHaveProperty('length')
+      expectTypeOf(setter.tags).not.toHaveProperty('map')
+    })
+
+    it('accepts null in nullable leaf setters', () => {
+      const setter = jsonSet(
+        sql<{ value: string | null }>`'{"value": "old"}'::jsonb`,
+      )
+
+      const result = setter.value.$set(null)
+
+      expect(result).toBeDefined()
+    })
   })
 
   describe('Edge Cases', () => {

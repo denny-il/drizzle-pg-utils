@@ -1,6 +1,7 @@
 import { type SQL, sql } from 'drizzle-orm'
 
 import { describe, expect, expectTypeOf, it } from 'vitest'
+import type { SQLJSONExtractType } from '../../src/json/common.ts'
 import {
   jsonAccess,
   type SQLJSONAccess,
@@ -151,6 +152,18 @@ describe('JSON Accessor', () => {
       expectTypeOf(
         accessor.user.profile.preferences.notifications.$text,
       ).toEqualTypeOf<SQL<string>>()
+    })
+
+    it('treats readonly array element access as nullable', () => {
+      const accessor = jsonAccess(
+        sql<{ items: readonly string[] }>`'{"items": ["a"]}'::jsonb`,
+      )
+      const itemValue = accessor.items[0].$value
+
+      expectTypeOf<SQLJSONExtractType<typeof itemValue>>().toEqualTypeOf<
+        string | null
+      >()
+      expectTypeOf(itemValue).toEqualTypeOf<SQL<string | null>>()
     })
   })
 

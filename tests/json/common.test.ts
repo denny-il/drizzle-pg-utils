@@ -66,6 +66,7 @@ describe('JSON Common Types and Utilities', () => {
       const result = normalizeNullish(jsonValue)
 
       expect(result).toBeDefined()
+      expectTypeOf(result).toEqualTypeOf<SQL<{ test: string }>>()
     })
 
     it('works with different JSON types', () => {

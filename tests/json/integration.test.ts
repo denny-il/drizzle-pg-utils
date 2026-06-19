@@ -240,6 +240,17 @@ describe('JSON Integration Tests', () => {
 
       expect(result).toEqual({ user: { age: 42 } })
     })
+
+    it('should convert non-jsonb SQL values before jsonSet writes them', async () => {
+      const baseValue = sql<{ lastLogin?: string }>`'{}'::jsonb`
+
+      const result = await executeQuery(
+        db,
+        jsonSet(baseValue).lastLogin.$set(sql<string>`'2026-03-15'::text`),
+      )
+
+      expect(result).toEqual({ lastLogin: '2026-03-15' })
+    })
   })
 
   describe('JSON Set $default Runtime Behavior', () => {
@@ -260,6 +271,19 @@ describe('JSON Integration Tests', () => {
         user: { name: 'John' },
         profile: { avatar: 'new-avatar.jpg', theme: 'light' },
       })
+    })
+
+    it('should initialize SQL NULL root through $default', async () => {
+      const baseValue = sql<{
+        user?: { name: string }
+      }>`NULL::jsonb`
+      const setter = jsonSet(baseValue)
+      const result = await executeQuery(
+        db,
+        setter.user.$default({ name: 'Default User' }).name.$set('Ada'),
+      )
+
+      expect(result).toEqual({ user: { name: 'Ada' } })
     })
 
     it('should preserve existing value when property exists', async () => {
@@ -686,6 +710,32 @@ describe('JSON Integration Tests', () => {
       expect(result).toEqual({
         user: { name: 'John', settings: { theme: 'dark' } },
       })
+    })
+
+    it('should initialize SQL NULL root through jsonSetPipe and $default', async () => {
+      const baseValue = sql<{
+        user?: { name: string }
+      }>`NULL::jsonb`
+      const result = await executeQuery(
+        db,
+        jsonSetPipe(baseValue, (s) =>
+          s.user.$default({ name: 'Default User' }).name.$set('Ada'),
+        ),
+      )
+
+      expect(result).toEqual({ user: { name: 'Ada' } })
+    })
+
+    it('should not auto-create SQL NULL root in jsonSetPipe without $default', async () => {
+      const baseValue = sql<{
+        user: { name: string }
+      }>`NULL::jsonb`
+      const result = await executeQuery(
+        db,
+        jsonSetPipe(baseValue, (s) => s.user.name.$set('Ada')),
+      )
+
+      expect(result).toBeNull()
     })
   })
 

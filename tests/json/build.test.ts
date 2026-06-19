@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
 import { jsonBuild } from '../../src/json/operations/build.ts'
-import { dialect } from '../utils.ts'
+import { dialect, table } from '../utils.ts'
 
 describe('JSON Build', () => {
   it('casts SQL primitives to jsonb', () => {
@@ -29,5 +29,11 @@ describe('JSON Build', () => {
 
     expect(query.params).toEqual([JSON.stringify('hello')])
     expect(query.sql).toBe(`$1::jsonb`)
+  })
+
+  it('accepts column SQL wrappers inside objects', () => {
+    const result = jsonBuild({ columnValue: table.jsoncol })
+
+    expect(result).toBeDefined()
   })
 })
