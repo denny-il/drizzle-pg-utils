@@ -158,6 +158,24 @@ row!.createdAt.equals(input.toInstant())
 
 If you need a user-facing timezone again, convert on the application side with `.toZonedDateTimeISO(...)`.
 
+### Relational query builder results are decoded
+
+Temporal columns decode to Temporal instances in normal `select(...)` queries and in Drizzle relational query builder results, including nested `one` and `many` relations.
+
+```typescript
+const usersWithEvents = await db.query.users.findMany({
+  with: {
+    events: true,
+  },
+})
+
+const event = usersWithEvents[0]!.events[0]!
+
+event.eventDate instanceof Temporal.PlainDate
+event.eventTimestamp instanceof Temporal.PlainDateTime
+event.eventTimestampz instanceof Temporal.Instant
+```
+
 ### `interval` depends on PostgreSQL output format
 
 `interval` columns decode with `Temporal.Duration.from(...)`, so PostgreSQL must emit ISO 8601 intervals.

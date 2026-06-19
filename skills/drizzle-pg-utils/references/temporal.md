@@ -86,6 +86,8 @@ const interval = createInterval(Temporal, { smallestUnit: 'millisecond' })
 
 `timestampz` maps to `Temporal.Instant`. Convert `Temporal.ZonedDateTime` with `.toInstant()` before writing.
 
+Temporal columns decode to Temporal instances in normal selects and Drizzle relational query builder results, including nested `one` and `many` relations.
+
 `interval` requires PostgreSQL ISO 8601 interval output:
 
 ```sql

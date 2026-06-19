@@ -1,39 +1,53 @@
 # JSON Helpers Reference
 
+Use this file as the router. Read it first, then load the focused helper file that matches the task:
+
+- [json/access.md](json/access.md) for `access(...)`, `.$value`, `.$text`, path extraction, and expression-index implications.
+- [json/updates.md](json/updates.md) for `set(...)`, `setPipe(...)`, `.$set(...)`, `.$default(...)`, missing branches, and SQL `NULL` roots.
+- [json/arrays.md](json/arrays.md) for `arrayPush(...)`, `arraySet(...)`, `arrayDelete(...)`, out-of-bounds behavior, and `undefined` handling.
+- [json/contains.md](json/contains.md) for `contains(...)`, `.$contains(...)`, JSONB `@>`, and full-column GIN / `jsonb_path_ops` indexes.
+- [json/build-coalesce-merge.md](json/build-coalesce-merge.md) for `build(...)`, `coalesce(...)`, `merge(...)`, SQL expressions, `to_jsonb(...)`, and trust boundaries.
+
 ## Imports
 
 ```typescript
 import { json } from '@denny-il/drizzle-pg-utils'
-import { access, contains, setPipe, merge } from '@denny-il/drizzle-pg-utils/json'
+import {
+  access,
+  arrayPush,
+  build,
+  contains,
+  merge,
+  setPipe,
+} from '@denny-il/drizzle-pg-utils/json'
 import { jsonSet } from '@denny-il/drizzle-pg-utils/json/set'
 ```
 
 There is no default export from `@denny-il/drizzle-pg-utils/json`.
 
-## Access
+## Helper Map
+
+| Helper | Use | Focused reference |
+| --- | --- | --- |
+| `access(source)` | Typed JSON path extraction | [json/access.md](json/access.md) |
+| `set(source)` | One `jsonb_set(...)` update | [json/updates.md](json/updates.md) |
+| `setPipe(source, ...ops)` | Chain JSON updates; each step sees previous result | [json/updates.md](json/updates.md) |
+| `build(value)` | Convert JS values and SQL snippets into JSONB SQL | [json/build-coalesce-merge.md](json/build-coalesce-merge.md) |
+| `coalesce(source, fallback)` | Treat SQL `NULL` and JSON `null` as empty | [json/build-coalesce-merge.md](json/build-coalesce-merge.md) |
+| `merge(left, right)` | Apply PostgreSQL JSONB `||` semantics with SQL `NULL` normalized | [json/build-coalesce-merge.md](json/build-coalesce-merge.md) |
+| `contains(source)` | Typed root JSONB containment builder | [json/contains.md](json/contains.md) |
+| `contains(source, value)` | Direct JSONB root containment predicate | [json/contains.md](json/contains.md) |
+| `arrayPush(target, ...values)` | Append values to JSON array | [json/arrays.md](json/arrays.md) |
+| `arraySet(target, index, value)` | Replace existing array element | [json/arrays.md](json/arrays.md) |
+| `arrayDelete(target, index)` | Remove existing array element | [json/arrays.md](json/arrays.md) |
+
+## Common Query Shape
+
+Prefer showing helpers inside Drizzle queries, not as standalone object transforms.
 
 ```typescript
-import { eq } from 'drizzle-orm'
-
 const profile = json.access(users.profile)
 
-const rows = await db
-  .select({
-    name: profile.user.name.$text,
-    theme: profile.user.preferences.theme.$value,
-    firstTag: profile.user.preferences.tags[0].$value,
-  })
-  .from(users)
-  .where(eq(profile.user.preferences.theme.$value, 'dark'))
-```
-
-- `.$value` returns a typed JSONB SQL expression.
-- `.$text` returns a typed text SQL expression.
-- `.$path` is deprecated; use `.$value`.
-
-## Updates
-
-```typescript
 await db
   .update(users)
   .set({
@@ -41,117 +55,18 @@ await db
       users.profile,
       (s) => s.user.preferences.$default({ theme: 'light', tags: [] }),
       (s) => s.user.preferences.theme.$set('dark'),
-      (s) => s.user.preferences.tags[0].$set('intro'),
+      (s) => s.user.preferences.tags.$set(
+        json.arrayPush(profile.user.preferences.tags.$value, 'drizzle'),
+      ),
     ),
   })
   .where(eq(users.id, userId))
 ```
 
-Use `.$default(...)` before writing through optional or nullable intermediate objects. Without it, PostgreSQL can leave the document unchanged when an earlier path segment is missing.
+## High-Signal Rules
 
-## Helper Map
-
-| Helper | Use |
-| --- | --- |
-| `access(source)` | Typed JSON path extraction |
-| `set(source)` | One `jsonb_set(...)` update |
-| `setPipe(source, ...ops)` | Chain multiple JSON updates |
-| `build(value)` | Convert JS values and SQL snippets into JSONB SQL |
-| `coalesce(source, fallback)` | Treat SQL `NULL` and JSON `null` as empty |
-| `contains(source)` | Typed JSONB containment builder; use `.$contains(...)` |
-| `contains(source, value)` | Direct JSONB root containment predicate |
-| `merge(left, right)` | Apply PostgreSQL JSONB `||` semantics with SQL `NULL` normalized |
-| `arrayPush(target, ...values)` | Append values to JSON array; nullish arrays become `[]` |
-| `arraySet(target, index, value)` | Replace array element; nullish arrays become `[]` |
-| `arrayDelete(target, index)` | Remove array element; nullish arrays become `[]` |
-
-## Build Example
-
-```typescript
-await db.update(users).set({
-  profile: json.merge(
-    users.profile,
-    json.build({
-      audit: {
-        at: sql`now()::text`,
-        actorId: users.id,
-        action: 'profile-updated',
-      },
-    }),
-  ),
-})
-```
-
-`json.build(...)` accepts plain JS values, nested objects, arrays, and SQL expressions.
-
-## Query Patterns
-
-### Index-friendly JSONB containment
-
-```typescript
-await db
-  .select({ id: users.id })
-  .from(users)
-  .where(
-    contains(users.profile).user.preferences.$contains({ theme: 'dark' }),
-  )
-```
-
-This emits `profile @> ...`, so full-column GIN and `jsonb_path_ops` indexes can be used. Direct form is also available:
-
-```typescript
-contains(users.profile, {
-  user: { preferences: { theme: 'dark' } },
-})
-```
-
-### SQL value in JSON update
-
-```typescript
-import { eq, sql } from 'drizzle-orm'
-
-await db
-  .update(users)
-  .set({
-    profile: json.set(users.profile).metadata.$default({}).lastLogin.$set(
-      sql`now()::text`,
-    ),
-  })
-  .where(eq(users.id, userId))
-```
-
-### Merge built JSONB in update
-
-```typescript
-import { eq, sql } from 'drizzle-orm'
-
-await db
-  .update(users)
-  .set({
-    profile: json.merge(
-      users.profile,
-      json.build({
-        metadata: {
-          importedAt: sql`now()::text`,
-          source: 'api',
-        },
-      }),
-    ),
-  })
-  .where(eq(users.id, userId))
-```
-
-### Array update inside JSON document
-
-```typescript
-const tags = json.access(users.profile).user.preferences.tags.$value
-
-await db
-  .update(users)
-  .set({
-    profile: json.set(users.profile).user.preferences.tags.$set(
-      json.arrayPush(tags, 'drizzle'),
-    ),
-  })
-  .where(eq(users.id, userId))
-```
+- Use `contains(...)` for index-friendly JSONB containment rooted at the full JSONB source.
+- Use `.$default(...)` before writing through missing branches or SQL `NULL` roots.
+- Use `arrayPush(...)` for append behavior; `arraySet(...)` is replacement-only and out-of-bounds writes are no-ops.
+- Pass user input as plain JavaScript values. Use `sql\`...\`` only when PostgreSQL should compute the value.
+- Prefer a focused reference file over adding more examples here. Keep this router short enough to load often.

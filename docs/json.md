@@ -207,15 +207,15 @@ await db
 | --- | --- | --- |
 | `access(source)` | Typed JSON path extraction | Use `.$value` or `.$text` |
 | `set(source)` | Build a single `jsonb_set(...)` update | Use `.$set(...)` and optional `.$default(...)` |
-| `setPipe(source, ...ops)` | Chain multiple JSON updates | Each step sees the previous result |
-| `build(value)` | Convert JS values and SQL snippets into JSONB SQL | Handles nested arrays and objects |
+| `setPipe(source, ...ops)` | Chain multiple JSON updates | Each step sees the previous result; use `.$default(...)` to initialize SQL `NULL` roots or missing branches |
+| `build(value)` | Convert JS values and SQL snippets into JSONB SQL | Handles nested arrays, objects, and SQL expressions |
 | `coalesce(source, fallback)` | Replace SQL `NULL` and JSON `null` with a fallback | Useful before updates |
 | `contains(source)` | Typed JSONB containment builder | Use `.$contains(...)`; emits full-column index-friendly `source @> value` |
 | `contains(source, value)` | JSONB root containment predicate | Direct form for already-shaped containment values |
 | `merge(left, right)` | Apply PostgreSQL JSONB `||` semantics | SQL `NULL` is normalized to JSON `null` first |
-| `arrayPush(target, ...values)` | Append values to a JSON array | Nullish arrays become `[]` |
-| `arraySet(target, index, value)` | Replace an element at an index | Nullish arrays become `[]` |
-| `arrayDelete(target, index)` | Remove an element at an index | Nullish arrays become `[]` |
+| `arrayPush(target, ...values)` | Append values to a JSON array | Nullish arrays become `[]`; `undefined` becomes JSON `null` |
+| `arraySet(target, index, value)` | Replace an element at an index | Nullish arrays become `[]`; out-of-bounds indexes are no-ops |
+| `arrayDelete(target, index)` | Remove an element at an index | Nullish arrays become `[]`; out-of-bounds indexes are no-ops |
 
 ## Important Behavior
 
@@ -282,13 +282,57 @@ const safeUpdate = json
 
 Without `.$default(...)`, the update can silently do nothing when the intermediate object is missing.
 
+`.$default(...)` is also the explicit way to initialize a SQL `NULL` root before writing nested fields. Without it, SQL `NULL` stays SQL `NULL`.
+
+```typescript
+await db.update(users).set({
+  profile: json.setPipe(
+    users.profile,
+    (s) => s.user.$default({ name: 'New User' }),
+    (s) => s.user.name.$set('Ada'),
+  ),
+})
+```
+
+Do not rely on `setPipe(...)` to turn a SQL `NULL` root into `{}` automatically. Add the default at the branch you want to create.
+
+### Array helpers have distinct write semantics
+
+Use `arrayPush(...)` when you want append behavior.
+
+```typescript
+const tags = json.access(users.profile).user.preferences.tags.$value
+
+await db.update(users).set({
+  profile: json.set(users.profile).user.preferences.tags.$set(
+    json.arrayPush(tags, 'drizzle', 'postgres'),
+  ),
+})
+```
+
+Use `arraySet(...)` when you want to replace an existing element.
+
+```typescript
+await db.update(users).set({
+  profile: json.set(users.profile).user.preferences.tags.$set(
+    json.arraySet(tags, 0, 'intro'),
+  ),
+})
+```
+
+- `arrayPush(...)` appends every value in order.
+- `arraySet(...)` uses PostgreSQL `jsonb_set(..., false)`, so out-of-bounds indexes are no-ops.
+- `arrayDelete(...)` removes an existing element; out-of-bounds indexes are no-ops.
+- All array helpers treat SQL `NULL` and JSON `null` targets as `[]`.
+- `arrayPush(...)` and `arraySet(...)` convert JavaScript `undefined` to JSON `null`.
+
 ### Null handling is deliberate
 
 The helpers do not all treat nullish values the same way.
 
 - `access(...)` returns SQL `NULL` when the property is missing, JSON `null`, or the source itself is SQL `NULL`.
 - `coalesce(...)` treats both SQL `NULL` and JSON `null` as empty and returns the fallback.
-- `arrayPush(...)`, `arraySet(...)`, and `arrayDelete(...)` treat nullish arrays as `[]`.
+- `arrayPush(...)`, `arraySet(...)`, and `arrayDelete(...)` treat nullish array targets as `[]`.
 - `merge(...)` normalizes SQL `NULL` to JSON `null` before applying PostgreSQL `||` semantics.
 
 That behavior is useful, but it also means `merge(...)` is not a plain wrapper around `left || right` when SQL `NULL` is involved.
@@ -313,6 +357,27 @@ await db.update(users).set({
 ```
 
 That makes it a good companion for `set(...)`, `setPipe(...)`, and `merge(...)`.
+
+SQL expressions are a trust boundary. Plain JavaScript values are always bound as query parameters, so user input should normally be passed as plain values:
+
+```typescript
+json.build({
+  label: userInput,
+})
+```
+
+Use `sql\`...\`` only when you intentionally want PostgreSQL to compute the value. When a computed SQL expression is embedded into JSONB, helpers wrap it with `to_jsonb(...)` so PostgreSQL writes the expression result as a JSON value instead of trying to place a raw SQL scalar where JSONB is required.
+
+```typescript
+json.build({
+  metadata: {
+    importedAt: sql`now()::text`,
+    rowId: users.id,
+  },
+})
+```
+
+This produces JSON with values computed by PostgreSQL, while any interpolated values inside the SQL snippet still use Drizzle parameters. `sql.raw(...)` remains caller-controlled SQL and should not contain untrusted input.
 
 ## Common Patterns
 

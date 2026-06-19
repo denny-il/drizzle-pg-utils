@@ -9,5 +9,5 @@ Prefer practical Drizzle query examples using public package imports. Avoid `src
 
 ## References
 
-- Read [references/json.md](references/json.md) for JSONB helpers: typed path access, `set`, `setPipe`, `$default`, SQL values, `build`, `merge`, array helpers, import styles, and query examples.
+- Read [references/json.md](references/json.md) first for JSONB helper routing, import styles, and common rules. Then load the focused file under `references/json/` for the helper family being used: access, updates/defaults, arrays, containment, or build/coalesce/merge.
 - Read [references/temporal.md](references/temporal.md) for Temporal helpers: entrypoint choice, column mapping, factories, constraints, interval setup, SQL expressions, and query examples.
