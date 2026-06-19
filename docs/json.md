@@ -210,12 +210,45 @@ await db
 | `setPipe(source, ...ops)` | Chain multiple JSON updates | Each step sees the previous result |
 | `build(value)` | Convert JS values and SQL snippets into JSONB SQL | Handles nested arrays and objects |
 | `coalesce(source, fallback)` | Replace SQL `NULL` and JSON `null` with a fallback | Useful before updates |
+| `contains(source)` | Typed JSONB containment builder | Use `.$contains(...)`; emits full-column index-friendly `source @> value` |
+| `contains(source, value)` | JSONB root containment predicate | Direct form for already-shaped containment values |
 | `merge(left, right)` | Apply PostgreSQL JSONB `||` semantics | SQL `NULL` is normalized to JSON `null` first |
 | `arrayPush(target, ...values)` | Append values to a JSON array | Nullish arrays become `[]` |
 | `arraySet(target, index, value)` | Replace an element at an index | Nullish arrays become `[]` |
 | `arrayDelete(target, index)` | Remove an element at an index | Nullish arrays become `[]` |
 
 ## Important Behavior
+
+### Containment keeps queries index-friendly
+
+Use `contains(...)` for JSONB `@>` predicates that should use a full-column GIN or `jsonb_path_ops` index.
+
+```typescript
+await db
+  .select({ id: users.id })
+  .from(users)
+  .where(
+    json
+      .contains(users.profile)
+      .user.preferences.$contains({ theme: 'dark' }),
+  )
+```
+
+That proxy form emits a root containment predicate:
+
+```sql
+profile @> '{"user":{"preferences":{"theme":"dark"}}}'::jsonb
+```
+
+The direct form is useful when you already have the full containment shape:
+
+```typescript
+json.contains(users.profile, {
+  user: { preferences: { theme: 'dark' } },
+})
+```
+
+Do not use `json.access(users.profile).user.preferences.$value @> ...` when you expect a full-column JSONB index to be used. That filters on `jsonb_extract_path(...)`, so it needs an expression index on the extracted path instead.
 
 ### Access is typed, but schema-free
 
@@ -355,6 +388,8 @@ await db.update(users).set({
 - `json.arraySet(source, index, value)`
 - `json.build(value)`
 - `json.coalesce(source, fallback)`
+- `json.contains(source)`
+- `json.contains(source, value)`
 - `json.merge(left, right)`
 - `json.set(source)`
 - `json.setPipe(source, ...operations)`
@@ -365,6 +400,7 @@ await db.update(users).set({
 - `arrayDelete`, `arrayPush`, `arraySet` from `@denny-il/drizzle-pg-utils/json`
 - `build` from `@denny-il/drizzle-pg-utils/json`
 - `coalesce` from `@denny-il/drizzle-pg-utils/json`
+- `contains` from `@denny-il/drizzle-pg-utils/json`
 - `merge` from `@denny-il/drizzle-pg-utils/json`
 - `set`, `setPipe` from `@denny-il/drizzle-pg-utils/json`
 
@@ -374,5 +410,6 @@ await db.update(users).set({
 - `@denny-il/drizzle-pg-utils/json/array`
 - `@denny-il/drizzle-pg-utils/json/build`
 - `@denny-il/drizzle-pg-utils/json/coalesce`
+- `@denny-il/drizzle-pg-utils/json/contains`
 - `@denny-il/drizzle-pg-utils/json/merge`
 - `@denny-il/drizzle-pg-utils/json/set`

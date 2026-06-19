@@ -63,7 +63,17 @@ export const executeQuery = async (
   client: TestDatabase,
   query: SQLWrapper,
 ): Promise<any> => {
-  const results = await client.execute(sql`select (${query}) as result`)
-  const rows = Array.isArray(results) ? results : results.rows
+  const rows = await executeRows<{ result: unknown }>(
+    client,
+    sql`select (${query}) as result`,
+  )
   return rows[0]!.result
+}
+
+export const executeRows = async <TRow extends Record<string, unknown>>(
+  client: TestDatabase,
+  query: SQLWrapper,
+): Promise<TRow[]> => {
+  const results = await client.execute(query)
+  return (Array.isArray(results) ? results : results.rows) as TRow[]
 }
