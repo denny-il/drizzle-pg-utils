@@ -5,17 +5,20 @@ import type {
   SQLJSONNullish,
   SQLJSONValue,
 } from '../common.ts'
-import { jsonCoalesce } from './coalesce.ts'
+import { jsonBuild } from './build.ts'
 
 type AcceptableValue = any[] | SQLJSONNullish
+
+function jsonbLiteral(value: unknown) {
+  return sql`${JSON.stringify(value === undefined ? null : value)}::jsonb`
+}
 
 function valueOrEmptyArray<T extends SQLJSONValue<AcceptableValue>>(
   value: T,
 ): SQL<SQLJSONDenullify<SQLJSONExtractType<T>>> {
-  return jsonCoalesce(
-    value,
-    sql<SQLJSONDenullify<SQLJSONExtractType<T>>>`'[]'::jsonb`,
-  )
+  return sql<
+    SQLJSONDenullify<SQLJSONExtractType<T>>
+  >`coalesce(nullif(${value}, 'null'::jsonb), '[]'::jsonb)`
 }
 
 /**
@@ -49,7 +52,7 @@ export function jsonArrayPush<
   ...values: Array<ElementType | SQLJSONValue<ElementType>>
 ): SQL<SQLJSONDenullify<SourceType>> {
   const _values = values.map((value) =>
-    isSQLWrapper(value) ? value : sql`${JSON.stringify(value)}::jsonb`,
+    isSQLWrapper(value) ? value : jsonbLiteral(value),
   )
   const _value = sql`jsonb_build_array(${sql.join(_values, sql`, `)})`
   return sql`${valueOrEmptyArray(target)} || ${_value}`
@@ -88,9 +91,9 @@ export function jsonArraySet<
   value: ElementType | SQLJSONValue<ElementType>,
 ) {
   const _value = isSQLWrapper(value)
-    ? value
-    : sql`${JSON.stringify(value)}::jsonb`
-  return sql<SourceType>`jsonb_set(${valueOrEmptyArray(target)}, '{${sql`${index}`.inlineParams()}}', ${_value})`
+    ? jsonBuild(value as any)
+    : jsonbLiteral(value)
+  return sql<SourceType>`jsonb_set(${valueOrEmptyArray(target)}, '{${sql`${index}`.inlineParams()}}', ${_value}, false)`
 }
 
 /**

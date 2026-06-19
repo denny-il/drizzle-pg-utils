@@ -1,6 +1,7 @@
 import { type SQL, sql } from 'drizzle-orm'
 
 import { describe, expect, expectTypeOf, it } from 'vitest'
+import type { SQLJSONExtractType } from '../../src/json/common.ts'
 import { jsonMerge } from '../../src/json/operations/merge.ts'
 import { dialect, table } from '../utils.ts'
 
@@ -281,6 +282,34 @@ describe('JSON Merge Operations', () => {
 
       const result = jsonMerge(obj1, obj2)
       expectTypeOf(result).toEqualTypeOf<SQL<{ a: string } & { b: number }>>()
+    })
+
+    it('types object merges as shallow right-wins merges', () => {
+      const left = sql<{
+        keep: boolean
+        user: { name: string }
+      }>`'{"keep": true, "user": {"name": "John"}}'::jsonb`
+      const right = sql<{
+        user: { age: number }
+      }>`'{"user": {"age": 30}}'::jsonb`
+
+      const result = jsonMerge(left, right)
+
+      expectTypeOf<SQLJSONExtractType<typeof result>>().toEqualTypeOf<{
+        keep: boolean
+        user: { age: number }
+      }>()
+    })
+
+    it('types duplicate object keys as right-hand values', () => {
+      const left = sql<{ key: string }>`'{"key": "old"}'::jsonb`
+      const right = sql<{ key: number }>`'{"key": 42}'::jsonb`
+
+      const result = jsonMerge(left, right)
+
+      expectTypeOf<SQLJSONExtractType<typeof result>>().toEqualTypeOf<{
+        key: number
+      }>()
     })
 
     it('has correct return type for array merge', () => {

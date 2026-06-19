@@ -240,6 +240,17 @@ describe('JSON Integration Tests', () => {
 
       expect(result).toEqual({ user: { age: 42 } })
     })
+
+    it('should convert non-jsonb SQL values before jsonSet writes them', async () => {
+      const baseValue = sql<{ lastLogin?: string }>`'{}'::jsonb`
+
+      const result = await executeQuery(
+        db,
+        jsonSet(baseValue).lastLogin.$set(sql<string>`'2026-03-15'::text`),
+      )
+
+      expect(result).toEqual({ lastLogin: '2026-03-15' })
+    })
   })
 
   describe('JSON Set $default Runtime Behavior', () => {
@@ -260,6 +271,19 @@ describe('JSON Integration Tests', () => {
         user: { name: 'John' },
         profile: { avatar: 'new-avatar.jpg', theme: 'light' },
       })
+    })
+
+    it('should initialize SQL NULL root through $default', async () => {
+      const baseValue = sql<{
+        user?: { name: string }
+      }>`NULL::jsonb`
+      const setter = jsonSet(baseValue)
+      const result = await executeQuery(
+        db,
+        setter.user.$default({ name: 'Default User' }).name.$set('Ada'),
+      )
+
+      expect(result).toEqual({ user: { name: 'Ada' } })
     })
 
     it('should preserve existing value when property exists', async () => {
@@ -687,6 +711,32 @@ describe('JSON Integration Tests', () => {
         user: { name: 'John', settings: { theme: 'dark' } },
       })
     })
+
+    it('should initialize SQL NULL root through jsonSetPipe and $default', async () => {
+      const baseValue = sql<{
+        user?: { name: string }
+      }>`NULL::jsonb`
+      const result = await executeQuery(
+        db,
+        jsonSetPipe(baseValue, (s) =>
+          s.user.$default({ name: 'Default User' }).name.$set('Ada'),
+        ),
+      )
+
+      expect(result).toEqual({ user: { name: 'Ada' } })
+    })
+
+    it('should not auto-create SQL NULL root in jsonSetPipe without $default', async () => {
+      const baseValue = sql<{
+        user: { name: string }
+      }>`NULL::jsonb`
+      const result = await executeQuery(
+        db,
+        jsonSetPipe(baseValue, (s) => s.user.name.$set('Ada')),
+      )
+
+      expect(result).toBeNull()
+    })
   })
 
   describe('JSON Merge Runtime Behavior', () => {
@@ -757,12 +807,28 @@ describe('JSON Integration Tests', () => {
       expect(result).toEqual(['a', 'b', 'c'])
     })
 
+    it('should push undefined values as JSON null', async () => {
+      const baseArray = sql<Array<string | null>>`'["a"]'::jsonb`
+      const pushedArray = jsonArrayPush(baseArray, undefined)
+      const result = await executeQuery(db, pushedArray)
+
+      expect(result).toEqual(['a', null])
+    })
+
     it('should set array elements by index', async () => {
       const baseArray = sql<string[]>`'["a", "b", "c"]'::jsonb`
       const updatedArray = jsonArraySet(baseArray, 1, 'updated')
       const result = await executeQuery(db, updatedArray)
 
       expect(result).toEqual(['a', 'updated', 'c'])
+    })
+
+    it('should set undefined values as JSON null', async () => {
+      const baseArray = sql<Array<string | null>>`'["a", "b"]'::jsonb`
+      const updatedArray = jsonArraySet(baseArray, 1, undefined)
+      const result = await executeQuery(db, updatedArray)
+
+      expect(result).toEqual(['a', null])
     })
 
     it('should delete array elements by index', async () => {
@@ -776,16 +842,17 @@ describe('JSON Integration Tests', () => {
     it('should handle out-of-bounds array operations gracefully', async () => {
       const baseArray = sql<string[]>`'["a", "b"]'::jsonb`
 
-      // Set out of bounds - PostgreSQL jsonb_set doesn't extend with nulls like I expected
-      const extendedArray = jsonArraySet(baseArray, 5, 'far')
-      const extendedResult = await executeQuery(db, extendedArray)
+      const setPastEnd = jsonArraySet(baseArray, 5, 'far')
+      const setBeforeStart = jsonArraySet(baseArray, -5, 'far')
+      const pastEndResult = await executeQuery(db, setPastEnd)
+      const beforeStartResult = await executeQuery(db, setBeforeStart)
 
       // Delete out of bounds (should be no-op)
       const deleteOutOfBounds = jsonArrayDelete(baseArray, 10)
       const deleteResult = await executeQuery(db, deleteOutOfBounds)
 
-      // PostgreSQL behavior: setting out of bounds just appends at the end
-      expect(extendedResult).toEqual(['a', 'b', 'far'])
+      expect(pastEndResult).toEqual(['a', 'b'])
+      expect(beforeStartResult).toEqual(['a', 'b'])
       expect(deleteResult).toEqual(['a', 'b'])
     })
 

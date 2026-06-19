@@ -1,15 +1,13 @@
 import { sql } from 'drizzle-orm'
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
 import type { SQL } from 'drizzle-orm/sql'
-import {
-  normalizeNullish,
-  type SQLJSONDenullify,
-  type SQLJSONExtractType,
-  type SQLJSONIsNullish,
-  type SQLJSONValue,
+import type {
+  SQLJSONDenullify,
+  SQLJSONExtractType,
+  SQLJSONIsNullish,
+  SQLJSONValue,
 } from '../common.ts'
 import { jsonBuild } from './build.ts'
-import { jsonCoalesce } from './coalesce.ts'
 
 export type SQLJSONSetMixedValue<T> =
   | SQL<T>
@@ -80,7 +78,7 @@ export function jsonSet<Source extends SQLJSONValue<object>>(
         path.map((p) => sql`${p}`.inlineParams()),
         sql`,`,
       )}]::text[]`
-      return sql`jsonb_set(${source}, ${pathArray}, ${setValueSQL}, ${sql`${createMissing}`.inlineParams()})`
+      return sql`jsonb_set(${source}, ${pathArray}, ${setValueSQL}, ${sql`${!!createMissing}`.inlineParams()})`
     }
 
     function buildDefault(path: string[], value: any, createMissing = true) {
@@ -92,8 +90,9 @@ export function jsonSet<Source extends SQLJSONValue<object>>(
         sql`,`,
       )
       const pathArray = sql`array[${pathArgs}]::text[]`
+      const currentValueSQL = sql`jsonb_extract_path(${source}, ${pathArgs})`
       return _jsonSet(
-        sql`jsonb_set(${source}, ${pathArray}, ${jsonCoalesce(sql`jsonb_extract_path(${source}, ${pathArgs})`, defaultValueSQL)}, ${sql`${createMissing}`.inlineParams()})` as Source,
+        sql`jsonb_set(coalesce(nullif(${source}, 'null'::jsonb), '{}'::jsonb), ${pathArray}, coalesce(nullif(${currentValueSQL}, 'null'::jsonb), ${defaultValueSQL}), ${sql`${!!createMissing}`.inlineParams()})` as Source,
         path,
       )
     }
@@ -170,6 +169,6 @@ export function jsonSetPipe<Source extends SQLJSONValue<object>>(
       const setter = jsonSet(acc)
       return fn(setter as any)
     },
-    normalizeNullish(source) as SQL<SQLJSONExtractType<Source>>,
+    source as SQL<SQLJSONExtractType<Source>>,
   )
 }

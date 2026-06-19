@@ -158,7 +158,7 @@ describe('JSON Set', () => {
         ['js-tag', 'another-js-tag'].map((v) => JSON.stringify(v)),
       )
       expect(query.sql).toBe(
-        `jsonb_set(${jsonObjectSql}, array['tags']::text[], jsonb_build_array($1::jsonb,'sql-generated-tag'::text,$2::jsonb), true)`,
+        `jsonb_set(${jsonObjectSql}, array['tags']::text[], jsonb_build_array($1::jsonb,to_jsonb('sql-generated-tag'::text),$2::jsonb), true)`,
       )
     })
 
@@ -203,7 +203,7 @@ describe('JSON Set', () => {
 
       expect(query.params).toEqual(['js-value'].map((v) => JSON.stringify(v)))
       expect(query.sql).toBe(
-        `jsonb_set(${jsonObjectSql}, array['metadata']::text[], jsonb_build_object('jsKey', $1::jsonb,'sqlKey', 42::integer), true)`,
+        `jsonb_set(${jsonObjectSql}, array['metadata']::text[], jsonb_build_object('jsKey', $1::jsonb,'sqlKey', to_jsonb(42::integer)), true)`,
       )
     })
 
@@ -234,7 +234,7 @@ describe('JSON Set', () => {
 
       expect(query.params).toEqual([].map((v) => JSON.stringify(v)))
       expect(query.sql).toBe(
-        `jsonb_set(${jsonObjectSql}, array['name']::text[], 'direct-sql-value'::text, true)`,
+        `jsonb_set(${jsonObjectSql}, array['name']::text[], to_jsonb('direct-sql-value'::text), true)`,
       )
     })
 
@@ -246,7 +246,7 @@ describe('JSON Set', () => {
 
       expect(query.params).toEqual([].map((v) => JSON.stringify(v)))
       expect(query.sql).toBe(
-        `jsonb_set(${jsonObjectSql}, array['metadata']::text[], jsonb_build_object('computed', now()::text), true)`,
+        `jsonb_set(${jsonObjectSql}, array['metadata']::text[], to_jsonb(jsonb_build_object('computed', now()::text)), true)`,
       )
     })
   })
@@ -389,6 +389,23 @@ describe('JSON Set', () => {
 
       // Should not have $default after using $default
       expectTypeOf(defaultResult).not.toHaveProperty('$default')
+    })
+
+    it('does not expose array prototype members as JSON paths', () => {
+      const setter = jsonSet(jsonObject)
+
+      expectTypeOf(setter.tags).not.toHaveProperty('length')
+      expectTypeOf(setter.tags).not.toHaveProperty('map')
+    })
+
+    it('accepts null in nullable leaf setters', () => {
+      const setter = jsonSet(
+        sql<{ value: string | null }>`'{"value": "old"}'::jsonb`,
+      )
+
+      const result = setter.value.$set(null)
+
+      expect(result).toBeDefined()
     })
   })
 
@@ -533,7 +550,7 @@ describe('JSON Set', () => {
         ['new-avatar.jpg', 'dark'].map((v) => JSON.stringify(v)),
       )
       expect(query.sql).toBe(
-        `jsonb_set(jsonb_set(coalesce(${jsonObjectSql}, 'null'::jsonb), array['profile','avatar']::text[], $1::jsonb, true), array['profile','settings','theme']::text[], $2::jsonb, true)`,
+        `jsonb_set(jsonb_set(${jsonObjectSql}, array['profile','avatar']::text[], $1::jsonb, true), array['profile','settings','theme']::text[], $2::jsonb, true)`,
       )
     })
   })
@@ -550,7 +567,7 @@ describe('JSON Set', () => {
         ['default', 'updated'].map((v) => JSON.stringify(v)),
       )
       expect(query.sql).toBe(
-        `jsonb_set(jsonb_set(${jsonObjectSql}, array['optionalObject']::text[], json_query(coalesce(jsonb_extract_path(${jsonObjectSql}, 'optionalObject'), 'null'::jsonb), 'strict $ ? (@ != null)' default jsonb_build_object('key', $1::jsonb) on empty)::jsonb, true), array['optionalObject','key']::text[], $2::jsonb, true)`,
+        `jsonb_set(jsonb_set(coalesce(nullif(${jsonObjectSql}, 'null'::jsonb), '{}'::jsonb), array['optionalObject']::text[], coalesce(nullif(jsonb_extract_path(${jsonObjectSql}, 'optionalObject'), 'null'::jsonb), jsonb_build_object('key', $1::jsonb)), true), array['optionalObject','key']::text[], $2::jsonb, true)`,
       )
     })
 
@@ -565,7 +582,7 @@ describe('JSON Set', () => {
         ['default1', 'default2', 'updated'].map((v) => JSON.stringify(v)),
       )
       expect(query.sql).toBe(
-        `jsonb_set(jsonb_set(${jsonObjectSql}, array['optionalArray']::text[], json_query(coalesce(jsonb_extract_path(${jsonObjectSql}, 'optionalArray'), 'null'::jsonb), 'strict $ ? (@ != null)' default jsonb_build_array(jsonb_build_object('key', $1::jsonb),jsonb_build_object('key', $2::jsonb)) on empty)::jsonb, true), array['optionalArray','0','key']::text[], $3::jsonb, true)`,
+        `jsonb_set(jsonb_set(coalesce(nullif(${jsonObjectSql}, 'null'::jsonb), '{}'::jsonb), array['optionalArray']::text[], coalesce(nullif(jsonb_extract_path(${jsonObjectSql}, 'optionalArray'), 'null'::jsonb), jsonb_build_array(jsonb_build_object('key', $1::jsonb),jsonb_build_object('key', $2::jsonb))), true), array['optionalArray','0','key']::text[], $3::jsonb, true)`,
       )
     })
 
@@ -580,7 +597,7 @@ describe('JSON Set', () => {
         ['default', 'updated'].map((v) => JSON.stringify(v)),
       )
       expect(query.sql).toBe(
-        `jsonb_set(jsonb_set(${jsonObjectSql}, array['optionalObject']::text[], json_query(coalesce(jsonb_extract_path(${jsonObjectSql}, 'optionalObject'), 'null'::jsonb), 'strict $ ? (@ != null)' default jsonb_build_object('key', $1::jsonb) on empty)::jsonb, false), array['optionalObject','key']::text[], $2::jsonb, true)`,
+        `jsonb_set(jsonb_set(coalesce(nullif(${jsonObjectSql}, 'null'::jsonb), '{}'::jsonb), array['optionalObject']::text[], coalesce(nullif(jsonb_extract_path(${jsonObjectSql}, 'optionalObject'), 'null'::jsonb), jsonb_build_object('key', $1::jsonb)), false), array['optionalObject','key']::text[], $2::jsonb, true)`,
       )
     })
 
@@ -596,7 +613,7 @@ describe('JSON Set', () => {
 
       expect(query.params).toEqual(['updated'].map((v) => JSON.stringify(v)))
       expect(query.sql).toBe(
-        `jsonb_set(jsonb_set(${jsonObjectSql}, array['optionalObject']::text[], json_query(coalesce(jsonb_extract_path(${jsonObjectSql}, 'optionalObject'), 'null'::jsonb), 'strict $ ? (@ != null)' default jsonb_build_object('key', 'sql-default') on empty)::jsonb, true), array['optionalObject','key']::text[], $1::jsonb, true)`,
+        `jsonb_set(jsonb_set(coalesce(nullif(${jsonObjectSql}, 'null'::jsonb), '{}'::jsonb), array['optionalObject']::text[], coalesce(nullif(jsonb_extract_path(${jsonObjectSql}, 'optionalObject'), 'null'::jsonb), to_jsonb(jsonb_build_object('key', 'sql-default'))), true), array['optionalObject','key']::text[], $1::jsonb, true)`,
       )
     })
 
@@ -615,7 +632,7 @@ describe('JSON Set', () => {
         ['defaultKey', 'defaultKey2', 'newValue'].map((v) => JSON.stringify(v)),
       )
       expect(query.sql).toBe(
-        `jsonb_set(jsonb_set(${jsonObjectSql}, array['optionalArray']::text[], json_query(coalesce(jsonb_extract_path(${jsonObjectSql}, 'optionalArray'), 'null'::jsonb), 'strict $ ? (@ != null)' default jsonb_build_array(jsonb_build_object('key', $1::jsonb,'key2', $2::jsonb)) on empty)::jsonb, true), array['optionalArray','0','key2']::text[], $3::jsonb, true)`,
+        `jsonb_set(jsonb_set(coalesce(nullif(${jsonObjectSql}, 'null'::jsonb), '{}'::jsonb), array['optionalArray']::text[], coalesce(nullif(jsonb_extract_path(${jsonObjectSql}, 'optionalArray'), 'null'::jsonb), jsonb_build_array(jsonb_build_object('key', $1::jsonb,'key2', $2::jsonb))), true), array['optionalArray','0','key2']::text[], $3::jsonb, true)`,
       )
     })
 
