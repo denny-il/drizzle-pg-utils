@@ -97,6 +97,7 @@ describe('JSON Merge SQL injection and misuse resistance', () => {
 
   it('treats prototype-ish names as JSON keys when merging built operands', async () => {
     const right = Object.create(null) as Record<string, unknown>
+    // biome-ignore lint/suspicious/noProto: test
     right.__proto__ = 'proto-value'
     right.constructor = 'constructor-value'
     right.prototype = 'prototype-value'
@@ -112,6 +113,7 @@ describe('JSON Merge SQL injection and misuse resistance', () => {
       'prototype',
     ])
     expect(Object.hasOwn(result, '__proto__')).toBe(true)
+    // biome-ignore lint/suspicious/noProto: test
     expect(result.__proto__).toBe('proto-value')
     expect(result.constructor).toBe('constructor-value')
     expect(result.prototype).toBe('prototype-value')

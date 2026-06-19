@@ -3,7 +3,8 @@
   "compilerOptions": {
     "noEmit": true,
     "lib": ["ES2024"],
-    "target": "ES2024"
+    "target": "ES2024",
+    "types": ["node"]
   },
   "include": ["./**/*.ts"]
 }
