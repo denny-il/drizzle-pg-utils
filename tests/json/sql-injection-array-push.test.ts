@@ -1,11 +1,16 @@
 import { sql } from 'drizzle-orm'
-import type { PgliteDatabase } from 'drizzle-orm/pglite'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { arrayPush } from '../../src/json/index.ts'
 import { jsonArrayPush } from '../../src/json/operations/array.ts'
-import { createDatabase, dialect, executeQuery } from '../utils.ts'
+import {
+  createDatabase,
+  dialect,
+  executeQuery,
+  getRows,
+  type TestDatabase,
+} from '../utils.ts'
 
-let db: PgliteDatabase
+let db: TestDatabase
 
 beforeAll(async () => {
   db = await createDatabase()
@@ -42,7 +47,7 @@ describe('JSON Array Push SQL injection handling', () => {
     const sentinel = await db.execute(
       sql`select count(*)::int as count from array_push_sentinel`,
     )
-    expect(sentinel.rows).toEqual([{ count: 1 }])
+    expect(getRows(sentinel)).toEqual([{ count: 1 }])
   })
 
   it('keeps malicious object keys and values inside one JSONB parameter', async () => {

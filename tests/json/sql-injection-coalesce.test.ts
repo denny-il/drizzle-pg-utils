@@ -1,12 +1,16 @@
 import { sql } from 'drizzle-orm'
-import type { PgliteDatabase } from 'drizzle-orm/pglite'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { coalesce } from '../../src/json/index.ts'
 import { jsonCoalesce } from '../../src/json/operations/coalesce.ts'
-import { createDatabase, dialect, executeQuery } from '../utils.ts'
+import {
+  createDatabase,
+  dialect,
+  executeQuery,
+  type TestDatabase,
+} from '../utils.ts'
 
 describe('JSON Coalesce SQL injection handling', () => {
-  let db: PgliteDatabase
+  let db: TestDatabase
 
   beforeAll(async () => {
     db = await createDatabase()

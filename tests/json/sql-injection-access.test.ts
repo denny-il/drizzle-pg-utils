@@ -1,11 +1,15 @@
 import { access } from '@denny-il/drizzle-pg-utils/json'
 import { sql } from 'drizzle-orm'
-import type { PgliteDatabase } from 'drizzle-orm/pglite'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { jsonAccess } from '../../src/json/operations/access.ts'
-import { createDatabase, dialect, executeQuery } from '../utils.ts'
+import {
+  createDatabase,
+  dialect,
+  executeQuery,
+  type TestDatabase,
+} from '../utils.ts'
 
-let db: PgliteDatabase
+let db: TestDatabase
 
 beforeAll(async () => {
   db = await createDatabase()

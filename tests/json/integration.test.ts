@@ -1,5 +1,4 @@
 import { sql } from 'drizzle-orm'
-import type { PgliteDatabase } from 'drizzle-orm/pglite'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { jsonAccess } from '../../src/json/operations/access.ts'
 import {
@@ -9,9 +8,9 @@ import {
 } from '../../src/json/operations/array.ts'
 import { jsonMerge } from '../../src/json/operations/merge.ts'
 import { jsonSet, jsonSetPipe } from '../../src/json/operations/set.ts'
-import { createDatabase, executeQuery } from '../utils.ts'
+import { createDatabase, executeQuery, type TestDatabase } from '../utils.ts'
 
-let db: PgliteDatabase
+let db: TestDatabase
 
 beforeAll(async () => {
   db = await createDatabase()
@@ -235,7 +234,7 @@ describe('JSON Integration Tests', () => {
       }>`'{"user": {"age": 30}}'::jsonb`
       const setter = jsonSet(baseValue)
 
-      const query = setter.user.age.$set(sql<number>`${42}`)
+      const query = setter.user.age.$set(sql<number>`42`)
       const result = await executeQuery(db, query)
 
       expect(result).toEqual({ user: { age: 42 } })

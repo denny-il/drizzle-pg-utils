@@ -1,11 +1,15 @@
 import { sql } from 'drizzle-orm'
-import type { PgliteDatabase } from 'drizzle-orm/pglite'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { arrayDelete } from '../../src/json/index.ts'
 import { jsonArrayDelete } from '../../src/json/operations/array.ts'
-import { createDatabase, dialect, executeQuery } from '../utils.ts'
+import {
+  createDatabase,
+  dialect,
+  executeQuery,
+  type TestDatabase,
+} from '../utils.ts'
 
-let db: PgliteDatabase
+let db: TestDatabase
 
 beforeAll(async () => {
   db = await createDatabase()

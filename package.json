@@ -103,6 +103,7 @@
     "@types/node": "20",
     "@typescript/native-preview": "7.0.0-dev.20260430.1",
     "drizzle-orm": "1.0.0-rc.3",
+    "postgres": "^3.4.9",
     "temporal-polyfill": "^0.3.2",
     "vitest": "4.1.5"
   },
