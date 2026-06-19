@@ -32,7 +32,6 @@ const rows = await db
 
 - `.$value` returns a typed JSONB SQL expression using `jsonb_extract_path(...)`.
 - `.$text` returns a typed text SQL expression using `jsonb_extract_path_text(...)`.
-- `.$path` is deprecated; use `.$value`.
 
 Missing properties, JSON `null`, and SQL `NULL` sources decode as SQL `NULL`.
 

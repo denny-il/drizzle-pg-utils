@@ -37,10 +37,6 @@ export type SQLJSONAccess<
         >
       >
     }) & {
-  /**
-   * @deprecated Use `$value` instead
-   */
-  $path: SQL<SQLJSONNullify<IsNullish, Type>>
   $value: SQL<SQLJSONNullify<IsNullish, Type>>
   $text: SQL<SQLJSONNullify<IsNullish, string>>
 }
@@ -74,9 +70,6 @@ export function jsonAccess<Source extends SQLJSONValue>(
         if (typeof property === 'symbol')
           throw new TypeError('Symbols are not supported in JSON paths')
         if (property === '$value') {
-          return buildPath(path)
-        }
-        if (property === '$path') {
           return buildPath(path)
         }
         if (property === '$text') {

@@ -264,7 +264,6 @@ accessor.user.preferences.tags['0'].$value
 
 - `.$value` returns a JSONB expression.
 - `.$text` returns a text expression.
-- `.$path` deprecated in favor of `.$value`.
 
 ### `$default(...)` is for missing intermediate branches
 

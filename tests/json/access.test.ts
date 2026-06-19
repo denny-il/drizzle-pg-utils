@@ -37,7 +37,7 @@ describe('JSON Accessor', () => {
 
     it('generates correct SQL for root access', () => {
       const accessor = jsonAccess(jsonObject)
-      const query = dialect.sqlToQuery(accessor.$path)
+      const query = dialect.sqlToQuery(accessor.$value)
 
       // Root access should just return the source directly
       expect(query.params).toEqual([])
@@ -46,7 +46,7 @@ describe('JSON Accessor', () => {
 
     it('generates correct SQL for property access', () => {
       const accessor = jsonAccess(jsonObject)
-      const userAccess = accessor.user.$path
+      const userAccess = accessor.user.$value
       const query = dialect.sqlToQuery(userAccess)
 
       expect(query.params).toEqual([])
@@ -55,7 +55,7 @@ describe('JSON Accessor', () => {
 
     it('supports the $$ syntax for path extraction', () => {
       const accessor = jsonAccess(jsonObject)
-      const pathSQL = accessor.$path
+      const pathSQL = accessor.$value
       const query = dialect.sqlToQuery(pathSQL)
 
       expect(query.params).toEqual([])
@@ -66,7 +66,7 @@ describe('JSON Accessor', () => {
   describe('Nested Property Access', () => {
     it('accesses nested object properties', () => {
       const accessor = jsonAccess(jsonObject)
-      const nameAccess = accessor.user.name.$path
+      const nameAccess = accessor.user.name.$value
       const query = dialect.sqlToQuery(nameAccess)
 
       expect(query.params).toEqual([])
@@ -77,7 +77,7 @@ describe('JSON Accessor', () => {
 
     it('accesses deeply nested properties', () => {
       const accessor = jsonAccess(jsonObject)
-      const themeAccess = accessor.user.profile.preferences.theme.$path
+      const themeAccess = accessor.user.profile.preferences.theme.$value
       const query = dialect.sqlToQuery(themeAccess)
 
       expect(query.params).toEqual([])
@@ -88,7 +88,7 @@ describe('JSON Accessor', () => {
 
     it('handles array access', () => {
       const accessor = jsonAccess(jsonObject)
-      const tagsAccess = accessor.tags.$path
+      const tagsAccess = accessor.tags.$value
       const query = dialect.sqlToQuery(tagsAccess)
 
       expect(query.params).toEqual([])
@@ -173,7 +173,7 @@ describe('JSON Accessor', () => {
       const nullableJson = sql<JsonType>`'{"prop": null}'::jsonb`
       const accessor = jsonAccess(nullableJson)
       const propAccess = accessor.prop
-      const query = dialect.sqlToQuery(propAccess.$path)
+      const query = dialect.sqlToQuery(propAccess.$value)
 
       expect(query.params).toEqual([])
       expect(query.sql).toBe(
@@ -188,7 +188,7 @@ describe('JSON Accessor', () => {
       type JsonType = {}
       const emptyJson = sql<JsonType>`'{}'::jsonb`
       const accessor = jsonAccess(emptyJson)
-      const query = dialect.sqlToQuery(accessor.$path)
+      const query = dialect.sqlToQuery(accessor.$value)
 
       expect(query.params).toEqual([])
       expect(query.sql).toBe(`'{}'::jsonb`)
@@ -198,7 +198,7 @@ describe('JSON Accessor', () => {
     it('handles dynamic property names', () => {
       const accessor = jsonAccess(jsonObject)
       const metadataAccess = accessor.metadata
-      const query = dialect.sqlToQuery(metadataAccess.$path)
+      const query = dialect.sqlToQuery(metadataAccess.$value)
 
       expect(query.params).toEqual([])
       expect(query.sql).toBe(`jsonb_extract_path(${jsonObjectSql}, 'metadata')`)
@@ -213,7 +213,7 @@ describe('JSON Accessor', () => {
     it('generates inline parameters correctly', () => {
       const accessor = jsonAccess(jsonObject)
       const nestedAccess = accessor.user.profile.avatar
-      const query = dialect.sqlToQuery(nestedAccess.$path)
+      const query = dialect.sqlToQuery(nestedAccess.$value)
 
       expect(query.params).toEqual([])
       expect(query.sql).toBe(
@@ -226,7 +226,7 @@ describe('JSON Accessor', () => {
     it('builds correct path arrays', () => {
       const accessor = jsonAccess(jsonObject)
       const deepAccess = accessor.user.profile.preferences
-      const query = dialect.sqlToQuery(deepAccess.$path)
+      const query = dialect.sqlToQuery(deepAccess.$value)
 
       expect(query.params).toEqual([])
       expect(query.sql).toBe(
@@ -287,7 +287,7 @@ describe('JSON Accessor', () => {
   describe('Table Column Integration', () => {
     it('should work with actual table columns', () => {
       const accessor = jsonAccess(table.jsoncol)
-      const someAccess = accessor.some.$path
+      const someAccess = accessor.some.$value
       const query = dialect.sqlToQuery(someAccess)
 
       // Should generate correct SQL for table column access
