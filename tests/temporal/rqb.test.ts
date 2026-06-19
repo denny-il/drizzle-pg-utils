@@ -1,6 +1,5 @@
 import { defineRelations, sql } from 'drizzle-orm'
 import { integer, pgTable, serial, text } from 'drizzle-orm/pg-core'
-import { drizzle } from 'drizzle-orm/pglite'
 import { Temporal, Temporal as TemporalImpl } from 'temporal-polyfill'
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import {
@@ -8,6 +7,7 @@ import {
   timestamp,
   timestampz,
 } from '../../src/temporal/polyfill.ts'
+import { createDatabase, type TestDatabase } from '../utils.ts'
 
 const temporalUsersTable = pgTable('temporal_rqb_users', {
   id: serial('id').primaryKey(),
@@ -45,12 +45,10 @@ const temporalRqbRelations = defineRelations(
   }),
 )
 
-let db: ReturnType<typeof drizzle<typeof temporalRqbRelations>>
+let db: TestDatabase<typeof temporalRqbRelations>
 
 beforeAll(async () => {
-  const { PGlite } = await import('@electric-sql/pglite')
-  const pglite = await PGlite.create()
-  db = drizzle({ client: pglite, relations: temporalRqbRelations })
+  db = await createDatabase({ relations: temporalRqbRelations })
 
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS temporal_rqb_users (

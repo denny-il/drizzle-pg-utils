@@ -1,6 +1,20 @@
-import { type SQLWrapper, sql } from 'drizzle-orm'
+import { PGlite } from '@electric-sql/pglite'
+import {
+  type AnyRelations,
+  type EmptyRelations,
+  type SQLWrapper,
+  sql,
+} from 'drizzle-orm'
 import { jsonb, PgDialect, pgTable } from 'drizzle-orm/pg-core'
-import { drizzle, type PgliteDatabase } from 'drizzle-orm/pglite'
+import {
+  drizzle as drizzlePglite,
+  type PgliteDatabase,
+} from 'drizzle-orm/pglite'
+import {
+  drizzle as drizzlePostgres,
+  type PostgresJsDatabase,
+} from 'drizzle-orm/postgres-js'
+import postgres, { type Sql } from 'postgres'
 
 export const dialect = new PgDialect()
 
@@ -14,16 +28,42 @@ export const table = pgTable('test', {
     jsonb('arraycolNullable').$type<Array<{ id: number; name: string }>>(),
 })
 
-export const createDatabase = async () => {
-  const { PGlite } = await import('@electric-sql/pglite')
+export type TestDatabase<TRelations extends AnyRelations = EmptyRelations> =
+  | (PgliteDatabase<TRelations> & { $client: PGlite })
+  | (PostgresJsDatabase<TRelations> & { $client: Sql })
+
+type CreateDatabaseOptions<TRelations extends AnyRelations> = {
+  relations?: TRelations
+}
+
+export const createDatabase = async <
+  TRelations extends AnyRelations = EmptyRelations,
+>(
+  options: CreateDatabaseOptions<TRelations> = {},
+): Promise<TestDatabase<TRelations>> => {
+  if (process.env.DATABASE_URL) {
+    const client = postgres(process.env.DATABASE_URL, {
+      idle_timeout: 1,
+      max: 1,
+    })
+    return drizzlePostgres({
+      client,
+      relations: options.relations,
+    }) as TestDatabase<TRelations>
+  }
+
   const pglite = await PGlite.create()
-  return drizzle({ client: pglite })
+  return drizzlePglite({
+    client: pglite,
+    relations: options.relations,
+  }) as TestDatabase<TRelations>
 }
 
 export const executeQuery = async (
-  client: PgliteDatabase,
+  client: TestDatabase,
   query: SQLWrapper,
 ): Promise<any> => {
   const results = await client.execute(sql`select (${query}) as result`)
-  return results.rows[0]!.result
+  const rows = Array.isArray(results) ? results : results.rows
+  return rows[0]!.result
 }

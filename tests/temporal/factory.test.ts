@@ -1,6 +1,5 @@
 import { sql } from 'drizzle-orm'
 import { pgTable, serial } from 'drizzle-orm/pg-core'
-import type { PgliteDatabase } from 'drizzle-orm/pglite'
 import { Temporal as PolyfillTemporal } from 'temporal-polyfill'
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import {
@@ -12,7 +11,7 @@ import {
   createTimestampz,
   createYearMonth,
 } from '../../src/temporal/index.ts'
-import { createDatabase } from '../utils.ts'
+import { createDatabase, type TestDatabase } from '../utils.ts'
 
 const factoryTemporal = {
   interval: createInterval(PolyfillTemporal),
@@ -46,7 +45,7 @@ const factoryTemporalTable = pgTable(
   }),
 )
 
-let db: PgliteDatabase
+let db: TestDatabase
 
 beforeAll(async () => {
   db = await createDatabase()

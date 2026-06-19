@@ -1,6 +1,5 @@
 import { gte, sql } from 'drizzle-orm'
 import { pgTable, serial } from 'drizzle-orm/pg-core'
-import type { PgliteDatabase } from 'drizzle-orm/pglite'
 import { Temporal, Temporal as TemporalImpl } from 'temporal-polyfill'
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import {
@@ -12,7 +11,7 @@ import {
   timestampz,
   yearMonth,
 } from '../../src/temporal/polyfill.ts'
-import { createDatabase, executeQuery } from '../utils.ts'
+import { createDatabase, executeQuery, type TestDatabase } from '../utils.ts'
 
 // Test table with all temporal column types
 const temporalTable = pgTable(
@@ -49,7 +48,7 @@ const temporalTable = pgTable(
   }),
 )
 
-let db: PgliteDatabase
+let db: TestDatabase
 
 beforeAll(async () => {
   db = await createDatabase()

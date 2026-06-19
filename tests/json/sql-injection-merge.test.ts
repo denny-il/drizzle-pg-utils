@@ -1,12 +1,16 @@
 import { sql } from 'drizzle-orm'
-import type { PgliteDatabase } from 'drizzle-orm/pglite'
 import { beforeAll, describe, expect, it } from 'vitest'
 import * as json from '../../src/json/index.ts'
 import { jsonBuild } from '../../src/json/operations/build.ts'
 import { jsonMerge } from '../../src/json/operations/merge.ts'
-import { createDatabase, dialect, executeQuery } from '../utils.ts'
+import {
+  createDatabase,
+  dialect,
+  executeQuery,
+  type TestDatabase,
+} from '../utils.ts'
 
-let db: PgliteDatabase
+let db: TestDatabase
 
 beforeAll(async () => {
   db = await createDatabase()
@@ -127,11 +131,10 @@ describe('JSON Merge SQL injection and misuse resistance', () => {
       db,
       jsonMerge(jsonBuild({ safe: true }), jsonBuild(right)),
     )
-    const sentinel = await db.execute(
-      sql`select count(*)::int as count from merge_sentinel`,
-    )
 
     expect(result).toEqual({ safe: true, [maliciousKey]: maliciousValue })
-    expect(sentinel.rows).toEqual([{ count: 1 }])
+    await expect(
+      executeQuery(db, sql`(select count(*)::int from merge_sentinel)`),
+    ).resolves.toBe(1)
   })
 })

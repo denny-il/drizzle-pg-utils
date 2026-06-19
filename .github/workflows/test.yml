@@ -33,15 +33,36 @@ jobs:
       - run: pnpm check
 
   test:
+    name: Test Node ${{ matrix.node }} / Postgres ${{ matrix.postgres }}
     strategy:
       matrix:
         node:
-          - 20
           - 22
           - 24
+          - 26
+        postgres:
+          - 14
+          - 15
+          - 16
+          - 17
+          - 18
         os:
           - ubuntu-latest
     runs-on: ${{ matrix.os }}
+    services:
+      postgres:
+        image: postgres:${{ matrix.postgres }}-alpine
+        env:
+          POSTGRES_DB: drizzle_pg_utils
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -67,3 +88,5 @@ jobs:
       - run: pnpm install
       - run: pnpm run build
       - run: pnpm run test
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/drizzle_pg_utils
