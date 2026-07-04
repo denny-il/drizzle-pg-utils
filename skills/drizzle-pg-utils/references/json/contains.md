@@ -1,6 +1,6 @@
 # JSON Containment Helpers
 
-Use `contains(...)` for JSONB `@>` predicates rooted at the original JSONB source.
+Use `.$contains(...)` on a ref or `contains(...)` for JSONB `@>` predicates rooted at the original JSONB source.
 
 ## Imports
 
@@ -9,6 +9,17 @@ import { json } from '@denny-il/drizzle-pg-utils'
 import { contains } from '@denny-il/drizzle-pg-utils/json'
 import { jsonContains } from '@denny-il/drizzle-pg-utils/json/contains'
 ```
+
+## Ref Form
+
+```typescript
+await db
+  .select({ id: users.id })
+  .from(users)
+  .where(json(users.profile).user.preferences.$contains({ theme: 'dark' }))
+```
+
+Containment below an array index (`json(...).items[0].meta.$contains(...)`) is a type error by design: JSONB `@>` cannot address array positions. Use containment on the array path itself instead.
 
 ## Path Proxy Form
 

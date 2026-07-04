@@ -1,9 +1,10 @@
-import { isSQLWrapper, type SQL, sql } from 'drizzle-orm'
+import { isSQLWrapper, type SQL } from 'drizzle-orm'
 import type {
   SQLJSONDenullify,
   SQLJSONExtractType,
   SQLJSONValue,
-} from '../common.ts'
+} from '../types.ts'
+import { jsonContainsPath, jsonWrapPath } from '../utils.ts'
 
 export type SQLJSONContainmentValue<Type> =
   Type extends readonly (infer Element)[]
@@ -53,18 +54,7 @@ export function jsonContains<Source extends SQLJSONValue>(
   ]
 ): SQL<boolean> | SQLJSONContains<Source> {
   function buildContains(value: SQLJSONContainmentValue<any> | SQLJSONValue) {
-    const containmentValue = isSQLWrapper(value)
-      ? value
-      : sql`${JSON.stringify(value)}::jsonb`
-
-    return sql<boolean>`${source} @> ${containmentValue}`
-  }
-
-  function wrapPath(path: string[], value: unknown) {
-    return path.reduceRight<unknown>(
-      (acc, segment) => ({ [segment]: acc }),
-      value,
-    )
+    return jsonContainsPath(source, [], value)
   }
 
   function createProxy(path: string[] = []): SQLJSONContains<Source> {
@@ -81,7 +71,7 @@ export function jsonContains<Source extends SQLJSONValue>(
                 )
               return buildContains(value)
             }
-            return buildContains(wrapPath(path, value))
+            return buildContains(jsonWrapPath(path, value))
           }
         }
         return createProxy([...path, property])

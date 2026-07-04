@@ -1,6 +1,6 @@
 import { type SQL, sql } from 'drizzle-orm'
 import { describe, expect, expectTypeOf, it } from 'vitest'
-import type { SQLJSONExtractType } from '../../src/json/common.ts'
+import type { SQLJSONExtractType } from '../../src/json/types.ts'
 import {
   jsonArrayDelete,
   jsonArrayPush,

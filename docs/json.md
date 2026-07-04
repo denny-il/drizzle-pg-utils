@@ -6,10 +6,10 @@ The JSON helpers work with both JSONB columns and ad hoc SQL expressions typed a
 
 ## Highlights
 
-### Typed path access
+### Typed ref access
 
 ```typescript
-const profile = json.access(users.profile)
+const profile = json(users.profile)
 
 const rows = await db
   .select({
@@ -24,8 +24,7 @@ const rows = await db
 
 ```typescript
 await db.update(users).set({
-  profile: json.setPipe(
-    users.profile,
+  profile: json(users.profile).$pipe(
     (s) => s.user.preferences.$default({ theme: 'light', tags: [] }),
     (s) => s.user.preferences.theme.$set('dark'),
     (s) => s.user.preferences.tags['0'].$set('intro'),
@@ -52,7 +51,7 @@ await db.update(users).set({
 | Import style | Use it when | Example |
 | --- | --- | --- |
 | Root namespace | You want one `json.*` namespace alongside the rest of the package. | `import { json } from '@denny-il/drizzle-pg-utils'` |
-| JSON subpath | You only want JSON helpers. | `import { access, setPipe, merge } from '@denny-il/drizzle-pg-utils/json'` |
+| JSON subpath | You only want JSON helpers. | `import { access, pipe, merge } from '@denny-il/drizzle-pg-utils/json'` |
 | Direct operation subpath | You want a single helper or smaller imports. | `import { jsonSet } from '@denny-il/drizzle-pg-utils/json/set'` |
 
 There is no default export from `@denny-il/drizzle-pg-utils/json`.
@@ -86,7 +85,7 @@ const users = pgTable('users', {
   profile: jsonb('profile').$type<Profile>().notNull(),
 })
 
-const profile = json.access(users.profile)
+const profile = json(users.profile)
 
 const darkUsers = await db
   .select({
@@ -99,8 +98,7 @@ const darkUsers = await db
 await db
   .update(users)
   .set({
-    profile: json.setPipe(
-      users.profile,
+    profile: json(users.profile).$pipe(
       (s) => s.user.preferences.$default({ theme: 'light', tags: [] }),
       (s) => s.user.preferences.theme.$set('dark'),
       (s) => s.user.preferences.tags['0'].$set('intro'),
@@ -119,7 +117,7 @@ The helpers are meant to live inside normal Drizzle queries, not as separate obj
 ```typescript
 import { eq } from 'drizzle-orm'
 
-const profile = json.access(users.profile)
+const profile = json(users.profile)
 
 const darkUsers = await db
   .select({
@@ -137,8 +135,7 @@ const darkUsers = await db
 await db
   .update(users)
   .set({
-    profile: json.setPipe(
-      users.profile,
+    profile: json(users.profile).$pipe(
       (s) => s.user.preferences.$default({ theme: 'light', tags: [] }),
       (s) => s.user.name.$set('Jane'),
       (s) => s.user.preferences.theme.$set('dark'),
@@ -148,7 +145,7 @@ await db
   .where(eq(users.id, darkUsers[0]!.id))
 ```
 
-This follows the same pattern tested with `jsonSetPipe(...)`: every step sees the JSONB expression produced by the previous step.
+Each `$pipe(...)` step sees the JSONB expression produced by the previous step. `json.pipe(source, ...steps)` is the namespace form of the same API.
 
 ### Use SQL values inside JSON updates
 
@@ -158,7 +155,7 @@ import { eq, sql } from 'drizzle-orm'
 await db
   .update(users)
   .set({
-    profile: json.set(users.profile).metadata.$default({}).lastLogin.$set(
+    profile: json(users.profile).metadata.$default({}).lastLogin.$set(
       sql`now()::text`,
     ),
   })
@@ -189,12 +186,12 @@ await db
 ### Update JSON arrays
 
 ```typescript
-const tags = json.access(users.profile).user.preferences.tags.$value
+const tags = json(users.profile).user.preferences.tags.$value
 
 await db
   .update(users)
   .set({
-    profile: json.set(users.profile).user.preferences.tags.$set(
+    profile: json(users.profile).user.preferences.tags.$set(
       json.arrayPush(tags, 'drizzle'),
     ),
   })
@@ -205,9 +202,11 @@ await db
 
 | Helper | What it does | Notes |
 | --- | --- | --- |
+| `json(source)` | Callable typed ref API | Primary API for path access, updates, containment, and pipes |
 | `access(source)` | Typed JSON path extraction | Use `.$value` or `.$text` |
 | `set(source)` | Build a single `jsonb_set(...)` update | Use `.$set(...)` and optional `.$default(...)` |
-| `setPipe(source, ...ops)` | Chain multiple JSON updates | Each step sees the previous result; use `.$default(...)` to initialize SQL `NULL` roots or missing branches |
+| `pipe(source, ...ops)` / `json(source).$pipe(...ops)` | Chain multiple JSON updates | Each step sees the previous result |
+| `setPipe(source, ...ops)` | Deprecated chain helper | Use `json(source).$pipe(...)` or `json.pipe(source, ...)` |
 | `build(value)` | Convert JS values and SQL snippets into JSONB SQL | Handles nested arrays, objects, and SQL expressions |
 | `coalesce(source, fallback)` | Replace SQL `NULL` and JSON `null` with a fallback | Useful before updates |
 | `contains(source)` | Typed JSONB containment builder | Use `.$contains(...)`; emits full-column index-friendly `source @> value` |
@@ -218,6 +217,41 @@ await db
 | `arrayDelete(target, index)` | Remove an element at an index | Nullish arrays become `[]`; out-of-bounds indexes are no-ops |
 
 ## Important Behavior
+
+### Callable refs are the primary API
+
+`json(source)` returns a typed ref. Use normal property access for JSON keys, `.$value` for JSONB extraction, and `.$text` for text extraction.
+
+```typescript
+const profile = json(users.profile)
+
+profile.user.name.$value
+profile.user.name.$text
+profile.user.preferences.tags[0].$value
+```
+
+Refs also build updates and predicates:
+
+```typescript
+await db.update(users).set({
+  profile: profile.$pipe(
+    (p) => p.metadata.$default({ importedAt: 'fallback' }),
+    (p) => p.user.name.$set('Ada'),
+    (p) => p.user.preferences.tags.$push('drizzle'),
+    (p) => p.metadata.$merge({ source: 'api' }),
+  ),
+})
+
+profile.metadata.$coalesce({ importedAt: 'unknown' })
+profile.user.preferences.$contains({ theme: 'dark' })
+profile.user.preferences.tags[0].$delete()
+```
+
+Use `.$key(name)` for JSON keys that collide with helper names, including `$value`, `$set`, and `$contains`.
+
+```typescript
+json(users.profile).config.$key('$value').$text
+```
 
 ### Containment keeps queries index-friendly
 
@@ -248,14 +282,14 @@ json.contains(users.profile, {
 })
 ```
 
-Do not use `json.access(users.profile).user.preferences.$value @> ...` when you expect a full-column JSONB index to be used. That filters on `jsonb_extract_path(...)`, so it needs an expression index on the extracted path instead.
+Do not use `json(users.profile).user.preferences.$value @> ...` when you expect a full-column JSONB index to be used. That filters on `jsonb_extract_path(...)`, so it needs an expression index on the extracted path instead.
 
 ### Access is typed, but schema-free
 
 You do not provide runtime schemas. The path is built through a `Proxy`, and TypeScript keeps the path typed from the column or `SQL<T>` source.
 
 ```typescript
-const accessor = json.access(users.profile)
+const accessor = json(users.profile)
 
 accessor.user.name.$value
 accessor.user.name.$text
@@ -285,25 +319,24 @@ Without `.$default(...)`, the update can silently do nothing when the intermedia
 
 ```typescript
 await db.update(users).set({
-  profile: json.setPipe(
-    users.profile,
+  profile: json(users.profile).$pipe(
     (s) => s.user.$default({ name: 'New User' }),
     (s) => s.user.name.$set('Ada'),
   ),
 })
 ```
 
-Do not rely on `setPipe(...)` to turn a SQL `NULL` root into `{}` automatically. Add the default at the branch you want to create.
+Do not rely on `.$pipe(...)` to turn a SQL `NULL` root into `{}` automatically. Add the default at the branch you want to create.
 
 ### Array helpers have distinct write semantics
 
 Use `arrayPush(...)` when you want append behavior.
 
 ```typescript
-const tags = json.access(users.profile).user.preferences.tags.$value
+const tags = json(users.profile).user.preferences.tags.$value
 
 await db.update(users).set({
-  profile: json.set(users.profile).user.preferences.tags.$set(
+  profile: json(users.profile).user.preferences.tags.$set(
     json.arrayPush(tags, 'drizzle', 'postgres'),
   ),
 })
@@ -313,7 +346,7 @@ Use `arraySet(...)` when you want to replace an existing element.
 
 ```typescript
 await db.update(users).set({
-  profile: json.set(users.profile).user.preferences.tags.$set(
+  profile: json(users.profile).user.preferences.tags.$set(
     json.arraySet(tags, 0, 'intro'),
   ),
 })
@@ -355,7 +388,7 @@ await db.update(users).set({
 })
 ```
 
-That makes it a good companion for `set(...)`, `setPipe(...)`, and `merge(...)`.
+That makes it a good companion for `json(source)`, `set(...)`, `pipe(...)`, and `merge(...)`.
 
 SQL expressions are a trust boundary. Plain JavaScript values are always bound as query parameters, so user input should normally be passed as plain values:
 
@@ -383,7 +416,7 @@ This produces JSON with values computed by PostgreSQL, while any interpolated va
 ### Select nested data
 
 ```typescript
-const profile = json.access(users.profile)
+const profile = json(users.profile)
 
 const rows = await db
   .select({
@@ -399,7 +432,7 @@ const rows = await db
 await db
   .update(users)
   .set({
-    profile: json.set(users.profile).user.preferences.theme.$set('dark'),
+    profile: json(users.profile).user.preferences.theme.$set('dark'),
   })
   .where(eq(users.id, userId))
 ```
@@ -408,8 +441,7 @@ await db
 
 ```typescript
 await db.update(users).set({
-  profile: json.setPipe(
-    users.profile,
+  profile: json(users.profile).$pipe(
     (s) => s.user.name.$set('Den'),
     (s) => s.user.preferences.$default({ theme: 'light', tags: [] }),
     (s) => s.user.preferences.tags['0'].$set('postgres'),
@@ -433,10 +465,10 @@ await db.update(users).set({
 ### Work with arrays
 
 ```typescript
-const tags = json.access(users.profile).user.preferences.tags.$value
+const tags = json(users.profile).user.preferences.tags.$value
 
 await db.update(users).set({
-  profile: json.set(users.profile).user.preferences.tags.$set(
+  profile: json(users.profile).user.preferences.tags.$set(
     json.arrayPush(tags, 'drizzle'),
   ),
 })
@@ -446,6 +478,7 @@ await db.update(users).set({
 
 ### Namespace methods
 
+- `json(source)`
 - `json.access(source)`
 - `json.arrayDelete(source, index)`
 - `json.arrayPush(source, ...values)`
@@ -455,8 +488,9 @@ await db.update(users).set({
 - `json.contains(source)`
 - `json.contains(source, value)`
 - `json.merge(left, right)`
+- `json.pipe(source, ...operations)`
 - `json.set(source)`
-- `json.setPipe(source, ...operations)`
+- `json.setPipe(source, ...operations)` deprecated; use `json(source).$pipe(...)`
 
 ### Direct operation exports
 
@@ -466,7 +500,7 @@ await db.update(users).set({
 - `coalesce` from `@denny-il/drizzle-pg-utils/json`
 - `contains` from `@denny-il/drizzle-pg-utils/json`
 - `merge` from `@denny-il/drizzle-pg-utils/json`
-- `set`, `setPipe` from `@denny-il/drizzle-pg-utils/json`
+- `pipe`, `set`, `setPipe` from `@denny-il/drizzle-pg-utils/json`; `setPipe` is deprecated
 
 ### Per-operation subpaths
 

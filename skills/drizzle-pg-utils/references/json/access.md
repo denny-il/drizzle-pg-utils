@@ -2,6 +2,8 @@
 
 Use `access(source)` to build typed JSONB path extraction expressions. It does not mutate JSON.
 
+The callable ref API reads paths the same way (`json(users.profile).user.name.$text`) and also supports writes; see [ref.md](ref.md). `access(...)` remains the read-only builder.
+
 ## Imports
 
 ```typescript

@@ -4,7 +4,7 @@ import type {
   SQLJSONExtractType,
   SQLJSONNullish,
   SQLJSONValue,
-} from '../common.ts'
+} from '../types.ts'
 import { jsonBuild } from './build.ts'
 
 type AcceptableValue = any[] | SQLJSONNullish

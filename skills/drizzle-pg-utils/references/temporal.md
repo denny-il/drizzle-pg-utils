@@ -69,13 +69,17 @@ const [event] = await db
 import { Temporal } from 'temporal-polyfill'
 import {
   createInterval,
+  createMonthDay,
   createPlainDate,
   createTime,
   createTimestamp,
   createTimestampz,
+  createYearMonth,
 } from '@denny-il/drizzle-pg-utils/temporal'
 
 const plainDate = createPlainDate(Temporal)
+const yearMonth = createYearMonth(Temporal)
+const monthDay = createMonthDay(Temporal)
 const time = createTime(Temporal, { smallestUnit: 'millisecond' })
 const timestamp = createTimestamp(Temporal, { smallestUnit: 'millisecond' })
 const timestampz = createTimestampz(Temporal, { smallestUnit: 'millisecond' })

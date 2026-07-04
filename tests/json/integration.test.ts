@@ -21,8 +21,15 @@ beforeAll(async () => {
 
 describe('JSON Integration Tests', () => {
   it('should export', async () => {
+    const rootImport = await import('@denny-il/drizzle-pg-utils')
+    expect(typeof rootImport.json).toBe('function')
+    expect(rootImport.json.access).toBeDefined()
+    expect(rootImport.json.set).toBeDefined()
+    expect(rootImport.json.pipe).toBeDefined()
+
     const jsonImport = await import('@denny-il/drizzle-pg-utils/json')
     expect(jsonImport).toBeDefined()
+    expect(typeof jsonImport.json).toBe('function')
     expect(jsonImport.access).toBeDefined()
     expect(jsonImport.arrayDelete).toBeDefined()
     expect(jsonImport.arrayPush).toBeDefined()

@@ -2,6 +2,8 @@
 
 Use array helpers when the target expression is a JSONB array or nullable JSONB array.
 
+For appends on a document path, the ref API is shorter: `json(users.profile).user.preferences.tags.$push('drizzle')` returns the full updated document; see [ref.md](ref.md). The helpers below operate on the array expression itself.
+
 ## Imports
 
 ```typescript

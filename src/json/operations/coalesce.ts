@@ -3,7 +3,7 @@ import type {
   SQLJSONDenullify,
   SQLJSONExtractType,
   SQLJSONValue,
-} from '../common.ts'
+} from '../types.ts'
 import { jsonBuild } from './build.ts'
 
 /**

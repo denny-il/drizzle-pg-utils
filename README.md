@@ -31,7 +31,7 @@ const users = pgTable('users', {
   profile: jsonb('profile').$type<Profile>().notNull(),
 })
 
-const profile = json.access(users.profile)
+const profile = json(users.profile)
 
 const [row] = await db
   .select({
@@ -48,8 +48,7 @@ await db
   .set({
     // Update specific paths in JSONB column atomically in a single query,
     // without merging the entire object in application code.
-    profile: json.setPipe(
-      users.profile,
+    profile: json(users.profile).$pipe(
       // Initialize the optional branch before writing inside it.
       (s) => s.user.preferences.$default({ theme: 'light', tags: [] }),
       // Set theme to 'dark'.
@@ -64,9 +63,9 @@ await db
 ## Features
 
 ### JSON Utilities
-- Access nested JSONB paths with full TypeScript inference and no runtime schema.
+- Access nested JSONB paths with `json(source)` and full TypeScript inference.
 - Query JSONB containment with typed path traversal and full-column index-friendly SQL.
-- Update deep branches atomically with `set(...)` and `setPipe(...)`.
+- Update deep branches atomically with `.$set(...)`, `.$default(...)`, `.$push(...)`, `.$merge(...)`, and `.$pipe(...)`.
 - Build, merge, coalesce, and modify arrays with typed SQL helpers.
 
 ```typescript
@@ -74,30 +73,28 @@ import { eq } from 'drizzle-orm'
 import { json } from '@denny-il/drizzle-pg-utils'
 
 // Access nested properties with type safety
-const accessor = json.access(users.profile)
+const profile = json(users.profile)
 const rows = await db
   .select({
     id: users.id,
-    theme: accessor.user.preferences.theme.$value,
+    theme: profile.user.preferences.theme.$value,
   })
   .from(users)
-  .where(eq(accessor.user.preferences.theme.$value, 'dark'))
+  .where(eq(profile.user.preferences.theme.$value, 'dark'))
 
 // Query JSONB containment while keeping the predicate rooted at users.profile
 const darkUsers = await db
   .select({ id: users.id })
   .from(users)
   .where(
-    json
-      .contains(users.profile)
-      .user.preferences.$contains({ theme: 'dark' }),
+    profile.user.preferences.$contains({ theme: 'dark' }),
   )
 
 // Update values at specific paths
 await db
   .update(users)
   .set({
-    profile: json.set(users.profile).user.name.$set('New Name'),
+    profile: profile.user.name.$set('New Name'),
   })
   .where(eq(users.id, rows[0]!.id))
 ```
