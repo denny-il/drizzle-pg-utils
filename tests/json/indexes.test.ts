@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { type SQLWrapper, sql } from 'drizzle-orm'
 import { jsonb, pgTable } from 'drizzle-orm/pg-core'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { json } from '../../src/index.ts'
 import { jsonAccess } from '../../src/json/operations/access.ts'
 import { jsonContains } from '../../src/json/operations/contains.ts'
 import { createDatabase, dialect, executeRows } from '../utils.ts'
@@ -277,6 +278,32 @@ describe('JSONB index compatibility', () => {
       select ${emailAccessor} as email
       from ${indexedTable}
       where ${jsonContains(indexedTable.data).profile.$contains({
+        email: 'user42@example.com',
+      })}
+    `
+
+    expect(await runQuery<{ email: string }>(query)).toEqual([
+      { email: 'user42@example.com' },
+    ])
+
+    await executeRaw(
+      `create index "${indexName}" on "${tableName}" using gin (data);`,
+    )
+
+    const plan = await explainQuery(query)
+
+    expect(findIndexNames(plan)).toContain(indexName)
+  })
+
+  it('uses a full-column GIN index for ref nested containment predicates', async () => {
+    const { indexedTable, tableName } = await createSeededTable('ref_contains')
+    const indexName = `${tableName}_gin_idx`
+    const data = json(indexedTable.data)
+    const emailAccessor = data.profile.email.$text
+    const query = sql`
+      select ${emailAccessor} as email
+      from ${indexedTable}
+      where ${data.profile.$contains({
         email: 'user42@example.com',
       })}
     `

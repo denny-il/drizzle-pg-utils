@@ -1,12 +1,12 @@
 import { type SQL, sql } from 'drizzle-orm'
 import { describe, expect, expectTypeOf, it } from 'vitest'
-import {
-  normalizeNullish,
-  type SQLJSONDenullify,
-  type SQLJSONExtractType,
-  type SQLJSONIsNullish,
-  type SQLJSONNullify,
-} from '../../src/json/common.ts'
+import type {
+  SQLJSONDenullify,
+  SQLJSONExtractType,
+  SQLJSONIsNullish,
+  SQLJSONNullify,
+} from '../../src/json/types.ts'
+import { normalizeNullish } from '../../src/json/utils.ts'
 
 describe('JSON Common Types and Utilities', () => {
   describe('Type Utilities', () => {

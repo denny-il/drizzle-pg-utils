@@ -1,11 +1,11 @@
 import { type SQL, sql } from 'drizzle-orm'
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
-import {
-  normalizeNullish,
-  type SQLJSONDenullify,
-  type SQLJSONIsNullish,
-  type SQLJSONValue,
-} from '../common.ts'
+import type {
+  SQLJSONDenullify,
+  SQLJSONIsNullish,
+  SQLJSONValue,
+} from '../types.ts'
+import { normalizeNullish } from '../utils.ts'
 
 /**
  * Type helper to determine the result type of merging two JSON values

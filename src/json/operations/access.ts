@@ -1,4 +1,3 @@
-import { sql } from 'drizzle-orm'
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
 import type { SQL } from 'drizzle-orm/sql'
 import type {
@@ -7,7 +6,8 @@ import type {
   SQLJSONIsNullish,
   SQLJSONNullify,
   SQLJSONValue,
-} from '../common.ts'
+} from '../types.ts'
+import { jsonExtract, jsonExtractText } from '../utils.ts'
 
 export type SQLJSONAccess<
   Source extends SQLJSONValue,
@@ -44,24 +44,12 @@ export type SQLJSONAccess<
 export function jsonAccess<Source extends SQLJSONValue>(
   source: Source,
 ): SQLJSONAccess<Source> {
-  function buildPathArgs(path: string[]) {
-    return sql.join(path, sql`,`)
-  }
-
   function buildPath(path: string[]) {
-    if (path.length === 0) return sql`${source}`
-    return sql`jsonb_extract_path(${source}, ${buildPathArgs(path)})`.inlineParams()
+    return jsonExtract(source, path)
   }
 
-  function buildValue(path: string[], property?: string) {
-    if (!property)
-      return sql`jsonb_extract_path_text(${source}, ${buildPathArgs(path)})`.inlineParams()
-    return sql`jsonb_extract_path_text(${buildPath(path)}, ${buildPathArgs(path)}, ${property})`.inlineParams()
-  }
-
-  function createValue(path: string[], property?: string) {
-    const pathArr = property ? [...path, property] : path
-    return createProxy(pathArr)
+  function buildValue(path: string[]) {
+    return jsonExtractText(source, path)
   }
 
   function createProxy(path: string[] = []) {
@@ -75,10 +63,10 @@ export function jsonAccess<Source extends SQLJSONValue>(
         if (property === '$text') {
           return buildValue(path)
         }
-        return createValue(path, property)
+        return createProxy([...path, property])
       },
     })
   }
 
-  return createValue([]) as any
+  return createProxy() as any
 }

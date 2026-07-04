@@ -1,4 +1,3 @@
-import { sql } from 'drizzle-orm'
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
 import type { SQL } from 'drizzle-orm/sql'
 import type {
@@ -6,8 +5,8 @@ import type {
   SQLJSONExtractType,
   SQLJSONIsNullish,
   SQLJSONValue,
-} from '../common.ts'
-import { jsonBuild } from './build.ts'
+} from '../types.ts'
+import { jsonDefaultPath, jsonSetPath } from '../utils.ts'
 
 export type SQLJSONSetMixedValue<T> =
   | SQL<T>
@@ -71,28 +70,12 @@ export function jsonSet<Source extends SQLJSONValue<object>>(
 ): SQLJSONSet<Source, Source, true> {
   function _jsonSet(source: Source, defPath: string[] = []) {
     function buildSet(path: string[], value: any, createMissing = true) {
-      const setValueSQL = jsonBuild(value)
-      if (path.length === 0)
-        throw new Error('Cannot set default value at root level')
-      const pathArray = sql`array[${sql.join(
-        path.map((p) => sql`${p}`.inlineParams()),
-        sql`,`,
-      )}]::text[]`
-      return sql`jsonb_set(${source}, ${pathArray}, ${setValueSQL}, ${sql`${!!createMissing}`.inlineParams()})`
+      return jsonSetPath(source, path, value, createMissing)
     }
 
     function buildDefault(path: string[], value: any, createMissing = true) {
-      const defaultValueSQL = jsonBuild(value)
-      if (path.length === 0)
-        throw new Error('Cannot set default value at root level')
-      const pathArgs = sql.join(
-        path.map((p) => sql`${p}`.inlineParams()),
-        sql`,`,
-      )
-      const pathArray = sql`array[${pathArgs}]::text[]`
-      const currentValueSQL = sql`jsonb_extract_path(${source}, ${pathArgs})`
       return _jsonSet(
-        sql`jsonb_set(coalesce(nullif(${source}, 'null'::jsonb), '{}'::jsonb), ${pathArray}, coalesce(nullif(${currentValueSQL}, 'null'::jsonb), ${defaultValueSQL}), ${sql`${!!createMissing}`.inlineParams()})` as Source,
+        jsonDefaultPath(source, path, value, createMissing) as Source,
         path,
       )
     }
@@ -132,6 +115,8 @@ export type SQLJSONPipeFnType<Source extends SQLJSONValue> = (
 ) => SQL<SQLJSONExtractType<Source>>
 /**
  * Chains multiple JSONB set operations together. Each operation receives the result of the previous one.
+ *
+ * @deprecated Use `json(source).$pipe(...)` instead.
  *
  * @param source - The initial JSONB column or SQL expression
  * @param args - Functions that take a setter and return an SQL expression
