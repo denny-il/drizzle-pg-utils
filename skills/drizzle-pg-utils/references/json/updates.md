@@ -1,13 +1,13 @@
 # JSON Update Helpers
 
-Use `set(source)` for one path update and `setPipe(source, ...ops)` for multiple updates where each step sees the previous JSONB expression.
+Prefer the callable ref API for updates: `json(source).path.$set(...)` for one write and `json(source).$pipe(...)` for chained writes. See [ref.md](ref.md) for the full ref API. `set(source)` remains available; `setPipe(...)` is deprecated.
 
 ## Imports
 
 ```typescript
 import { json } from '@denny-il/drizzle-pg-utils'
-import { set, setPipe } from '@denny-il/drizzle-pg-utils/json'
-import { jsonSet, jsonSetPipe } from '@denny-il/drizzle-pg-utils/json/set'
+import { pipe, set } from '@denny-il/drizzle-pg-utils/json'
+import { jsonSet } from '@denny-il/drizzle-pg-utils/json/set'
 ```
 
 ## Single Path Update
@@ -16,7 +16,7 @@ import { jsonSet, jsonSetPipe } from '@denny-il/drizzle-pg-utils/json/set'
 await db
   .update(users)
   .set({
-    profile: json.set(users.profile).user.preferences.theme.$set('dark'),
+    profile: json(users.profile).user.preferences.theme.$set('dark'),
   })
   .where(eq(users.id, userId))
 ```
@@ -29,8 +29,7 @@ await db
 await db
   .update(users)
   .set({
-    profile: json.setPipe(
-      users.profile,
+    profile: json(users.profile).$pipe(
       (s) => s.user.preferences.$default({ theme: 'light', tags: [] }),
       (s) => s.user.name.$set('Ada'),
       (s) => s.user.preferences.theme.$set('dark'),
@@ -39,7 +38,7 @@ await db
   .where(eq(users.id, userId))
 ```
 
-Use `setPipe(...)` instead of manually nesting `json.set(...)` calls when later writes depend on earlier writes.
+Use `$pipe` instead of manually nesting `$set` calls when later writes depend on earlier writes. `json.pipe(source, ...ops)` is the standalone form.
 
 ## Defaults and SQL NULL Roots
 
@@ -48,19 +47,16 @@ PostgreSQL `jsonb_set(..., create_missing := true)` creates only the final missi
 Use `.$default(...)` before writing through optional or nullable branches:
 
 ```typescript
-json
-  .set(users.profile)
-  .user.preferences
+json(users.profile).user.preferences
   .$default({ theme: 'light', tags: [] })
   .theme.$set('dark')
 ```
 
-Use `.$default(...)` before nested writes to SQL `NULL` roots too. `setPipe(...)` preserves SQL `NULL` unless a step explicitly creates the branch:
+Use `.$default(...)` before nested writes to SQL `NULL` roots too. `$pipe` preserves SQL `NULL` unless a step explicitly creates the branch:
 
 ```typescript
 await db.update(users).set({
-  profile: json.setPipe(
-    users.profile,
+  profile: json(users.profile).$pipe(
     (s) => s.user.$default({ name: 'New User' }),
     (s) => s.user.name.$set('Ada'),
   ),
@@ -75,10 +71,20 @@ Without `.$default(...)`, a nested write through SQL `NULL` stays SQL `NULL`.
 
 ```typescript
 await db.update(users).set({
-  profile: json.set(users.profile).metadata.$default({}).lastLogin.$set(
+  profile: json(users.profile).metadata.$default({}).lastLogin.$set(
     sql`now()::text`,
   ),
 })
 ```
 
 For SQL expression conversion details and trust boundaries, see [build-coalesce-merge.md](build-coalesce-merge.md).
+
+## Legacy Builders
+
+`json.set(source)` builds the same single-path update through a dedicated proxy and remains supported:
+
+```typescript
+json.set(users.profile).user.preferences.theme.$set('dark')
+```
+
+`json.setPipe(source, ...ops)` is deprecated. Migrate to `json(source).$pipe(...)` or `json.pipe(source, ...ops)`; the step signature is unchanged.
