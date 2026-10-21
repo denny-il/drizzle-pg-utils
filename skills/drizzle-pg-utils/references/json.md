@@ -3,46 +3,38 @@
 Use this file as the router. Read it first, then load the focused helper file that matches the task:
 
 - [json/ref.md](json/ref.md) for the callable `json(source)` ref API: path access, `.$set(...)`, `.$default(...)`, `.$push(...)`, `.$merge(...)`, `.$contains(...)`, `.$pipe(...)`, and `.$key(...)`. This is the primary API.
-- [json/access.md](json/access.md) for `access(...)`, `.$value`, `.$text`, path extraction, and expression-index implications.
-- [json/updates.md](json/updates.md) for `set(...)`, `.$set(...)`, `.$default(...)`, missing branches, SQL `NULL` roots, and the deprecated `setPipe(...)`.
+- [json/access.md](json/access.md) for `.$value`, `.$text`, the deprecated `access(...)`, path extraction, and expression-index implications.
+- [json/updates.md](json/updates.md) for `.$set(...)`, `.$default(...)`, missing branches, SQL `NULL` roots, and the deprecated `set(...)` / `setPipe(...)`.
 - [json/arrays.md](json/arrays.md) for `arrayPush(...)`, `arraySet(...)`, `arrayDelete(...)`, out-of-bounds behavior, and `undefined` handling.
-- [json/contains.md](json/contains.md) for `contains(...)`, `.$contains(...)`, JSONB `@>`, and full-column GIN / `jsonb_path_ops` indexes.
+- [json/contains.md](json/contains.md) for `.$contains(...)`, the deprecated `contains(...)`, JSONB `@>`, and full-column GIN / `jsonb_path_ops` indexes.
 - [json/build-coalesce-merge.md](json/build-coalesce-merge.md) for `build(...)`, `coalesce(...)`, `merge(...)`, SQL expressions, `to_jsonb(...)`, and trust boundaries.
 
 ## Imports
 
 ```typescript
 import { json } from '@denny-il/drizzle-pg-utils'
-import {
-  access,
-  arrayPush,
-  build,
-  contains,
-  merge,
-  pipe,
-} from '@denny-il/drizzle-pg-utils/json'
+import { arrayPush, build, merge, pipe } from '@denny-il/drizzle-pg-utils/json'
 import { jsonRef, jsonRefPipe } from '@denny-il/drizzle-pg-utils/json/ref'
 ```
 
-`json` is callable: `json(source)` creates a typed ref, and the same value carries the namespace (`json.access`, `json.pipe`, `json.build`, ...). There is no default export from `@denny-il/drizzle-pg-utils/json`.
+`json` is callable: `json(source)` creates a typed ref, and the same value carries the namespace (`json.pipe`, `json.build`, `json.merge`, ...). There is no default export from `@denny-il/drizzle-pg-utils/json`.
 
 ## Helper Map
 
-| Helper                                                | Use                                                     | Focused reference                                            |
-| ----------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------ |
-| `json(source)`                                        | Callable typed ref: access, updates, containment, pipes | [json/ref.md](json/ref.md)                                   |
-| `json(source).$pipe(...ops)` / `pipe(source, ...ops)` | Chain JSON updates; each step sees previous result      | [json/ref.md](json/ref.md)                                   |
-| `access(source)`                                      | Typed JSON path extraction                              | [json/access.md](json/access.md)                             |
-| `set(source)`                                         | One `jsonb_set(...)` update                             | [json/updates.md](json/updates.md)                           |
-| `setPipe(source, ...ops)`                             | Deprecated; use `json(source).$pipe(...)`               | [json/updates.md](json/updates.md)                           |
-| `build(value)`                                        | Convert JS values and SQL snippets into JSONB SQL       | [json/build-coalesce-merge.md](json/build-coalesce-merge.md) |
-| `coalesce(source, fallback)`                          | Treat SQL `NULL` and JSON `null` as empty               | [json/build-coalesce-merge.md](json/build-coalesce-merge.md) |
-| `merge(left, right)`                                  | Apply PostgreSQL JSONB `                                |                                                              | `semantics with SQL`NULL` normalized | [json/build-coalesce-merge.md](json/build-coalesce-merge.md) |
-| `contains(source)`                                    | Typed root JSONB containment builder                    | [json/contains.md](json/contains.md)                         |
-| `contains(source, value)`                             | Direct JSONB root containment predicate                 | [json/contains.md](json/contains.md)                         |
-| `arrayPush(target, ...values)`                        | Append values to JSON array                             | [json/arrays.md](json/arrays.md)                             |
-| `arraySet(target, index, value)`                      | Replace existing array element                          | [json/arrays.md](json/arrays.md)                             |
-| `arrayDelete(target, index)`                          | Remove existing array element                           | [json/arrays.md](json/arrays.md)                             |
+| Helper                                                | Use                                                            | Focused reference                                            |
+| ----------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------ |
+| `json(source)`                                        | Callable typed ref: access, updates, containment, pipes        | [json/ref.md](json/ref.md)                                   |
+| `json(source).$pipe(...ops)` / `pipe(source, ...ops)` | Chain JSON updates; each step sees previous result             | [json/ref.md](json/ref.md)                                   |
+| `access(source)`                                      | Deprecated; use `json(source).path.$value` / `.$text`          | [json/access.md](json/access.md)                             |
+| `set(source)`                                         | Deprecated; use `json(source).path.$set(...)`                  | [json/updates.md](json/updates.md)                           |
+| `setPipe(source, ...ops)`                             | Deprecated; use `json(source).$pipe(...)`                      | [json/updates.md](json/updates.md)                           |
+| `build(value)`                                        | Convert JS values and SQL snippets into JSONB SQL              | [json/build-coalesce-merge.md](json/build-coalesce-merge.md) |
+| `coalesce(source, fallback)`                          | Treat SQL `NULL` and JSON `null` as empty                      | [json/build-coalesce-merge.md](json/build-coalesce-merge.md) |
+| `merge(left, right)`                                  | Apply PostgreSQL JSONB `\|\|` semantics, SQL `NULL` normalized | [json/build-coalesce-merge.md](json/build-coalesce-merge.md) |
+| `contains(source)` / `contains(source, value)`        | Deprecated; use `json(source).path.$contains(...)`             | [json/contains.md](json/contains.md)                         |
+| `arrayPush(target, ...values)`                        | Append values to JSON array                                    | [json/arrays.md](json/arrays.md)                             |
+| `arraySet(target, index, value)`                      | Replace existing array element                                 | [json/arrays.md](json/arrays.md)                             |
+| `arrayDelete(target, index)`                          | Remove existing array element                                  | [json/arrays.md](json/arrays.md)                             |
 
 ## Common Query Shape
 
@@ -74,7 +66,7 @@ await db
 ## High-Signal Rules
 
 - Prefer the callable `json(source)` ref API for new code; `access`/`set`/`contains` builders remain for existing code, and `setPipe` is deprecated.
-- Use `.$contains(...)` (or `contains(...)`) for index-friendly JSONB containment rooted at the full JSONB source. Containment below an array index is a type error by design.
+- Use `.$contains(...)` for index-friendly JSONB containment rooted at the full JSONB source. Containment below an array index is a type error by design.
 - Use `.$default(...)` before writing through missing branches or SQL `NULL` roots; inside `$pipe`, a step may return the `$default(...)` continuation directly.
 - Use `.$push(...)` / `arrayPush(...)` for append behavior; `arraySet(...)` is replacement-only and out-of-bounds writes are no-ops.
 - Use `.$key('name')` for JSON keys that collide with helper names (`$value`, `$set`, `getSQL`, ...) or for dynamic keys.

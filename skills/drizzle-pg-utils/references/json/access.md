@@ -1,15 +1,13 @@
 # JSON Access Helpers
 
-Use `access(source)` to build typed JSONB path extraction expressions. It does not mutate JSON.
+Read JSONB paths with the callable ref API: `json(source).path.$value` or `.$text`. Refs also support writes; see [ref.md](ref.md).
 
-The callable ref API reads paths the same way (`json(users.profile).user.name.$text`) and also supports writes; see [ref.md](ref.md). `access(...)` remains the read-only builder.
+`access(source)` (`json.access`, `jsonAccess`) is deprecated. It reads paths the same way; replace `json.access(source)` with `json(source)`.
 
 ## Imports
 
 ```typescript
 import { json } from '@denny-il/drizzle-pg-utils'
-import { access } from '@denny-il/drizzle-pg-utils/json'
-import { jsonAccess } from '@denny-il/drizzle-pg-utils/json/access'
 ```
 
 ## Select and Filter
@@ -17,7 +15,7 @@ import { jsonAccess } from '@denny-il/drizzle-pg-utils/json/access'
 ```typescript
 import { eq } from 'drizzle-orm'
 
-const profile = json.access(users.profile)
+const profile = json(users.profile)
 
 const rows = await db
   .select({
@@ -39,10 +37,10 @@ Missing properties, JSON `null`, and SQL `NULL` sources decode as SQL `NULL`.
 
 ## Index Note
 
-Accessor predicates operate on extracted expressions. If you filter on an accessor value and need an index, create an expression index matching the emitted expression.
+Path predicates operate on extracted expressions. If you filter on an extracted value and need an index, create an expression index matching the emitted expression.
 
 ```typescript
-const email = json.access(users.profile).user.email.$text
+const email = json(users.profile).user.email.$text
 
 await db
   .select({ id: users.id })
@@ -50,4 +48,4 @@ await db
   .where(eq(email, 'ada@example.com'))
 ```
 
-Do not use accessor subdocuments for full-column JSONB containment. For GIN / `jsonb_path_ops` indexes on the source column, use `contains(...)`; see [contains.md](contains.md).
+Do not compare extracted subdocuments for full-column JSONB containment. For GIN / `jsonb_path_ops` indexes on the source column, use `.$contains(...)`; see [contains.md](contains.md).
