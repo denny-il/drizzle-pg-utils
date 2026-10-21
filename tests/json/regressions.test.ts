@@ -80,6 +80,26 @@ describe('JSON regression cases', () => {
     ])
   })
 
+  it('evaluates volatile sources once across legacy defaults', async () => {
+    await db.execute(sql`create sequence json_default_evaluations`)
+    const source = sql<{
+      stamp: number
+      config?: { count: number }
+    }>`jsonb_build_object('stamp', nextval('json_default_evaluations'), 'config', '{"count":1}'::jsonb)`
+    expect(
+      await executeQuery(
+        db,
+        json.set(source).config.$default({ count: 0 }).count.$set(2),
+      ),
+    ).toEqual({ stamp: 1, config: { count: 2 } })
+    expect(
+      await executeQuery(
+        db,
+        sql`(select last_value::int from json_default_evaluations)`,
+      ),
+    ).toBe(1)
+  })
+
   it('pushes bare SQL params through the standalone and ref helpers', async () => {
     expect(
       await executeQuery(
@@ -208,6 +228,27 @@ describe('JSON regression cases', () => {
         ),
       ),
     ).toEqual(['hello'])
+  })
+
+  it('uses an empty string as an exact legacy set path', async () => {
+    const source = sql<{
+      '': { value: number }
+      keep: boolean
+    }>`'{"":{"value":1},"keep":true}'::jsonb`
+    expect(await executeQuery(db, json.set(source)[''].value.$set(2))).toEqual({
+      '': { value: 2 },
+      keep: true,
+    })
+  })
+
+  it('groups a computed containment value', async () => {
+    const source = sql<{ a: number; b: number }>`'{"a":1,"b":2}'::jsonb`
+    const value = sql<{
+      a: number
+      b: number
+    }>`'{"a":1}'::jsonb || '{"b":2}'::jsonb`
+    expect(await executeQuery(db, json.contains(source, value))).toBe(true)
+    expect(await executeQuery(db, json(source).$contains(value))).toBe(true)
   })
 
   it('infers nullable columns and SQL wrappers inside builders', () => {

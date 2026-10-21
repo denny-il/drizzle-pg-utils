@@ -89,7 +89,9 @@ export const jsonContainsPath = (
       throw new Error(
         'SQL containment values are only supported at the root path',
       )
-    return sql<boolean>`${jsonSource(source)} @> ${jsonSource(value)}`
+    // Group the value: `@>` binds as tightly as `||`, so `a || b` would
+    // otherwise parse as `(source @> a) || b`.
+    return sql<boolean>`${jsonSource(source)} @> (${jsonSource(value)})`
   }
 
   return sql<boolean>`${jsonSource(source)} @> ${jsonbParam(jsonWrapPath(path, value))}`

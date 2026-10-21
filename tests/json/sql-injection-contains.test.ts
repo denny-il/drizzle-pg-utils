@@ -62,7 +62,7 @@ describe('JSON Contains SQL injection and misuse resistance', () => {
     const query = dialect.sqlToQuery(result)
 
     expect(query.sql).toBe(
-      `'{"payload":"wrapped"}'::jsonb @> jsonb_build_object('payload', $1)`,
+      `'{"payload":"wrapped"}'::jsonb @> (jsonb_build_object('payload', $1))`,
     )
     expect(query.sql).not.toContain(payload)
     expect(query.params).toEqual([payload])

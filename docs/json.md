@@ -4,6 +4,8 @@ Use typed JSONB expressions in Drizzle without runtime schemas.
 
 The JSON helpers work with both JSONB columns and ad hoc SQL expressions typed as `SQL<T>`. The only runtime requirement is support for `Proxy`.
 
+The helpers emit JSONB functions and operators only. Plain `json` columns are not supported; cast them first, for example `json(sql<Profile>\`${users.profile}::jsonb\`)`.
+
 ## Highlights
 
 ### Typed ref access

@@ -7,7 +7,7 @@ import type {
   SQLJSONIsNullish,
   SQLJSONValue,
 } from '../types.ts'
-import { jsonDefaultPath, jsonSetPath } from '../utils.ts'
+import { jsonDefaultPath, jsonSetPath, jsonWithSourceAlias } from '../utils.ts'
 
 export type SQLJSONSetMixedValue<T> =
   | SQL<T>
@@ -90,14 +90,17 @@ export function jsonSet<Source extends SQLJSONValue<object | null>>(
     }
 
     function buildDefault(path: string[], value: any, createMissing = true) {
+      // Alias the source so a volatile expression is evaluated once.
       return _jsonSet(
-        jsonDefaultPath(source, path, value, createMissing) as Source,
+        jsonWithSourceAlias(source, (sourceRef) =>
+          jsonDefaultPath(sourceRef, path, value, createMissing),
+        ) as Source,
         path,
       )
     }
 
     function createValue(path: string[], property?: string) {
-      const pathArr = property ? [...path, property] : path
+      const pathArr = property !== undefined ? [...path, property] : path
       return createProxy(pathArr)
     }
 
