@@ -23,20 +23,17 @@ export type SQLJSONAccess<
       : false,
   IsObject extends (ObjectType extends object ? true : false) =
     ObjectType extends object ? true : false,
-> = (IsObject extends false
-  ? {}
-  : {
-      [K in keyof ObjectType]-?: SQLJSONAccess<
-        SQL<
-          | ObjectType[K]
-          | (IsNullish extends true
-              ? null
-              : ObjectType extends any[]
-                ? null
-                : never)
+> = (ObjectType extends readonly (infer Element)[]
+  ? // Index access only; a mapped type would also expose array members such
+    // as `length` and `map` as JSON paths.
+    { [index: number]: SQLJSONAccess<SQL<Element | null>> }
+  : IsObject extends false
+    ? {}
+    : {
+        [K in keyof ObjectType]-?: SQLJSONAccess<
+          SQL<ObjectType[K] | (IsNullish extends true ? null : never)>
         >
-      >
-    }) & {
+      }) & {
   $value: SQL<SQLJSONNullify<IsNullish, Type>>
   $text: SQL<SQLJSONNullify<IsNullish, string>>
 }

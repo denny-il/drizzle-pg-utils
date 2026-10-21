@@ -22,7 +22,7 @@ describe('JSON Merge SQL injection and misuse resistance', () => {
     const maliciousKey = `x'); drop table merge_sentinel; --`
     const maliciousValue = `value'); drop table merge_sentinel; --`
     const base = jsonBuild({ stable: 'base' })
-    const mergeObject = Object.create(null) as Record<string, unknown>
+    const mergeObject = Object.create(null) as Record<string, any>
     mergeObject[maliciousKey] = maliciousValue
 
     const result = jsonMerge(base, jsonBuild(mergeObject))
@@ -42,7 +42,7 @@ describe('JSON Merge SQL injection and misuse resistance', () => {
     const nestedKey = `nested'); select pg_sleep(10); --`
     const nestedValue = `nested-value'); drop table merge_sentinel; --`
     const arrayValue = `array-value'); drop table merge_sentinel; --`
-    const nestedObject = Object.create(null) as Record<string, unknown>
+    const nestedObject = Object.create(null) as Record<string, any>
     nestedObject[nestedKey] = nestedValue
 
     const result = jsonMerge(
@@ -58,10 +58,10 @@ describe('JSON Merge SQL injection and misuse resistance', () => {
       JSON.stringify(true),
       JSON.stringify(nestedValue),
       JSON.stringify(arrayValue),
-      'wrapped value',
+      JSON.stringify('wrapped value'),
     ])
     expect(query.sql).toBe(
-      `coalesce(jsonb_build_object('stable', $1::text::jsonb), 'null'::jsonb) || coalesce(jsonb_build_object('payload', jsonb_build_object('nested''); select pg_sleep(10); --', $2::text::jsonb),'values', jsonb_build_array($3::text::jsonb,$4)), 'null'::jsonb)`,
+      `coalesce(jsonb_build_object('stable', $1::text::jsonb), 'null'::jsonb) || coalesce(jsonb_build_object('payload', jsonb_build_object('nested''); select pg_sleep(10); --', $2::text::jsonb),'values', jsonb_build_array($3::text::jsonb,$4::text::jsonb)), 'null'::jsonb)`,
     )
     expect(query.sql).not.toContain(nestedValue)
     expect(query.sql).not.toContain(arrayValue)
@@ -97,9 +97,9 @@ describe('JSON Merge SQL injection and misuse resistance', () => {
   })
 
   it('treats prototype-ish names as JSON keys when merging built operands', async () => {
-    const right = Object.create(null) as Record<string, unknown>
+    const right = Object.create(null) as Record<string, any>
     right.__proto__ = 'proto-value'
-    right.constructor = 'constructor-value'
+    right['constructor' as string] = 'constructor-value'
     right.prototype = 'prototype-value'
 
     const result = await executeQuery(
@@ -125,7 +125,7 @@ describe('JSON Merge SQL injection and misuse resistance', () => {
 
     const maliciousKey = `key'); drop table merge_sentinel; --`
     const maliciousValue = `value'); drop table merge_sentinel; --`
-    const right = Object.create(null) as Record<string, unknown>
+    const right = Object.create(null) as Record<string, any>
     right[maliciousKey] = maliciousValue
 
     const result = await executeQuery(

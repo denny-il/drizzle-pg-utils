@@ -82,7 +82,7 @@ describe('jsonSetPipe SQL injection hardening', () => {
       `jsonb_build_object(${quotedSqlString(maliciousObjectKey)}, $1::text::jsonb)`,
     )
     expect(query.sql).toContain(
-      `jsonb_extract_path('{}'::jsonb, ${quotedSqlString(defaultPath)})`,
+      `jsonb_extract_path(__json_ref_source.value, ${quotedSqlString(defaultPath)})`,
     )
     expect(query.sql).toContain(
       `array[${quotedSqlString(defaultPath)},${quotedSqlString(maliciousObjectKey)}]::text[]`,
@@ -113,7 +113,7 @@ describe('jsonSetPipe SQL injection hardening', () => {
     )
     expect(setQuery.params).toEqual([JSON.stringify('safe-value')])
     expect(defaultQuery.sql).toBe(
-      `jsonb_set(jsonb_set(coalesce(nullif('{}'::jsonb, 'null'::jsonb), '{}'::jsonb), array['field']::text[], coalesce(nullif(jsonb_extract_path('{}'::jsonb, 'field'), 'null'::jsonb), $1::text::jsonb), false), array['field','leaf']::text[], $2::text::jsonb, true)`,
+      `jsonb_set((with __json_ref_source as (select '{}'::jsonb as value) select jsonb_set(coalesce(nullif(__json_ref_source.value, 'null'::jsonb), '{}'::jsonb), array['field']::text[], coalesce(nullif(jsonb_extract_path(__json_ref_source.value, 'field'), 'null'::jsonb), $1::text::jsonb), false) from __json_ref_source), array['field','leaf']::text[], $2::text::jsonb, true)`,
     )
     expect(defaultQuery.params).toEqual([
       JSON.stringify('safe-value'),
@@ -133,9 +133,9 @@ describe('jsonSetPipe SQL injection hardening', () => {
 
     const query = dialect.sqlToQuery(result)
 
-    expect(query.params).toEqual([wrapperValue, wrapperValue])
+    expect(query.params).toEqual([JSON.stringify(wrapperValue), wrapperValue])
     expect(query.sql).toBe(
-      "jsonb_set(jsonb_set('{}'::jsonb, array['bare']::text[], $1, true), array['expr']::text[], to_jsonb(lower($2)), true)",
+      "jsonb_set(jsonb_set('{}'::jsonb, array['bare']::text[], coalesce($1::text::jsonb, 'null'::jsonb), true), array['expr']::text[], coalesce(to_jsonb(lower($2)), 'null'::jsonb), true)",
     )
     expect(query.sql).not.toContain(wrapperValue)
     expectNoExecutableInjection(query.sql)

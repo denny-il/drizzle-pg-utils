@@ -54,6 +54,27 @@ type SQLJSONMergeResult<Left, Right> =
       : Right
   >
 
+type SQLJSONOptionalKeys<T> = {
+  [K in keyof T]-?: {} extends Pick<T, K> ? K : never
+}[keyof T]
+
+type SQLJSONSimplify<T> = { [K in keyof T]: T[K] }
+
+// `||` merges objects shallowly with right-hand keys winning, which an
+// intersection would instead turn into `never` for conflicting keys. An
+// optional right-hand key may be absent at runtime, so it keeps the left-hand
+// value type and requiredness.
+type SQLJSONMergeObjects<Left, Right> = SQLJSONSimplify<
+  Omit<Left, keyof Right> &
+    Omit<Right, SQLJSONOptionalKeys<Right>> & {
+      [K in keyof Pick<Left, SQLJSONOptionalKeys<Right> & keyof Left>]:
+        | Left[K]
+        | Exclude<Right[K & keyof Right], undefined>
+    } & {
+      [K in Exclude<SQLJSONOptionalKeys<Right>, keyof Left>]?: Right[K]
+    }
+>
+
 type SQLJSONMergeResultInternal<Left, Right> =
   // If both are arrays, result is an array containing elements from both
   Left extends readonly any[]
@@ -77,7 +98,7 @@ type SQLJSONMergeResultInternal<Left, Right> =
           : // If both are objects (and neither is JSON null), merge them (right takes precedence)
             Left extends Record<string, any>
             ? Right extends Record<string, any>
-              ? Left & Right
+              ? SQLJSONMergeObjects<Left, Right>
               : // Object + Non-object = Array containing both
                 [Left, Right]
             : // If left is not object/array, but right is object, create array

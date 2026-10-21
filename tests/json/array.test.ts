@@ -76,7 +76,7 @@ describe('JSON Array Operations', () => {
 
       expect(query.params).toEqual([])
       expect(query.sql).toBe(
-        `coalesce(nullif(${numberArraySql}, 'null'::jsonb), '[]'::jsonb) || jsonb_build_array('42'::jsonb)`,
+        `coalesce(nullif(${numberArraySql}, 'null'::jsonb), '[]'::jsonb) || jsonb_build_array(to_jsonb('42'::jsonb))`,
       )
     })
 
@@ -145,7 +145,7 @@ describe('JSON Array Operations', () => {
 
       expect(query.params).toEqual([])
       expect(query.sql).toBe(
-        `jsonb_set(coalesce(nullif(${numberArraySql}, 'null'::jsonb), '[]'::jsonb), '{2}', to_jsonb('777'::jsonb), false)`,
+        `jsonb_set(coalesce(nullif(${numberArraySql}, 'null'::jsonb), '[]'::jsonb), '{2}', coalesce(to_jsonb('777'::jsonb), 'null'::jsonb), false)`,
       )
     })
 
@@ -154,9 +154,9 @@ describe('JSON Array Operations', () => {
       const result = jsonArraySet(numberArray, 1, sqlValue)
       const query = dialect.sqlToQuery(result)
 
-      expect(query.params).toEqual([42])
+      expect(query.params).toEqual(['42'])
       expect(query.sql).toBe(
-        `jsonb_set(coalesce(nullif(${numberArraySql}, 'null'::jsonb), '[]'::jsonb), '{1}', $1, false)`,
+        `jsonb_set(coalesce(nullif(${numberArraySql}, 'null'::jsonb), '[]'::jsonb), '{1}', coalesce($1::text::jsonb, 'null'::jsonb), false)`,
       )
     })
 

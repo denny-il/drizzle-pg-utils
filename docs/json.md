@@ -4,6 +4,8 @@ Use typed JSONB expressions in Drizzle without runtime schemas.
 
 The JSON helpers work with both JSONB columns and ad hoc SQL expressions typed as `SQL<T>`. The only runtime requirement is support for `Proxy`.
 
+The helpers emit JSONB functions and operators only. Plain `json` columns are not supported; cast them first, for example `json(sql<Profile>\`${users.profile}::jsonb\`)`.
+
 ## Highlights
 
 ### Typed ref access
@@ -211,7 +213,7 @@ await db
 | `coalesce(source, fallback)`                          | Replace SQL `NULL` and JSON `null` with a fallback | Useful before updates                                                     |
 | `contains(source)`                                    | Typed JSONB containment builder                    | Use `.$contains(...)`; emits full-column index-friendly `source @> value` |
 | `contains(source, value)`                             | JSONB root containment predicate                   | Direct form for already-shaped containment values                         |
-| `merge(left, right)`                                  | Apply PostgreSQL JSONB `                           |                                                                           | ` semantics | SQL `NULL` is normalized to JSON `null` first |
+| `merge(left, right)`                                  | Apply PostgreSQL JSONB `\|\|` semantics            | SQL `NULL` is normalized to JSON `null` first                             |
 | `arrayPush(target, ...values)`                        | Append values to a JSON array                      | Nullish arrays become `[]`; `undefined` becomes JSON `null`               |
 | `arraySet(target, index, value)`                      | Replace an element at an index                     | Nullish arrays become `[]`; out-of-bounds indexes are no-ops              |
 | `arrayDelete(target, index)`                          | Remove an element at an index                      | Nullish arrays become `[]`; out-of-bounds indexes are no-ops              |
@@ -354,6 +356,7 @@ await db.update(users).set({
 - `arrayDelete(...)` removes an existing element; out-of-bounds indexes are no-ops.
 - All array helpers treat SQL `NULL` and JSON `null` targets as `[]`.
 - `arrayPush(...)` and `arraySet(...)` convert JavaScript `undefined` to JSON `null`.
+- `arraySet(...)` and `arrayDelete(...)` require an integer index and throw otherwise.
 
 ### Null handling is deliberate
 
@@ -363,6 +366,7 @@ The helpers do not all treat nullish values the same way.
 - `coalesce(...)` treats both SQL `NULL` and JSON `null` as empty and returns the fallback.
 - `arrayPush(...)`, `arraySet(...)`, and `arrayDelete(...)` treat nullish array targets as `[]`.
 - `merge(...)` normalizes SQL `NULL` to JSON `null` before applying PostgreSQL `||` semantics.
+- `.$set(...)`, `.$default(...)`, and `arraySet(...)` write JSON `null` at the path when a SQL value evaluates to SQL `NULL`, instead of letting `jsonb_set` turn the whole document into SQL `NULL`.
 
 That behavior is useful, but it also means `merge(...)` is not a plain wrapper around `left || right` when SQL `NULL` is involved.
 

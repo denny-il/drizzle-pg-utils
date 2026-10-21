@@ -1,12 +1,14 @@
 import { isSQLWrapper, type SQL, sql } from 'drizzle-orm'
 
 import { jsonbParam } from '../param.ts'
+import { jsonSource } from '../source.ts'
 import type {
   SQLJSONDenullify,
   SQLJSONExtractType,
   SQLJSONNullish,
   SQLJSONValue,
 } from '../types.ts'
+import { jsonSetValue } from '../utils.ts'
 import { jsonBuild } from './build.ts'
 
 type AcceptableValue = any[] | SQLJSONNullish
@@ -15,12 +17,23 @@ function jsonbLiteral(value: unknown) {
   return jsonbParam(value === undefined ? null : value)
 }
 
+// The index is inlined into the SQL text, so reject anything that isn't an
+// integer at runtime: a string index from untyped input would otherwise be
+// emitted as raw SQL.
+function arrayIndex(index: number) {
+  if (!Number.isSafeInteger(index))
+    throw new TypeError(
+      `JSON array index must be an integer, got ${String(index)}`,
+    )
+  return sql`${index}`.inlineParams()
+}
+
 function valueOrEmptyArray<T extends SQLJSONValue<AcceptableValue>>(
   value: T,
 ): SQL<SQLJSONDenullify<SQLJSONExtractType<T>>> {
   return sql<
     SQLJSONDenullify<SQLJSONExtractType<T>>
-  >`coalesce(nullif(${value}, 'null'::jsonb), '[]'::jsonb)`
+  >`coalesce(nullif(${jsonSource(value)}, 'null'::jsonb), '[]'::jsonb)`
 }
 
 /**
@@ -54,7 +67,7 @@ export function jsonArrayPush<
   ...values: Array<ElementType | SQLJSONValue<ElementType>>
 ): SQL<SQLJSONDenullify<SourceType>> {
   const _values = values.map((value) =>
-    isSQLWrapper(value) ? value : jsonbLiteral(value),
+    isSQLWrapper(value) ? jsonBuild(value) : jsonbLiteral(value),
   )
   const _value = sql`jsonb_build_array(${sql.join(_values, sql`, `)})`
   return sql`${valueOrEmptyArray(target)} || ${_value}`
@@ -91,11 +104,9 @@ export function jsonArraySet<
   target: Target,
   index: number,
   value: ElementType | SQLJSONValue<ElementType>,
-) {
-  const _value = isSQLWrapper(value)
-    ? jsonBuild(value as any)
-    : jsonbLiteral(value)
-  return sql<SourceType>`jsonb_set(${valueOrEmptyArray(target)}, '{${sql`${index}`.inlineParams()}}', ${_value}, false)`
+): SQL<SQLJSONDenullify<SourceType>> {
+  const _value = isSQLWrapper(value) ? jsonSetValue(value) : jsonbLiteral(value)
+  return sql`jsonb_set(${valueOrEmptyArray(target)}, '{${arrayIndex(index)}}', ${_value}, false)`
 }
 
 /**
@@ -111,5 +122,5 @@ export function jsonArrayDelete<
   Target extends SQLJSONValue<AcceptableValue>,
   TargetType extends SQLJSONExtractType<Target> = SQLJSONExtractType<Target>,
 >(target: Target, index: number): SQL<SQLJSONDenullify<TargetType>> {
-  return sql`${valueOrEmptyArray(target)} - ${sql`${index}`.inlineParams()}`
+  return sql`${valueOrEmptyArray(target)} - ${arrayIndex(index)}`
 }
