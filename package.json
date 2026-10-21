@@ -119,6 +119,7 @@
   },
   "files": [
     "dist",
+    "skills",
     "LICENSE.md",
     "README.md"
   ],
