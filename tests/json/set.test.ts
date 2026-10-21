@@ -567,7 +567,7 @@ describe('JSON Set', () => {
         ['default', 'updated'].map((v) => JSON.stringify(v)),
       )
       expect(query.sql).toBe(
-        `jsonb_set(jsonb_set(coalesce(nullif(${jsonObjectSql}, 'null'::jsonb), '{}'::jsonb), array['optionalObject']::text[], coalesce(nullif(jsonb_extract_path(${jsonObjectSql}, 'optionalObject'), 'null'::jsonb), jsonb_build_object('key', $1::text::jsonb)), true), array['optionalObject','key']::text[], $2::text::jsonb, true)`,
+        `jsonb_set((with __json_ref_source as (select ${jsonObjectSql} as value) select jsonb_set(coalesce(nullif(__json_ref_source.value, 'null'::jsonb), '{}'::jsonb), array['optionalObject']::text[], coalesce(nullif(jsonb_extract_path(__json_ref_source.value, 'optionalObject'), 'null'::jsonb), jsonb_build_object('key', $1::text::jsonb)), true) from __json_ref_source), array['optionalObject','key']::text[], $2::text::jsonb, true)`,
       )
     })
 
@@ -582,7 +582,7 @@ describe('JSON Set', () => {
         ['default1', 'default2', 'updated'].map((v) => JSON.stringify(v)),
       )
       expect(query.sql).toBe(
-        `jsonb_set(jsonb_set(coalesce(nullif(${jsonObjectSql}, 'null'::jsonb), '{}'::jsonb), array['optionalArray']::text[], coalesce(nullif(jsonb_extract_path(${jsonObjectSql}, 'optionalArray'), 'null'::jsonb), jsonb_build_array(jsonb_build_object('key', $1::text::jsonb),jsonb_build_object('key', $2::text::jsonb))), true), array['optionalArray','0','key']::text[], $3::text::jsonb, true)`,
+        `jsonb_set((with __json_ref_source as (select ${jsonObjectSql} as value) select jsonb_set(coalesce(nullif(__json_ref_source.value, 'null'::jsonb), '{}'::jsonb), array['optionalArray']::text[], coalesce(nullif(jsonb_extract_path(__json_ref_source.value, 'optionalArray'), 'null'::jsonb), jsonb_build_array(jsonb_build_object('key', $1::text::jsonb),jsonb_build_object('key', $2::text::jsonb))), true) from __json_ref_source), array['optionalArray','0','key']::text[], $3::text::jsonb, true)`,
       )
     })
 
@@ -597,7 +597,7 @@ describe('JSON Set', () => {
         ['default', 'updated'].map((v) => JSON.stringify(v)),
       )
       expect(query.sql).toBe(
-        `jsonb_set(jsonb_set(coalesce(nullif(${jsonObjectSql}, 'null'::jsonb), '{}'::jsonb), array['optionalObject']::text[], coalesce(nullif(jsonb_extract_path(${jsonObjectSql}, 'optionalObject'), 'null'::jsonb), jsonb_build_object('key', $1::text::jsonb)), false), array['optionalObject','key']::text[], $2::text::jsonb, true)`,
+        `jsonb_set((with __json_ref_source as (select ${jsonObjectSql} as value) select jsonb_set(coalesce(nullif(__json_ref_source.value, 'null'::jsonb), '{}'::jsonb), array['optionalObject']::text[], coalesce(nullif(jsonb_extract_path(__json_ref_source.value, 'optionalObject'), 'null'::jsonb), jsonb_build_object('key', $1::text::jsonb)), false) from __json_ref_source), array['optionalObject','key']::text[], $2::text::jsonb, true)`,
       )
     })
 
@@ -613,7 +613,7 @@ describe('JSON Set', () => {
 
       expect(query.params).toEqual(['updated'].map((v) => JSON.stringify(v)))
       expect(query.sql).toBe(
-        `jsonb_set(jsonb_set(coalesce(nullif(${jsonObjectSql}, 'null'::jsonb), '{}'::jsonb), array['optionalObject']::text[], coalesce(nullif(jsonb_extract_path(${jsonObjectSql}, 'optionalObject'), 'null'::jsonb), coalesce(to_jsonb(jsonb_build_object('key', 'sql-default')), 'null'::jsonb)), true), array['optionalObject','key']::text[], $1::text::jsonb, true)`,
+        `jsonb_set((with __json_ref_source as (select ${jsonObjectSql} as value) select jsonb_set(coalesce(nullif(__json_ref_source.value, 'null'::jsonb), '{}'::jsonb), array['optionalObject']::text[], coalesce(nullif(jsonb_extract_path(__json_ref_source.value, 'optionalObject'), 'null'::jsonb), coalesce(to_jsonb(jsonb_build_object('key', 'sql-default')), 'null'::jsonb)), true) from __json_ref_source), array['optionalObject','key']::text[], $1::text::jsonb, true)`,
       )
     })
 
@@ -632,7 +632,7 @@ describe('JSON Set', () => {
         ['defaultKey', 'defaultKey2', 'newValue'].map((v) => JSON.stringify(v)),
       )
       expect(query.sql).toBe(
-        `jsonb_set(jsonb_set(coalesce(nullif(${jsonObjectSql}, 'null'::jsonb), '{}'::jsonb), array['optionalArray']::text[], coalesce(nullif(jsonb_extract_path(${jsonObjectSql}, 'optionalArray'), 'null'::jsonb), jsonb_build_array(jsonb_build_object('key', $1::text::jsonb,'key2', $2::text::jsonb))), true), array['optionalArray','0','key2']::text[], $3::text::jsonb, true)`,
+        `jsonb_set((with __json_ref_source as (select ${jsonObjectSql} as value) select jsonb_set(coalesce(nullif(__json_ref_source.value, 'null'::jsonb), '{}'::jsonb), array['optionalArray']::text[], coalesce(nullif(jsonb_extract_path(__json_ref_source.value, 'optionalArray'), 'null'::jsonb), jsonb_build_array(jsonb_build_object('key', $1::text::jsonb,'key2', $2::text::jsonb))), true) from __json_ref_source), array['optionalArray','0','key2']::text[], $3::text::jsonb, true)`,
       )
     })
 
@@ -650,14 +650,11 @@ describe('JSON Set', () => {
       const query = dialect.sqlToQuery(finalResult)
 
       expect(query.params).toEqual(
-        [
-          'first-default',
-          'intermediate',
-          'first-default',
-          'intermediate',
-          'second-default',
-          'final',
-        ].map((v) => JSON.stringify(v)),
+        // Each default aliases its source, so the first update's params
+        // are bound once rather than once per source reference.
+        ['first-default', 'intermediate', 'second-default', 'final'].map((v) =>
+          JSON.stringify(v),
+        ),
       )
       // Note: SQL expectation would be very complex due to nested operations
       // The important thing is that the parameters are correctly passed

@@ -48,7 +48,7 @@ describe('JSON Set SQL injection hardening', () => {
     const query = dialect.sqlToQuery(result)
 
     expect(query.sql).toBe(
-      `jsonb_set(jsonb_set(coalesce(nullif(${sourceSql}, 'null'::jsonb), '{}'::jsonb), array['cfg''); drop table cfg; --']::text[], coalesce(nullif(jsonb_extract_path(${sourceSql}, 'cfg''); drop table cfg; --'), 'null'::jsonb), jsonb_build_object('d''); drop table d; --', $1::text::jsonb)), true), array['cfg''); drop table cfg; --','leaf''); drop table l; --']::text[], $2::text::jsonb, false)`,
+      `jsonb_set((with __json_ref_source as (select ${sourceSql} as value) select jsonb_set(coalesce(nullif(__json_ref_source.value, 'null'::jsonb), '{}'::jsonb), array['cfg''); drop table cfg; --']::text[], coalesce(nullif(jsonb_extract_path(__json_ref_source.value, 'cfg''); drop table cfg; --'), 'null'::jsonb), jsonb_build_object('d''); drop table d; --', $1::text::jsonb)), true) from __json_ref_source), array['cfg''); drop table cfg; --','leaf''); drop table l; --']::text[], $2::text::jsonb, false)`,
     )
     expect(query.params).toEqual([
       JSON.stringify("default'); --"),
@@ -73,7 +73,7 @@ describe('JSON Set SQL injection hardening', () => {
     )
     expect(setQuery.params).toEqual([JSON.stringify('safe')])
     expect(defaultQuery.sql).toBe(
-      `jsonb_set(jsonb_set(coalesce(nullif(${sourceSql}, 'null'::jsonb), '{}'::jsonb), array['payload']::text[], coalesce(nullif(jsonb_extract_path(${sourceSql}, 'payload'), 'null'::jsonb), $1::text::jsonb), false), array['payload','leaf']::text[], $2::text::jsonb, true)`,
+      `jsonb_set((with __json_ref_source as (select ${sourceSql} as value) select jsonb_set(coalesce(nullif(__json_ref_source.value, 'null'::jsonb), '{}'::jsonb), array['payload']::text[], coalesce(nullif(jsonb_extract_path(__json_ref_source.value, 'payload'), 'null'::jsonb), $1::text::jsonb), false) from __json_ref_source), array['payload','leaf']::text[], $2::text::jsonb, true)`,
     )
     expect(defaultQuery.params).toEqual([
       JSON.stringify('safe'),

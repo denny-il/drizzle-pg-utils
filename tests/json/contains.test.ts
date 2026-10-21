@@ -93,7 +93,7 @@ describe('JSON Contains', () => {
 
     expect(query.params).toEqual([])
     expect(query.sql).toBe(
-      `${jsonObjectSql} @> jsonb_build_object('kind', 'alpha')`,
+      `${jsonObjectSql} @> (jsonb_build_object('kind', 'alpha'))`,
     )
   })
 
@@ -108,7 +108,7 @@ describe('JSON Contains', () => {
 
     expect(query.params).toEqual([JSON.stringify('active')])
     expect(query.sql).toBe(
-      `${jsonObjectSql} @> jsonb_build_object('profile', jsonb_build_object('status', $1::text::jsonb))`,
+      `${jsonObjectSql} @> (jsonb_build_object('profile', jsonb_build_object('status', $1::text::jsonb)))`,
     )
   })
 
