@@ -119,4 +119,16 @@ describe('JSON Contains', () => {
     expect(query.params).toEqual([JSON.stringify({ some: 'json' })])
     expect(query.sql).toBe(`"test"."jsoncol" @> $1::text::jsonb`)
   })
+
+  it('does not expose array index paths', () => {
+    const contains = jsonContains(jsonObject)
+
+    // `@>` cannot match array positions; an index path would build
+    // `{"tags":{"0":...}}`, which never matches an array.
+    const expectTypeErrors = () => {
+      // @ts-expect-error array-index containment is not supported.
+      contains.tags[0].$contains({ name: 'tag1' })
+    }
+    expect(expectTypeErrors).toBeTypeOf('function')
+  })
 })

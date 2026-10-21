@@ -1,7 +1,5 @@
 {
   "compilerOptions": {
-    "outDir": "./dist",
-    "rootDir": "./src",
     "lib": [
       "ESNext",
     ],
@@ -23,6 +21,8 @@
     "noPropertyAccessFromIndexSignature": false
   },
   "include": [
-    "src/**/*"
+    "src/**/*",
+    "tests/**/*",
+    "vitest.config.ts"
   ]
 }

@@ -13,8 +13,13 @@ export type SQLJSONSetMixedValue<T> =
   | SQL<T>
   | (T extends object ? { [K in keyof T]: T[K] | SQL<T[K]> } : T)
 
+// Leaves declared as nullable accept `null`, which writes JSON null at the
+// path. Callers pass a denullified `Type` where `null` only comes from path
+// reads (array elements, nullable parents) rather than the declared type.
+export type SQLJSONSetNull<Type> = null extends Type ? null : never
+
 export type SQLJSONSetFn<Type, Source extends SQLJSONValue> = (
-  value: SQLJSONSetMixedValue<SQLJSONDenullify<Type>>,
+  value: SQLJSONSetMixedValue<SQLJSONDenullify<Type>> | SQLJSONSetNull<Type>,
   createMissing?: boolean,
 ) => SQL<SQLJSONExtractType<Source>>
 
@@ -27,6 +32,9 @@ export type SQLJSONSet<
   Source extends SQLJSONValue,
   Value extends SQLJSONValue,
   Root extends boolean,
+  DeclaredNullable extends boolean = null extends SQLJSONExtractType<Value>
+    ? true
+    : false,
   Type extends SQLJSONExtractType<Value> = SQLJSONExtractType<Value>,
   ObjectType extends SQLJSONDenullify<Type> = SQLJSONDenullify<Type>,
   IsNullish extends boolean = SQLJSONIsNullish<Type> extends true
@@ -40,7 +48,10 @@ export type SQLJSONSet<
     ObjectType extends object ? true : false,
 > = (Root extends false
   ? {
-      $set: SQLJSONSetFn<Type, Source>
+      $set: SQLJSONSetFn<
+        DeclaredNullable extends true ? Type : SQLJSONDenullify<Type>,
+        Source
+      >
     }
   : {}) &
   (IsNullish extends true
@@ -48,24 +59,29 @@ export type SQLJSONSet<
       ? { $default: SQLJSONDefaultFn<Type, Source> }
       : {}
     : {}) &
-  (IsObject extends false
-    ? {}
-    : {
-        [K in keyof ObjectType]-?: SQLJSONSet<
+  (ObjectType extends readonly (infer Element)[]
+    ? {
+        // Index access only; a mapped type would also expose array members
+        // such as `length` and `map` as JSON paths.
+        [index: number]: SQLJSONSet<
           Source,
-          SQL<
-            | ObjectType[K]
-            | (IsNullish extends true
-                ? null
-                : ObjectType extends any[]
-                  ? null
-                  : never)
-          >,
-          false
+          SQL<Element | null>,
+          false,
+          null extends Element ? true : false
         >
-      })
+      }
+    : IsObject extends false
+      ? {}
+      : {
+          [K in keyof ObjectType]-?: SQLJSONSet<
+            Source,
+            SQL<ObjectType[K] | (IsNullish extends true ? null : never)>,
+            false,
+            null extends ObjectType[K] ? true : false
+          >
+        })
 
-export function jsonSet<Source extends SQLJSONValue<object>>(
+export function jsonSet<Source extends SQLJSONValue<object | null>>(
   source: Source,
 ): SQLJSONSet<Source, Source, true> {
   function _jsonSet(source: Source, defPath: string[] = []) {
@@ -145,7 +161,7 @@ export type SQLJSONPipeFnType<Source extends SQLJSONValue> = (
  * }).where(eq(users.id, 1))
  * ```
  */
-export function jsonSetPipe<Source extends SQLJSONValue<object>>(
+export function jsonSetPipe<Source extends SQLJSONValue<object | null>>(
   source: Source,
   ...args: [SQLJSONPipeFnType<Source>, ...SQLJSONPipeFnType<Source>[]]
 ): SQL<SQLJSONExtractType<Source>> {

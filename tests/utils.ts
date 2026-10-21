@@ -7,15 +7,15 @@ import {
   type SQLWrapper,
   sql,
 } from 'drizzle-orm'
-import { jsonb, PgDialect, pgTable } from 'drizzle-orm/pg-core'
 import {
-  drizzle as drizzlePglite,
-  type PgliteDatabase,
-} from 'drizzle-orm/pglite'
-import {
-  drizzle as drizzlePostgres,
-  type PostgresJsDatabase,
-} from 'drizzle-orm/postgres-js'
+  jsonb,
+  type PgAsyncDatabase,
+  PgDialect,
+  type PgQueryResultHKT,
+  pgTable,
+} from 'drizzle-orm/pg-core'
+import { drizzle as drizzlePglite } from 'drizzle-orm/pglite'
+import { drizzle as drizzlePostgres } from 'drizzle-orm/postgres-js'
 import postgres, { type Sql } from 'postgres'
 import { inject } from 'vitest'
 
@@ -31,9 +31,10 @@ export const table = pgTable('test', {
     jsonb('arraycolNullable').$type<Array<{ id: number; name: string }>>(),
 })
 
+// The shared base type rather than a union of the two driver databases: a
+// union of their overloaded methods (e.g. `execute`) is not callable.
 export type TestDatabase<TRelations extends AnyRelations = EmptyRelations> =
-  | (PgliteDatabase<TRelations> & { $client: PGlite })
-  | (PostgresJsDatabase<TRelations> & { $client: Sql })
+  PgAsyncDatabase<PgQueryResultHKT, TRelations> & { $client: PGlite | Sql }
 
 type CreateDatabaseOptions<TRelations extends AnyRelations> = {
   relations?: TRelations
@@ -91,8 +92,11 @@ export const executeRows = async <TRow extends Record<string, unknown>>(
   client: TestDatabase,
   query: SQLWrapper,
 ): Promise<TRow[]> => {
-  const results = await client.execute(query)
-  return (Array.isArray(results) ? results : results.rows) as TRow[]
+  // postgres-js resolves to a row array, PGlite to `{ rows }`.
+  const results: unknown = await client.execute(query)
+  return (
+    Array.isArray(results) ? results : (results as { rows: unknown[] }).rows
+  ) as TRow[]
 }
 
 export const closeDatabase = (client: TestDatabase): Promise<void> =>

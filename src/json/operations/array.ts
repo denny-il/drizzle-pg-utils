@@ -91,11 +91,11 @@ export function jsonArraySet<
   target: Target,
   index: number,
   value: ElementType | SQLJSONValue<ElementType>,
-) {
+): SQL<SQLJSONDenullify<SourceType>> {
   const _value = isSQLWrapper(value)
     ? jsonBuild(value as any)
     : jsonbLiteral(value)
-  return sql<SourceType>`jsonb_set(${valueOrEmptyArray(target)}, '{${sql`${index}`.inlineParams()}}', ${_value}, false)`
+  return sql`jsonb_set(${valueOrEmptyArray(target)}, '{${sql`${index}`.inlineParams()}}', ${_value}, false)`
 }
 
 /**

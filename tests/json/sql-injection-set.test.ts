@@ -10,10 +10,9 @@ describe('JSON Set SQL injection hardening', () => {
   const source = sql<Record<string, unknown>>`${sql.raw(sourceSql)}`
 
   it('keeps malicious path components inside escaped text array literals', () => {
-    const result =
-      jsonSet(source)["x'), true); drop table users; --"].nested['a,b{c}'].$set(
-        "v'); select 1; --",
-      )
+    const result = (jsonSet(source) as any)[
+      "x'), true); drop table users; --"
+    ].nested['a,b{c}'].$set("v'); select 1; --")
     const query = dialect.sqlToQuery(result)
 
     expect(query.sql).toBe(
@@ -24,7 +23,7 @@ describe('JSON Set SQL injection hardening', () => {
 
   it('keeps malicious object keys inside jsonb_build_object key literals', () => {
     const key = "k'); drop table audit; --"
-    const result = jsonSet(source).payload.$set({
+    const result = (jsonSet(source) as any).payload.$set({
       [key]: "v'); select 1; --",
       safe: 'ok',
     })
@@ -41,8 +40,8 @@ describe('JSON Set SQL injection hardening', () => {
 
   it('keeps $default path and value inputs escaped or parameterized', () => {
     const defaultKey = "d'); drop table d; --"
-    const result = jsonSet(source)
-      ["cfg'); drop table cfg; --"].$default({
+    const result = (jsonSet(source) as any)["cfg'); drop table cfg; --"]
+      .$default({
         [defaultKey]: "default'); --",
       })
       ["leaf'); drop table l; --"].$set("final'); --", false)
@@ -61,11 +60,11 @@ describe('JSON Set SQL injection hardening', () => {
     const rawCreateMissing = sql.raw('true); drop table users; --')
 
     const setQuery = dialect.sqlToQuery(
-      jsonSet(source).payload.$set('safe', rawCreateMissing as any),
+      (jsonSet(source) as any).payload.$set('safe', rawCreateMissing as any),
     )
     const defaultQuery = dialect.sqlToQuery(
-      jsonSet(source)
-        .payload.$default('safe', 0 as any)
+      (jsonSet(source) as any).payload
+        .$default('safe', 0 as any)
         .leaf.$set('safe'),
     )
 
@@ -85,7 +84,9 @@ describe('JSON Set SQL injection hardening', () => {
   })
 
   it('treats plain malicious string values as JSON params, not SQL', () => {
-    const result = jsonSet(source).payload.$set("'}::jsonb); select 1; --")
+    const result = (jsonSet(source) as any).payload.$set(
+      "'}::jsonb); select 1; --",
+    )
     const query = dialect.sqlToQuery(result)
 
     expect(query.sql).toBe(
@@ -95,7 +96,9 @@ describe('JSON Set SQL injection hardening', () => {
   })
 
   it('keeps bare SQLWrapper params parameterized', () => {
-    const result = jsonSet(source).payload.$set(sql`${"x'); select 1; --"}`)
+    const result = (jsonSet(source) as any).payload.$set(
+      sql`${"x'); select 1; --"}`,
+    )
     const query = dialect.sqlToQuery(result)
 
     expect(query.sql).toBe(
@@ -105,7 +108,7 @@ describe('JSON Set SQL injection hardening', () => {
   })
 
   it('embeds non-bare SQLWrapper values as intentional SQL expressions', () => {
-    const result = jsonSet(source).payload.$set(
+    const result = (jsonSet(source) as any).payload.$set(
       sql`jsonb_build_object('safe', ${'x'}::text)`,
     )
     const query = dialect.sqlToQuery(result)
@@ -117,8 +120,9 @@ describe('JSON Set SQL injection hardening', () => {
   })
 
   it('public set alias has same escaping behavior as jsonSet', () => {
-    const result =
-      jsonSetAlias(source)["alias'); drop table alias; --"].$set('ok')
+    const result = (jsonSetAlias(source) as any)[
+      "alias'); drop table alias; --"
+    ].$set('ok')
     const query = dialect.sqlToQuery(result)
 
     expect(query.sql).toBe(
@@ -128,10 +132,10 @@ describe('JSON Set SQL injection hardening', () => {
   })
 
   it('rejects root-level $set and $default misuse', () => {
-    expect(() => jsonSet(source).$set({})).toThrow(
+    expect(() => (jsonSet(source) as any).$set({})).toThrow(
       'Cannot set default value at root level',
     )
-    expect(() => jsonSet(source).$default({})).toThrow(
+    expect(() => (jsonSet(source) as any).$default({})).toThrow(
       'Cannot set default value at root level',
     )
   })
@@ -162,7 +166,7 @@ describe('JSON Set SQL injection hardening', () => {
 
     const result = await executeQuery(
       db,
-      jsonSet(source).payload.$set({
+      (jsonSet(source) as any).payload.$set({
         [key]: "v'); select 1; --",
       }),
     )
@@ -182,8 +186,8 @@ describe('JSON Set SQL injection hardening', () => {
 
     const result = await executeQuery(
       db,
-      jsonSet(source)
-        [key].$default({
+      (jsonSet(source) as any)[key]
+        .$default({
           [defaultKey]: "default'); --",
         })
         [leaf].$set("final'); --"),

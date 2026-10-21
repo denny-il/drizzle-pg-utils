@@ -2,16 +2,10 @@ import { isSQLWrapper, type SQL, sql } from 'drizzle-orm'
 
 import { jsonBuild } from './operations/build.ts'
 import { jsonbParam } from './param.ts'
-import type {
-  SQLJSONExtractType,
-  SQLJSONIsNullish,
-  SQLJSONValue,
-} from './types.ts'
+import type { SQLJSONExtractType, SQLJSONValue } from './types.ts'
 
-export const normalizeNullish = <T>(
-  value: SQLJSONValue<T>,
-): SQLJSONIsNullish<T> extends true ? SQL<T> : never => {
-  return sql<T>`coalesce(${value}, 'null'::jsonb)` as any
+export const normalizeNullish = <T>(value: SQLJSONValue<T>): SQL<T> => {
+  return sql<T>`coalesce(${value}, 'null'::jsonb)`
 }
 
 export const jsonPathArgs = (path: string[]) => {

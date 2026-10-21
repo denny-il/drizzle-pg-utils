@@ -24,10 +24,10 @@ export type SQLJSONContains<
       | SQLJSONContainmentValue<ObjectType>
       | SQLJSONValue<SQLJSONContainmentValue<ObjectType>>,
   ): SQL<boolean>
-} & (ObjectType extends readonly (infer Element)[]
-  ? {
-      [index: number]: SQLJSONContains<Source, Element>
-    }
+} & (ObjectType extends readonly any[]
+  ? // `@>` has no positional array matching, so index paths would build
+    // `{"0": value}` objects that never match an array.
+    {}
   : ObjectType extends object
     ? {
         [K in keyof ObjectType]-?: SQLJSONContains<Source, ObjectType[K]>

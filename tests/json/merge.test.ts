@@ -281,7 +281,7 @@ describe('JSON Merge Operations', () => {
       const obj2 = sql<{ b: number }>`'{"b": 42}'::jsonb`
 
       const result = jsonMerge(obj1, obj2)
-      expectTypeOf(result).toEqualTypeOf<SQL<{ a: string } & { b: number }>>()
+      expectTypeOf(result).toEqualTypeOf<SQL<{ a: string; b: number }>>()
     })
 
     it('types object merges as shallow right-wins merges', () => {
@@ -309,6 +309,27 @@ describe('JSON Merge Operations', () => {
 
       expectTypeOf<SQLJSONExtractType<typeof result>>().toEqualTypeOf<{
         key: number
+      }>()
+    })
+
+    it('keeps left-hand types for optional right-hand keys', () => {
+      const left = sql<{
+        required: number
+        optional?: number
+      }>`'{"required": 1}'::jsonb`
+      const right = sql<{
+        required?: string
+        optional?: string
+        added?: boolean
+      }>`'{}'::jsonb`
+
+      const result = jsonMerge(left, right)
+
+      // An absent right-hand key leaves the left-hand value in place.
+      expectTypeOf<SQLJSONExtractType<typeof result>>().toEqualTypeOf<{
+        required: number | string
+        optional?: number | string
+        added?: boolean
       }>()
     })
 
@@ -348,13 +369,12 @@ describe('JSON Merge Operations', () => {
       }>`'{"user": {"age": 30}, "config": {"theme": "dark"}}'::jsonb`
 
       const result = jsonMerge(obj1, obj2)
+      // `||` is shallow: the right-hand `user` replaces the left one.
       expectTypeOf(result).toEqualTypeOf<
-        SQL<
-          { user: { name: string } } & {
-            user: { age: number }
-            config: { theme: string }
-          }
-        >
+        SQL<{
+          user: { age: number }
+          config: { theme: string }
+        }>
       >()
     })
   })

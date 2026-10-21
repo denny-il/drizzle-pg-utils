@@ -1,45 +1,79 @@
 import {
   is,
   isSQLWrapper,
-  type SQL,
-  type SQLWrapper,
   Param,
   Placeholder,
+  type SQL,
+  type SQLWrapper,
   sql,
 } from 'drizzle-orm'
+import type { AnyPgColumn } from 'drizzle-orm/pg-core'
 
 import { jsonbParam } from '../param.ts'
 
-export type SQLJSONBuildMixedPrimitiveType =
-  | string
-  | number
-  | boolean
-  | null
-  | SQL<string | number | boolean | null>
+export type SQLJSONBuildMixedPrimitiveType = string | number | boolean | null
 
-export type SQLJSONBuildMixedArrayType =
-  | Array<SQLJSONBuildMixedType>
-  | SQL<Array<SQLJSONBuildMixedType>>
+export type SQLJSONBuildMixedArrayType = Array<SQLJSONBuildMixedType>
 
-export type SQLJSONBuildMixedObjectType =
-  | { [key: string]: SQLJSONBuildMixedType }
-  | SQL<{ [key: string]: SQLJSONBuildMixedType }>
+export type SQLJSONBuildMixedObjectType = {
+  [key: string]: SQLJSONBuildMixedType
+}
 
+// Any SQL wrapper is accepted (it is converted with `to_jsonb`), including
+// untyped `sql` snippets and non-JSON columns such as `users.id`.
 export type SQLJSONBuildMixedType =
   | SQLJSONBuildMixedPrimitiveType
   | SQLJSONBuildMixedArrayType
   | SQLJSONBuildMixedObjectType
+  | SQLWrapper
 
-export type SQLJSONBuildUnwrapType<T extends SQLJSONBuildMixedType> =
-  T extends SQL<infer U>
-    ? U
-    : T extends Array<SQLJSONBuildMixedType>
-      ? Array<SQLJSONBuildUnwrapType<T[number]>>
-      : T extends { [key: string]: SQLJSONBuildMixedType }
-        ? {
-            [K in keyof T]: SQLJSONBuildUnwrapType<T[K]>
-          }
-        : T
+type SQLJSONColumnScalar<Data, Scalar> = Data extends readonly unknown[]
+  ? { [K in keyof Data]: SQLJSONColumnScalar<Data[K], Scalar> }
+  : Data extends null
+    ? null
+    : Scalar
+
+// `to_jsonb(column)` sees database values, not the Date/bigint/custom objects
+// produced by Drizzle's column decoders: timestamps become strings and
+// numeric types become numbers. Unknown mappings (e.g. custom types) need an
+// explicit SQL type.
+type SQLJSONColumnData<T extends AnyPgColumn> =
+  T['_']['dataType'] extends 'object date'
+    ? SQLJSONColumnScalar<T['_']['data'], string>
+    : T['_']['dataType'] extends
+          | `bigint${string}`
+          | 'string numeric'
+          | 'string int64'
+          | 'string uint64'
+          | 'string unumeric'
+      ? SQLJSONColumnScalar<T['_']['data'], number>
+      : T['_']['dataType'] extends
+            | `string${string}`
+            | `number${string}`
+            | 'boolean'
+            | 'object json'
+        ? T['_']['data']
+        : unknown
+
+type SQLJSONBuildColumnType<T extends AnyPgColumn> =
+  | SQLJSONColumnData<T>
+  | (T['_']['notNull'] extends true ? never : null)
+
+export type SQLJSONBuildUnwrapType<T extends SQLJSONBuildMixedType> = T extends
+  | SQL<infer U>
+  | SQL.Aliased<infer U>
+  ? U
+  : T extends AnyPgColumn
+    ? SQLJSONBuildColumnType<T>
+    : T extends SQLWrapper
+      ? unknown
+      : T extends Array<SQLJSONBuildMixedType>
+        ? Array<SQLJSONBuildUnwrapType<T[number]>>
+        : T extends { [key: string]: SQLJSONBuildMixedType }
+          ? {
+              [K in keyof T]: SQLJSONBuildUnwrapType<T[K]>
+            }
+          : T
 
 export function jsonBuild<T extends SQLJSONBuildMixedType>(
   value: T,
