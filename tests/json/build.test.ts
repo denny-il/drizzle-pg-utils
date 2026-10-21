@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
+
 import { jsonBuild } from '../../src/json/operations/build.ts'
 import { dialect, table } from '../utils.ts'
 

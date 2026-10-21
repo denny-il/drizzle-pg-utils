@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm'
 import { beforeAll, describe, expect, it } from 'vitest'
+
 import { coalesce } from '../../src/json/index.ts'
 import { jsonCoalesce } from '../../src/json/operations/coalesce.ts'
 import {

@@ -10,11 +10,11 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to publish"
+        description: 'Version to publish'
         type: string
         required: true
       tag:
-        description: "Tag to publish with"
+        description: 'Tag to publish with'
         type: string
         default: latest
         required: false
@@ -32,7 +32,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 24
-          registry-url: "https://registry.npmjs.org"
+          registry-url: 'https://registry.npmjs.org'
 
       - uses: pnpm/action-setup@v4
         name: Install pnpm

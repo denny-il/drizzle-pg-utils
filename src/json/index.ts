@@ -5,10 +5,10 @@ import {
   jsonArraySet,
 } from './operations/array.ts'
 import { jsonBuild } from './operations/build.ts'
-import { jsonRef, jsonRefPipe } from './operations/ref.ts'
 import { jsonCoalesce } from './operations/coalesce.ts'
 import { jsonContains } from './operations/contains.ts'
 import { jsonMerge } from './operations/merge.ts'
+import { jsonRef, jsonRefPipe } from './operations/ref.ts'
 import { jsonSet, jsonSetPipe } from './operations/set.ts'
 import type { SQLJSONRefAPI } from './types.ts'
 

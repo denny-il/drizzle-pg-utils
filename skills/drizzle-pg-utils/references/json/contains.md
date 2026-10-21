@@ -28,9 +28,7 @@ await db
   .select({ id: users.id })
   .from(users)
   .where(
-    json
-      .contains(users.profile)
-      .user.preferences.$contains({ theme: 'dark' }),
+    json.contains(users.profile).user.preferences.$contains({ theme: 'dark' }),
   )
 ```
 

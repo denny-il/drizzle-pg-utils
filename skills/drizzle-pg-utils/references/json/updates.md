@@ -47,8 +47,8 @@ PostgreSQL `jsonb_set(..., create_missing := true)` creates only the final missi
 Use `.$default(...)` before writing through optional or nullable branches:
 
 ```typescript
-json(users.profile).user.preferences
-  .$default({ theme: 'light', tags: [] })
+json(users.profile)
+  .user.preferences.$default({ theme: 'light', tags: [] })
   .theme.$set('dark')
 ```
 
@@ -71,9 +71,9 @@ Without `.$default(...)`, a nested write through SQL `NULL` stays SQL `NULL`.
 
 ```typescript
 await db.update(users).set({
-  profile: json(users.profile).metadata.$default({}).lastLogin.$set(
-    sql`now()::text`,
-  ),
+  profile: json(users.profile)
+    .metadata.$default({})
+    .lastLogin.$set(sql`now()::text`),
 })
 ```
 

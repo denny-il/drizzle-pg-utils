@@ -2,7 +2,6 @@
 
 A TypeScript library providing type-safe utilities for working with PostgreSQL JSONB data and Temporal types in Drizzle ORM applications.
 
-
 ## Quick Start
 
 ### Installation
@@ -14,9 +13,9 @@ npm install @denny-il/drizzle-pg-utils
 ### Query Example (Select + Update)
 
 ```typescript
+import { json } from '@denny-il/drizzle-pg-utils'
 import { eq, gte } from 'drizzle-orm'
 import { jsonb, pgTable, serial, text } from 'drizzle-orm/pg-core'
-import { json } from '@denny-il/drizzle-pg-utils'
 
 type Profile = {
   user: {
@@ -36,7 +35,7 @@ const profile = json(users.profile)
 const [row] = await db
   .select({
     id: users.id,
-    // This now works without having any runtime schemas, 
+    // This now works without having any runtime schemas,
     // and is fully type-safe
     theme: profile.user.preferences.theme.$value,
   })
@@ -63,14 +62,15 @@ await db
 ## Features
 
 ### JSON Utilities
+
 - Access nested JSONB paths with `json(source)` and full TypeScript inference.
 - Query JSONB containment with typed path traversal and full-column index-friendly SQL.
 - Update deep branches atomically with `.$set(...)`, `.$default(...)`, `.$push(...)`, `.$merge(...)`, and `.$pipe(...)`.
 - Build, merge, coalesce, and modify arrays with typed SQL helpers.
 
 ```typescript
-import { eq } from 'drizzle-orm'
 import { json } from '@denny-il/drizzle-pg-utils'
+import { eq } from 'drizzle-orm'
 
 // Access nested properties with type safety
 const profile = json(users.profile)
@@ -86,9 +86,7 @@ const rows = await db
 const darkUsers = await db
   .select({ id: users.id })
   .from(users)
-  .where(
-    profile.user.preferences.$contains({ theme: 'dark' }),
-  )
+  .where(profile.user.preferences.$contains({ theme: 'dark' }))
 
 // Update values at specific paths
 await db
@@ -100,12 +98,16 @@ await db
 ```
 
 ### Temporal Utilities
+
 - Map PostgreSQL date and time columns directly to Temporal values.
 - Choose any of the three equal entrypoints: `/temporal`, `/temporal/global`, or `/temporal/polyfill`.
 - Add optional database constraints for `yearMonth` and `monthDay` text columns.
 
 ```typescript
-import { timestamp, timestampz } from '@denny-il/drizzle-pg-utils/temporal/global'
+import {
+  timestamp,
+  timestampz,
+} from '@denny-il/drizzle-pg-utils/temporal/global'
 
 const events = pgTable('events', {
   id: serial('id').primaryKey(),
@@ -122,10 +124,7 @@ const upcoming = await db
   .select({ scheduledAt: events.scheduledAt })
   .from(events)
   .where(
-    gte(
-      events.scheduledAt,
-      Temporal.PlainDateTime.from('2026-03-01T00:00:00'),
-    ),
+    gte(events.scheduledAt, Temporal.PlainDateTime.from('2026-03-01T00:00:00')),
   )
 ```
 

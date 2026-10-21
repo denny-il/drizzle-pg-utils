@@ -54,7 +54,7 @@ json.build({
 })
 ```
 
-Interpolated values inside `sql\`...\`` still use Drizzle parameters. `sql.raw(...)` is caller-controlled SQL and must not contain untrusted input.
+Interpolated values inside `sql\`...\``still use Drizzle parameters.`sql.raw(...)` is caller-controlled SQL and must not contain untrusted input.
 
 ## `coalesce(...)`
 

@@ -28,21 +28,21 @@ import { jsonRef, jsonRefPipe } from '@denny-il/drizzle-pg-utils/json/ref'
 
 ## Helper Map
 
-| Helper | Use | Focused reference |
-| --- | --- | --- |
-| `json(source)` | Callable typed ref: access, updates, containment, pipes | [json/ref.md](json/ref.md) |
-| `json(source).$pipe(...ops)` / `pipe(source, ...ops)` | Chain JSON updates; each step sees previous result | [json/ref.md](json/ref.md) |
-| `access(source)` | Typed JSON path extraction | [json/access.md](json/access.md) |
-| `set(source)` | One `jsonb_set(...)` update | [json/updates.md](json/updates.md) |
-| `setPipe(source, ...ops)` | Deprecated; use `json(source).$pipe(...)` | [json/updates.md](json/updates.md) |
-| `build(value)` | Convert JS values and SQL snippets into JSONB SQL | [json/build-coalesce-merge.md](json/build-coalesce-merge.md) |
-| `coalesce(source, fallback)` | Treat SQL `NULL` and JSON `null` as empty | [json/build-coalesce-merge.md](json/build-coalesce-merge.md) |
-| `merge(left, right)` | Apply PostgreSQL JSONB `||` semantics with SQL `NULL` normalized | [json/build-coalesce-merge.md](json/build-coalesce-merge.md) |
-| `contains(source)` | Typed root JSONB containment builder | [json/contains.md](json/contains.md) |
-| `contains(source, value)` | Direct JSONB root containment predicate | [json/contains.md](json/contains.md) |
-| `arrayPush(target, ...values)` | Append values to JSON array | [json/arrays.md](json/arrays.md) |
-| `arraySet(target, index, value)` | Replace existing array element | [json/arrays.md](json/arrays.md) |
-| `arrayDelete(target, index)` | Remove existing array element | [json/arrays.md](json/arrays.md) |
+| Helper                                                | Use                                                     | Focused reference                                            |
+| ----------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------ |
+| `json(source)`                                        | Callable typed ref: access, updates, containment, pipes | [json/ref.md](json/ref.md)                                   |
+| `json(source).$pipe(...ops)` / `pipe(source, ...ops)` | Chain JSON updates; each step sees previous result      | [json/ref.md](json/ref.md)                                   |
+| `access(source)`                                      | Typed JSON path extraction                              | [json/access.md](json/access.md)                             |
+| `set(source)`                                         | One `jsonb_set(...)` update                             | [json/updates.md](json/updates.md)                           |
+| `setPipe(source, ...ops)`                             | Deprecated; use `json(source).$pipe(...)`               | [json/updates.md](json/updates.md)                           |
+| `build(value)`                                        | Convert JS values and SQL snippets into JSONB SQL       | [json/build-coalesce-merge.md](json/build-coalesce-merge.md) |
+| `coalesce(source, fallback)`                          | Treat SQL `NULL` and JSON `null` as empty               | [json/build-coalesce-merge.md](json/build-coalesce-merge.md) |
+| `merge(left, right)`                                  | Apply PostgreSQL JSONB `                                |                                                              | `semantics with SQL`NULL` normalized | [json/build-coalesce-merge.md](json/build-coalesce-merge.md) |
+| `contains(source)`                                    | Typed root JSONB containment builder                    | [json/contains.md](json/contains.md)                         |
+| `contains(source, value)`                             | Direct JSONB root containment predicate                 | [json/contains.md](json/contains.md)                         |
+| `arrayPush(target, ...values)`                        | Append values to JSON array                             | [json/arrays.md](json/arrays.md)                             |
+| `arraySet(target, index, value)`                      | Replace existing array element                          | [json/arrays.md](json/arrays.md)                             |
+| `arrayDelete(target, index)`                          | Remove existing array element                           | [json/arrays.md](json/arrays.md)                             |
 
 ## Common Query Shape
 

@@ -1,5 +1,6 @@
 import { SQL } from 'drizzle-orm'
 import { customType, type IntervalConfig } from 'drizzle-orm/pg-core'
+
 import type { TemporalColumn } from '../types.ts'
 
 type Config<T extends typeof globalThis.Temporal> = {

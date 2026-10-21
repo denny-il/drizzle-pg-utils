@@ -1,5 +1,6 @@
 import { isSQLWrapper, type SQL, sql } from 'drizzle-orm'
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
+
 import type {
   SQLJSONDenullify,
   SQLJSONExtractType,
@@ -97,9 +98,8 @@ export type SQLJSONRef<
         ? false
         : true
       : false,
-  IsObject extends ObjectType extends object
-    ? true
-    : false = ObjectType extends object ? true : false,
+  IsObject extends (ObjectType extends object ? true : false) =
+    ObjectType extends object ? true : false,
 > = {
   getSQL(): SQL<SQLJSONExtractType<Value>>
   shouldOmitSQLParens(): boolean
@@ -149,9 +149,9 @@ export type SQLJSONRef<
     : IsObject extends false
       ? {}
       : {
-          [K in keyof ObjectType as K extends SQLJSONRefReservedKey
-            ? never
-            : K]-?: SQLJSONRef<
+          [
+            K in keyof ObjectType as K extends SQLJSONRefReservedKey ? never : K
+          ]-?: SQLJSONRef<
             RootSource,
             SQL<
               | ObjectType[K]

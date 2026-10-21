@@ -2,6 +2,7 @@ import { gte, sql } from 'drizzle-orm'
 import { pgTable, serial } from 'drizzle-orm/pg-core'
 import { Temporal, Temporal as TemporalImpl } from 'temporal-polyfill'
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
+
 import {
   interval,
   monthDay,
@@ -471,24 +472,22 @@ describe('Temporal Column Types', () => {
       ).rejects.toThrow()
     })
 
-    it.each([
-      '01-01',
-      '02-29',
-      '04-30',
-      '12-31',
-    ])('should accept edge month-day format %s', async (value) => {
-      await db.execute(
-        sql`INSERT INTO temporal_test (month_day) VALUES (${value})`,
-      )
+    it.each(['01-01', '02-29', '04-30', '12-31'])(
+      'should accept edge month-day format %s',
+      async (value) => {
+        await db.execute(
+          sql`INSERT INTO temporal_test (month_day) VALUES (${value})`,
+        )
 
-      const [result] = await db
-        .select({ monthDayValue: temporalTable.monthDayValue })
-        .from(temporalTable)
-        .limit(1)
+        const [result] = await db
+          .select({ monthDayValue: temporalTable.monthDayValue })
+          .from(temporalTable)
+          .limit(1)
 
-      expect(result!.monthDayValue).toBeInstanceOf(TemporalImpl.PlainMonthDay)
-      expect(result!.monthDayValue!.toString()).toBe(value)
-    })
+        expect(result!.monthDayValue).toBeInstanceOf(TemporalImpl.PlainMonthDay)
+        expect(result!.monthDayValue!.toString()).toBe(value)
+      },
+    )
 
     it.each([
       '1-01',

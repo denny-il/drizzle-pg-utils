@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
+
 import { set as jsonSetAlias } from '../../src/json/index.ts'
 import { jsonSet } from '../../src/json/operations/set.ts'
 import { createDatabase, dialect, executeQuery } from '../utils.ts'

@@ -1,5 +1,6 @@
 import { isSQLWrapper, type SQL, sql } from 'drizzle-orm'
 import { describe, expect, expectTypeOf, it } from 'vitest'
+
 import { json } from '../../src/index.ts'
 import { createDatabase, dialect, executeQuery } from '../utils.ts'
 

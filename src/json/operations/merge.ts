@@ -1,5 +1,6 @@
 import { type SQL, sql } from 'drizzle-orm'
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
+
 import type {
   SQLJSONDenullify,
   SQLJSONIsNullish,
@@ -131,30 +132,28 @@ type SQLJSONMergeResultInternal<Left, Right> =
 export function jsonMerge<
   Left extends SQLJSONValue,
   Right extends SQLJSONValue,
-  LeftType extends Left extends AnyPgColumn
+  LeftType extends (Left extends AnyPgColumn
     ? Left['_']['data']
     : Left extends SQL<any> | SQL.Aliased<any>
       ? Left['_']['type']
-      : never = Left extends AnyPgColumn
+      : never) = Left extends AnyPgColumn
     ? Left['_']['data']
     : Left extends SQL<any> | SQL.Aliased<any>
       ? Left['_']['type']
       : never,
-  RightType extends Right extends AnyPgColumn
+  RightType extends (Right extends AnyPgColumn
     ? Right['_']['data']
     : Right extends SQL<any> | SQL.Aliased<any>
       ? Right['_']['type']
-      : never = Right extends AnyPgColumn
+      : never) = Right extends AnyPgColumn
     ? Right['_']['data']
     : Right extends SQL<any> | SQL.Aliased<any>
       ? Right['_']['type']
       : never,
   // For merge operations, we work with the full types including null
   // because JSON null is treated as a literal value, not as absence of value
-  MergedType extends SQLJSONMergeResult<
-    LeftType,
-    RightType
-  > = SQLJSONMergeResult<LeftType, RightType>,
+  MergedType extends SQLJSONMergeResult<LeftType, RightType> =
+    SQLJSONMergeResult<LeftType, RightType>,
   // Since we use COALESCE to convert SQL NULL to JSON null, the result is never SQL NULL
   // The result can only be nullish if the operation itself could fail (which it can't for ||)
   FinalType = MergedType,
