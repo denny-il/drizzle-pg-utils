@@ -5,6 +5,8 @@ import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
 import {
   interval,
+  monthDay,
+  yearMonth,
   plainDate,
   time,
   timestamp,
@@ -21,6 +23,9 @@ const temporalArrayTable = pgTable('temporal_array_test', {
   plainDateTimes: timestamp.column('plain_datetimes').array(),
   instants: timestampz.column('instants').array(),
   durations: interval.column('durations').array(),
+  yearMonths: yearMonth.column('year_months').array(),
+  monthDays: monthDay.column('month_days').array(),
+  dateMatrix: plainDate.column('date_matrix').array('[][]'),
 })
 
 let db: TestDatabase
@@ -36,7 +41,10 @@ beforeAll(async () => {
       plain_times TIME[],
       plain_datetimes TIMESTAMP[],
       instants TIMESTAMP WITH TIME ZONE[],
-      durations INTERVAL[]
+      durations INTERVAL[],
+      year_months TEXT[],
+      month_days TEXT[],
+      date_matrix DATE[][]
     )
   `)
 })
@@ -46,6 +54,47 @@ beforeEach(async () => {
 })
 
 describe('Temporal array columns', () => {
+  it('decodes partial dates, multidimensional arrays, and empty arrays', async () => {
+    const [record] = await db
+      .insert(temporalArrayTable)
+      .values({
+        yearMonths: [
+          Temporal.PlainYearMonth.from('-000001-02'),
+          Temporal.PlainYearMonth.from('2026-10'),
+        ],
+        monthDays: [Temporal.PlainMonthDay.from('02-29')],
+        dateMatrix: [
+          [Temporal.PlainDate.from('0000-01-02')],
+          [Temporal.PlainDate.from('2026-10-22')],
+        ],
+        durations: [Temporal.Duration.from('-PT1H')],
+        plainTimes: [],
+      })
+      .returning()
+    expect(record!.yearMonths!.map(String)).toEqual(['-000001-02', '2026-10'])
+    expect(record!.monthDays!.map(String)).toEqual(['02-29'])
+    expect(record!.dateMatrix!.map((row) => row.map(String))).toEqual([
+      ['0000-01-02'],
+      ['2026-10-22'],
+    ])
+    expect(record!.durations![0]!.toString()).toBe('-PT1H')
+    expect(record!.plainTimes).toEqual([])
+  })
+
+  // Drizzle rc.5's postgres-js array parser turns unquoted SQL NULL into the
+  // string 'NULL'. PGlite preserves null; detect an upstream fix on Postgres.
+  const nullElementTest = process.env.DATABASE_URL ? it.fails : it
+  nullElementTest('preserves SQL NULL array elements', async () => {
+    const [record] = await db
+      .insert(temporalArrayTable)
+      .values({
+        plainDates: sql`array[date '2026-10-22', null]`,
+      })
+      .returning()
+    expect(record!.plainDates![0]!.toString()).toBe('2026-10-22')
+    expect(record!.plainDates![1]).toBeNull()
+  })
+
   it('round-trips arrays with microsecond precision', async () => {
     await db.insert(temporalArrayTable).values({
       plainDates: [
