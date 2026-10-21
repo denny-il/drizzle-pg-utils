@@ -166,20 +166,31 @@ describe('jsonArraySet SQL injection hardening', () => {
     ])
   })
 
-  it.each([
-    Number.NaN,
-    Number.POSITIVE_INFINITY,
-    Number.NEGATIVE_INFINITY,
-    2147483648,
-    -2147483649,
-    Number.MAX_SAFE_INTEGER,
-    Number.MIN_SAFE_INTEGER,
-    1.2,
-    -1.2,
-  ])('lets PostgreSQL reject invalid index %s', async (index) => {
-    await expect(
-      executeQuery(db, jsonArraySet(baseArray, index as any, 'safe')),
-    ).rejects.toThrow()
+  it.each([2147483648, -2147483649, Number.MAX_SAFE_INTEGER])(
+    'lets PostgreSQL reject out-of-range integer index %s',
+    async (index) => {
+      await expect(
+        executeQuery(db, jsonArraySet(baseArray, index, 'safe')),
+      ).rejects.toThrow()
+    },
+  )
+
+  it.each([Number.NaN, Number.NEGATIVE_INFINITY, 1.2, -1.2, 1e21])(
+    'rejects non-integer index %s before building SQL',
+    (index) => {
+      expect(() => jsonArraySet(baseArray, index, 'safe')).toThrow(TypeError)
+    },
+  )
+
+  it('rejects string indexes that would otherwise be emitted as raw SQL', () => {
+    // The index sits inside the '{...}' path literal, so a string index
+    // inlined by drizzle closes that literal and runs as SQL.
+    const hostileIndex = ' || (select current_user) || '
+
+    expect(() => jsonArraySet(baseArray, hostileIndex as any, 'x')).toThrow(
+      TypeError,
+    )
+    expect(() => jsonArraySet(baseArray, '0' as any, 'x')).toThrow(TypeError)
   })
 
   it('applies same value escaping through public arraySet alias', async () => {

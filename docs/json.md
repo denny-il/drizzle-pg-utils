@@ -354,6 +354,7 @@ await db.update(users).set({
 - `arrayDelete(...)` removes an existing element; out-of-bounds indexes are no-ops.
 - All array helpers treat SQL `NULL` and JSON `null` targets as `[]`.
 - `arrayPush(...)` and `arraySet(...)` convert JavaScript `undefined` to JSON `null`.
+- `arraySet(...)` and `arrayDelete(...)` require an integer index and throw otherwise.
 
 ### Null handling is deliberate
 

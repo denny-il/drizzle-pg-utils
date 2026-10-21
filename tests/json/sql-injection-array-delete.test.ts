@@ -54,35 +54,30 @@ describe('jsonArrayDelete SQL injection and misuse resistance', () => {
     expect(result).toEqual(testCase.expected)
   })
 
-  it.each([
-    Number.NaN,
-    Number.POSITIVE_INFINITY,
-    Number.NEGATIVE_INFINITY,
-    2147483648,
-    -2147483649,
-    Number.MAX_SAFE_INTEGER,
-    Number.MIN_SAFE_INTEGER,
-    1.2,
-    -1.2,
-  ])('lets PostgreSQL reject invalid numeric index %s', async (index) => {
-    await expect(
-      executeQuery(db, jsonArrayDelete(source, index as any)),
-    ).rejects.toThrow()
-  })
+  it.each([2147483648, -2147483649, Number.MAX_SAFE_INTEGER])(
+    'lets PostgreSQL reject out-of-range integer index %s',
+    async (index) => {
+      await expect(
+        executeQuery(db, jsonArrayDelete(source, index)),
+      ).rejects.toThrow()
+    },
+  )
 
-  it('keeps string index misuse as PostgreSQL text-delete semantics', async () => {
+  it.each([Number.NaN, Number.POSITIVE_INFINITY, 1.2, -1.2, 1e21])(
+    'rejects non-integer index %s before building SQL',
+    (index) => {
+      expect(() => jsonArrayDelete(source, index)).toThrow(TypeError)
+    },
+  )
+
+  it('rejects string index misuse instead of deleting by text', () => {
     const hostileIndex = "0'); drop table array_delete_sentinel; --"
-    const query = dialect.sqlToQuery(
-      jsonArrayDelete(source, hostileIndex as any),
-    )
 
-    expect(query.sql).toBe(
-      `coalesce(nullif(${sourceSql}, 'null'::jsonb), '[]'::jsonb) - '0''); drop table array_delete_sentinel; --'`,
+    expect(() => jsonArrayDelete(source, hostileIndex as any)).toThrow(
+      TypeError,
     )
-    expect(query.params).toEqual([])
-    await expect(
-      executeQuery(db, jsonArrayDelete(source, hostileIndex as any)),
-    ).resolves.toEqual(['zero', 'one', 'two', 'three'])
+    // `jsonb - text` would silently delete matching string elements.
+    expect(() => jsonArrayDelete(source, 'zero' as any)).toThrow(TypeError)
   })
 
   it('preserves parameterized source SQL params and deletes by index', async () => {

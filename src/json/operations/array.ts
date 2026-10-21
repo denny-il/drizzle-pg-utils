@@ -15,6 +15,17 @@ function jsonbLiteral(value: unknown) {
   return jsonbParam(value === undefined ? null : value)
 }
 
+// The index is inlined into the SQL text, so reject anything that isn't an
+// integer at runtime: a string index from untyped input would otherwise be
+// emitted as raw SQL.
+function arrayIndex(index: number) {
+  if (!Number.isSafeInteger(index))
+    throw new TypeError(
+      `JSON array index must be an integer, got ${String(index)}`,
+    )
+  return sql`${index}`.inlineParams()
+}
+
 function valueOrEmptyArray<T extends SQLJSONValue<AcceptableValue>>(
   value: T,
 ): SQL<SQLJSONDenullify<SQLJSONExtractType<T>>> {
@@ -95,7 +106,7 @@ export function jsonArraySet<
   const _value = isSQLWrapper(value)
     ? jsonBuild(value as any)
     : jsonbLiteral(value)
-  return sql`jsonb_set(${valueOrEmptyArray(target)}, '{${sql`${index}`.inlineParams()}}', ${_value}, false)`
+  return sql`jsonb_set(${valueOrEmptyArray(target)}, '{${arrayIndex(index)}}', ${_value}, false)`
 }
 
 /**
@@ -111,5 +122,5 @@ export function jsonArrayDelete<
   Target extends SQLJSONValue<AcceptableValue>,
   TargetType extends SQLJSONExtractType<Target> = SQLJSONExtractType<Target>,
 >(target: Target, index: number): SQL<SQLJSONDenullify<TargetType>> {
-  return sql`${valueOrEmptyArray(target)} - ${sql`${index}`.inlineParams()}`
+  return sql`${valueOrEmptyArray(target)} - ${arrayIndex(index)}`
 }
