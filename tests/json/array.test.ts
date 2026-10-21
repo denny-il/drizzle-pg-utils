@@ -33,7 +33,7 @@ describe('JSON Array Operations', () => {
 
       expect(query.params).toEqual(['4'])
       expect(query.sql).toBe(
-        `coalesce(nullif(${numberArraySql}, 'null'::jsonb), '[]'::jsonb) || jsonb_build_array($1::jsonb)`,
+        `coalesce(nullif(${numberArraySql}, 'null'::jsonb), '[]'::jsonb) || jsonb_build_array($1::text::jsonb)`,
       )
     })
 
@@ -43,7 +43,7 @@ describe('JSON Array Operations', () => {
 
       expect(query.params).toEqual(['4', '5', '6'])
       expect(query.sql).toBe(
-        `coalesce(nullif(${numberArraySql}, 'null'::jsonb), '[]'::jsonb) || jsonb_build_array($1::jsonb, $2::jsonb, $3::jsonb)`,
+        `coalesce(nullif(${numberArraySql}, 'null'::jsonb), '[]'::jsonb) || jsonb_build_array($1::text::jsonb, $2::text::jsonb, $3::text::jsonb)`,
       )
     })
 
@@ -53,7 +53,7 @@ describe('JSON Array Operations', () => {
 
       expect(query.params).toEqual(['"d"', '"e"'])
       expect(query.sql).toBe(
-        `coalesce(nullif(${stringArraySql}, 'null'::jsonb), '[]'::jsonb) || jsonb_build_array($1::jsonb, $2::jsonb)`,
+        `coalesce(nullif(${stringArraySql}, 'null'::jsonb), '[]'::jsonb) || jsonb_build_array($1::text::jsonb, $2::text::jsonb)`,
       )
     })
 
@@ -64,7 +64,7 @@ describe('JSON Array Operations', () => {
 
       expect(query.params).toEqual(['{"id":3,"name":"Bob"}'])
       expect(query.sql).toBe(
-        `coalesce(nullif(${objectArraySql}, 'null'::jsonb), '[]'::jsonb) || jsonb_build_array($1::jsonb)`,
+        `coalesce(nullif(${objectArraySql}, 'null'::jsonb), '[]'::jsonb) || jsonb_build_array($1::text::jsonb)`,
       )
     })
 
@@ -85,7 +85,7 @@ describe('JSON Array Operations', () => {
 
       expect(query.params).toEqual(['"first"'])
       expect(query.sql).toBe(
-        `coalesce(nullif(${emptyArraySql}, 'null'::jsonb), '[]'::jsonb) || jsonb_build_array($1::jsonb)`,
+        `coalesce(nullif(${emptyArraySql}, 'null'::jsonb), '[]'::jsonb) || jsonb_build_array($1::text::jsonb)`,
       )
     })
 
@@ -95,7 +95,7 @@ describe('JSON Array Operations', () => {
 
       expect(query.params).toEqual(['1'])
       expect(query.sql).toBe(
-        `coalesce(nullif(${nullableArraySql}, 'null'::jsonb), '[]'::jsonb) || jsonb_build_array($1::jsonb)`,
+        `coalesce(nullif(${nullableArraySql}, 'null'::jsonb), '[]'::jsonb) || jsonb_build_array($1::text::jsonb)`,
       )
     })
 
@@ -112,7 +112,7 @@ describe('JSON Array Operations', () => {
 
       expect(query.params).toEqual([99].map((v) => JSON.stringify(v)))
       expect(query.sql).toBe(
-        `jsonb_set(coalesce(nullif(${numberArraySql}, 'null'::jsonb), '[]'::jsonb), '{1}', $1::jsonb, false)`,
+        `jsonb_set(coalesce(nullif(${numberArraySql}, 'null'::jsonb), '[]'::jsonb), '{1}', $1::text::jsonb, false)`,
       )
     })
 
@@ -122,7 +122,7 @@ describe('JSON Array Operations', () => {
 
       expect(query.params).toEqual(['new'].map((v) => JSON.stringify(v)))
       expect(query.sql).toBe(
-        `jsonb_set(coalesce(nullif(${stringArraySql}, 'null'::jsonb), '[]'::jsonb), '{0}', $1::jsonb, false)`,
+        `jsonb_set(coalesce(nullif(${stringArraySql}, 'null'::jsonb), '[]'::jsonb), '{0}', $1::text::jsonb, false)`,
       )
     })
 
@@ -133,7 +133,7 @@ describe('JSON Array Operations', () => {
 
       expect(query.params).toEqual([newUser].map((v) => JSON.stringify(v)))
       expect(query.sql).toBe(
-        `jsonb_set(coalesce(nullif(${objectArraySql}, 'null'::jsonb), '[]'::jsonb), '{0}', $1::jsonb, false)`,
+        `jsonb_set(coalesce(nullif(${objectArraySql}, 'null'::jsonb), '[]'::jsonb), '{0}', $1::text::jsonb, false)`,
       )
     })
 
@@ -165,7 +165,7 @@ describe('JSON Array Operations', () => {
 
       expect(query.params).toEqual([99].map((v) => JSON.stringify(v)))
       expect(query.sql).toBe(
-        `jsonb_set(coalesce(nullif(${numberArraySql}, 'null'::jsonb), '[]'::jsonb), '{-1}', $1::jsonb, false)`,
+        `jsonb_set(coalesce(nullif(${numberArraySql}, 'null'::jsonb), '[]'::jsonb), '{-1}', $1::text::jsonb, false)`,
       )
     })
 
@@ -269,7 +269,7 @@ describe('JSON Array Operations', () => {
 
       expect(query.params).toEqual(['[7,8]'])
       expect(query.sql).toBe(
-        `coalesce(nullif(${nestedArraySql}, 'null'::jsonb), '[]'::jsonb) || jsonb_build_array($1::jsonb)`,
+        `coalesce(nullif(${nestedArraySql}, 'null'::jsonb), '[]'::jsonb) || jsonb_build_array($1::text::jsonb)`,
       )
     })
   })
@@ -281,7 +281,7 @@ describe('JSON Array Operations', () => {
 
       expect(query.params).toEqual(['null'])
       expect(query.sql).toBe(
-        `coalesce(nullif(${numberArraySql}, 'null'::jsonb), '[]'::jsonb) || jsonb_build_array($1::jsonb)`,
+        `coalesce(nullif(${numberArraySql}, 'null'::jsonb), '[]'::jsonb) || jsonb_build_array($1::text::jsonb)`,
       )
     })
 
@@ -291,7 +291,7 @@ describe('JSON Array Operations', () => {
 
       expect(query.params).toEqual([null].map((v) => JSON.stringify(v)))
       expect(query.sql).toBe(
-        `jsonb_set(coalesce(nullif(${numberArraySql}, 'null'::jsonb), '[]'::jsonb), '{0}', $1::jsonb, false)`,
+        `jsonb_set(coalesce(nullif(${numberArraySql}, 'null'::jsonb), '[]'::jsonb), '{0}', $1::text::jsonb, false)`,
       )
     })
 
@@ -324,7 +324,7 @@ describe('JSON Array Operations', () => {
 
       expect(query.params).toEqual(['{"id":3,"name":"new-item"}'])
       expect(query.sql).toBe(
-        `coalesce(nullif("test"."arraycol", 'null'::jsonb), '[]'::jsonb) || jsonb_build_array($1::jsonb)`,
+        `coalesce(nullif("test"."arraycol", 'null'::jsonb), '[]'::jsonb) || jsonb_build_array($1::text::jsonb)`,
       )
     })
 
@@ -339,7 +339,7 @@ describe('JSON Array Operations', () => {
         [{ id: 1, name: 'updated-item' }].map((v) => JSON.stringify(v)),
       )
       expect(query.sql).toBe(
-        `jsonb_set(coalesce(nullif("test"."arraycol", 'null'::jsonb), '[]'::jsonb), '{0}', $1::jsonb, false)`,
+        `jsonb_set(coalesce(nullif("test"."arraycol", 'null'::jsonb), '[]'::jsonb), '{0}', $1::text::jsonb, false)`,
       )
     })
 

@@ -44,7 +44,8 @@ afterAll(async () => {
   }
 })
 
-const jsonbLiteral = (value: unknown) => sql`${JSON.stringify(value)}::jsonb`
+const jsonbLiteral = (value: unknown) =>
+  sql`${JSON.stringify(value)}::text::jsonb`
 
 const executeRaw = (statement: string) => db.execute(sql.raw(statement))
 

@@ -87,11 +87,11 @@ describe('jsonArrayDelete SQL injection and misuse resistance', () => {
   it('preserves parameterized source SQL params and deletes by index', async () => {
     const payload = "source'); drop table array_delete_sentinel; --"
     const sourceParam = JSON.stringify(['keep', payload])
-    const parameterizedSource = sql<string[]>`${sourceParam}::jsonb`
+    const parameterizedSource = sql<string[]>`${sourceParam}::text::jsonb`
     const query = dialect.sqlToQuery(jsonArrayDelete(parameterizedSource, 1))
 
     expect(query.sql).toBe(
-      `coalesce(nullif($1::jsonb, 'null'::jsonb), '[]'::jsonb) - 1`,
+      `coalesce(nullif($1::text::jsonb, 'null'::jsonb), '[]'::jsonb) - 1`,
     )
     expect(query.params).toEqual([sourceParam])
     expect(query.sql).not.toContain(payload)
@@ -104,11 +104,11 @@ describe('jsonArrayDelete SQL injection and misuse resistance', () => {
     const payload = "wrapped'); select 1; --"
     const wrapperSource = sql<string[]>`'["keep"]'::jsonb || ${JSON.stringify([
       payload,
-    ])}::jsonb`
+    ])}::text::jsonb`
     const query = dialect.sqlToQuery(jsonArrayDelete(wrapperSource, 1))
 
     expect(query.sql).toBe(
-      `coalesce(nullif('["keep"]'::jsonb || $1::jsonb, 'null'::jsonb), '[]'::jsonb) - 1`,
+      `coalesce(nullif('["keep"]'::jsonb || $1::text::jsonb, 'null'::jsonb), '[]'::jsonb) - 1`,
     )
     expect(query.params).toEqual([JSON.stringify([payload])])
     expect(query.sql).not.toContain(payload)

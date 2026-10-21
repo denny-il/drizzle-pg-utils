@@ -24,7 +24,7 @@ describe('JSON Coalesce SQL injection handling', () => {
     const query = dialect.sqlToQuery(result)
 
     expect(query.sql).toBe(
-      `coalesce(nullif('null'::jsonb, 'null'::jsonb), $1::jsonb)`,
+      `coalesce(nullif('null'::jsonb, 'null'::jsonb), $1::text::jsonb)`,
     )
     expect(query.params).toEqual([JSON.stringify(fallback)])
     expect(await executeQuery(db, result)).toBe(fallback)
@@ -36,7 +36,7 @@ describe('JSON Coalesce SQL injection handling', () => {
     const query = dialect.sqlToQuery(result)
 
     expect(query.sql).toBe(
-      `coalesce(nullif(NULL::jsonb, 'null'::jsonb), $1::jsonb)`,
+      `coalesce(nullif(NULL::jsonb, 'null'::jsonb), $1::text::jsonb)`,
     )
     expect(query.params).toEqual([JSON.stringify(fallback)])
     expect(await executeQuery(db, result)).toBe(fallback)
@@ -56,7 +56,7 @@ describe('JSON Coalesce SQL injection handling', () => {
     const query = dialect.sqlToQuery(result)
 
     expect(query.sql).toBe(
-      `coalesce(nullif('null'::jsonb, 'null'::jsonb), jsonb_build_object('name''); drop table users; --', $1::jsonb,'nested', jsonb_build_object('child''); delete from audit; --', $2::jsonb)))`,
+      `coalesce(nullif('null'::jsonb, 'null'::jsonb), jsonb_build_object('name''); drop table users; --', $1::text::jsonb,'nested', jsonb_build_object('child''); delete from audit; --', $2::text::jsonb)))`,
     )
     expect(query.params).toEqual([
       JSON.stringify(maliciousValue),
@@ -79,7 +79,7 @@ describe('JSON Coalesce SQL injection handling', () => {
     const query = dialect.sqlToQuery(result)
 
     expect(query.sql).toBe(
-      `coalesce(nullif('null'::jsonb, 'null'::jsonb), jsonb_build_array($1::jsonb,jsonb_build_object('arr-key''); vacuum; --', $2::jsonb),$3::jsonb))`,
+      `coalesce(nullif('null'::jsonb, 'null'::jsonb), jsonb_build_array($1::text::jsonb,jsonb_build_object('arr-key''); vacuum; --', $2::text::jsonb),$3::text::jsonb))`,
     )
     expect(query.params).toEqual([
       JSON.stringify(fallback[0]),
@@ -92,12 +92,12 @@ describe('JSON Coalesce SQL injection handling', () => {
   it('treats interpolated source payloads as values, not SQL text', async () => {
     const sourcePayload = `source'); drop table users; --`
     const fallback = `fallback'); drop table users; --`
-    const source = sql<string>`${JSON.stringify(sourcePayload)}::jsonb`
+    const source = sql<string>`${JSON.stringify(sourcePayload)}::text::jsonb`
     const result = jsonCoalesce(source, fallback)
     const query = dialect.sqlToQuery(result)
 
     expect(query.sql).toBe(
-      `coalesce(nullif($1::jsonb, 'null'::jsonb), $2::jsonb)`,
+      `coalesce(nullif($1::text::jsonb, 'null'::jsonb), $2::text::jsonb)`,
     )
     expect(query.params).toEqual([
       JSON.stringify(sourcePayload),
@@ -135,7 +135,7 @@ describe('JSON Coalesce SQL injection handling', () => {
     const query = dialect.sqlToQuery(result)
 
     expect(query.sql).toBe(
-      `coalesce(nullif('null'::jsonb, 'null'::jsonb), $1::jsonb)`,
+      `coalesce(nullif('null'::jsonb, 'null'::jsonb), $1::text::jsonb)`,
     )
     expect(query.params).toEqual([JSON.stringify(fallback)])
     expect(await executeQuery(db, result)).toBe(fallback)

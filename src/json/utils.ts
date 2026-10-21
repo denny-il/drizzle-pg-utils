@@ -1,5 +1,6 @@
 import { isSQLWrapper, type SQL, sql } from 'drizzle-orm'
 import { jsonBuild } from './operations/build.ts'
+import { jsonbParam } from './param.ts'
 import type {
   SQLJSONExtractType,
   SQLJSONIsNullish,
@@ -86,9 +87,7 @@ export const jsonContainsPath = (
     return sql<boolean>`${source} @> ${value}`
   }
 
-  return sql<boolean>`${source} @> ${sql`${JSON.stringify(
-    jsonWrapPath(path, value),
-  )}::jsonb`}`
+  return sql<boolean>`${source} @> ${jsonbParam(jsonWrapPath(path, value))}`
 }
 
 export const jsonWithSourceAlias = <Source extends SQLJSONValue>(

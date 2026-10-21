@@ -65,12 +65,12 @@ describe('JSON Ref API', () => {
   })
 
   it('keeps source expression params bound when extracting through a ref', () => {
-    const source = sql<{ a: string }>`${'{"a":"SECRET"}'}::jsonb`
+    const source = sql<{ a: string }>`${'{"a":"SECRET"}'}::text::jsonb`
     const result = json(source).a.$value
     const query = dialect.sqlToQuery(result)
 
     expect(query.params).toEqual(['{"a":"SECRET"}'])
-    expect(query.sql).toBe(`jsonb_extract_path($1::jsonb, 'a')`)
+    expect(query.sql).toBe(`jsonb_extract_path($1::text::jsonb, 'a')`)
   })
 
   it('treats refs as SQL wrappers for direct SQL interpolation', () => {
@@ -89,7 +89,7 @@ describe('JSON Ref API', () => {
     const defaultQuery = dialect.sqlToQuery(sql`select ${defRef}`)
     expect(defaultQuery.params).toEqual([JSON.stringify('fallback')])
     expect(defaultQuery.sql).toBe(
-      `select (with __json_ref_source as (select ${profileSql} as value) select jsonb_set(coalesce(nullif(__json_ref_source.value, 'null'::jsonb), '{}'::jsonb), array['metadata']::text[], coalesce(nullif(jsonb_extract_path(__json_ref_source.value, 'metadata'), 'null'::jsonb), jsonb_build_object('importedAt', $1::jsonb)), true) from __json_ref_source)`,
+      `select (with __json_ref_source as (select ${profileSql} as value) select jsonb_set(coalesce(nullif(__json_ref_source.value, 'null'::jsonb), '{}'::jsonb), array['metadata']::text[], coalesce(nullif(jsonb_extract_path(__json_ref_source.value, 'metadata'), 'null'::jsonb), jsonb_build_object('importedAt', $1::text::jsonb)), true) from __json_ref_source)`,
     )
   })
 
@@ -113,7 +113,7 @@ describe('JSON Ref API', () => {
 
     expect(query.params).toEqual([JSON.stringify('light')])
     expect(query.sql).toBe(
-      `jsonb_set(jsonb_extract_path(${profileSql}, 'user','preferences'), array['theme']::text[], $1::jsonb, true)`,
+      `jsonb_set(jsonb_extract_path(${profileSql}, 'user','preferences'), array['theme']::text[], $1::text::jsonb, true)`,
     )
     expectTypeOf(result).toEqualTypeOf<
       SQL<{
@@ -131,7 +131,7 @@ describe('JSON Ref API', () => {
 
     expect(query.params).toEqual([JSON.stringify('Ada')])
     expect(query.sql).toBe(
-      `jsonb_set(${profileSql}, array['user','name']::text[], $1::jsonb, true)`,
+      `jsonb_set(${profileSql}, array['user','name']::text[], $1::text::jsonb, true)`,
     )
     expectTypeOf(result).toEqualTypeOf<SQL<Profile>>()
   })
@@ -149,7 +149,7 @@ describe('JSON Ref API', () => {
       ),
     )
     expect(query.sql).toBe(
-      `jsonb_set((with __json_ref_source as (select ${profileSql} as value) select jsonb_set(coalesce(nullif(__json_ref_source.value, 'null'::jsonb), '{}'::jsonb), array['metadata']::text[], coalesce(nullif(jsonb_extract_path(__json_ref_source.value, 'metadata'), 'null'::jsonb), jsonb_build_object('importedAt', $1::jsonb)), true) from __json_ref_source), array['metadata','importedAt']::text[], $2::jsonb, true)`,
+      `jsonb_set((with __json_ref_source as (select ${profileSql} as value) select jsonb_set(coalesce(nullif(__json_ref_source.value, 'null'::jsonb), '{}'::jsonb), array['metadata']::text[], coalesce(nullif(jsonb_extract_path(__json_ref_source.value, 'metadata'), 'null'::jsonb), jsonb_build_object('importedAt', $1::text::jsonb)), true) from __json_ref_source), array['metadata','importedAt']::text[], $2::text::jsonb, true)`,
     )
   })
 
@@ -161,7 +161,7 @@ describe('JSON Ref API', () => {
     expect(query.params).toEqual([
       JSON.stringify({ user: { preferences: { theme: 'dark' } } }),
     ])
-    expect(query.sql).toBe(`${profileSql} @> $1::jsonb`)
+    expect(query.sql).toBe(`${profileSql} @> $1::text::jsonb`)
     expectTypeOf(result).toEqualTypeOf<SQL<boolean>>()
   })
 
@@ -175,7 +175,7 @@ describe('JSON Ref API', () => {
     const query = dialect.sqlToQuery(result)
 
     expect(query.params).toEqual([JSON.stringify({ '0': { a: 1 } })])
-    expect(query.sql).toBe(`${sourceSql} @> $1::jsonb`)
+    expect(query.sql).toBe(`${sourceSql} @> $1::text::jsonb`)
     expectTypeOf(result).toEqualTypeOf<SQL<boolean>>()
   })
 
@@ -190,7 +190,7 @@ describe('JSON Ref API', () => {
     const query = dialect.sqlToQuery(result)
 
     expect(query.sql).toBe(
-      `jsonb_set(${sourceSql}, array['x''), true); drop table users; --','nested','a,b{c}']::text[], $1::jsonb, true)`,
+      `jsonb_set(${sourceSql}, array['x''), true); drop table users; --','nested','a,b{c}']::text[], $1::text::jsonb, true)`,
     )
     expect(query.params).toEqual([JSON.stringify(maliciousValue)])
   })
@@ -205,7 +205,7 @@ describe('JSON Ref API', () => {
     )
     const query = dialect.sqlToQuery(result)
 
-    expect(query.sql).toBe(`${sourceSql} @> $1::jsonb`)
+    expect(query.sql).toBe(`${sourceSql} @> $1::text::jsonb`)
     expect(query.sql).not.toContain(maliciousPath)
     expect(query.sql).not.toContain(maliciousValue)
     expect(query.params).toEqual([
@@ -226,7 +226,7 @@ describe('JSON Ref API', () => {
     const query = dialect.sqlToQuery(result)
 
     expect(query.sql).toBe(
-      `jsonb_set((with __json_ref_source as (select ${sourceSql} as value) select jsonb_set(coalesce(nullif(__json_ref_source.value, 'null'::jsonb), '{}'::jsonb), array['metadata']::text[], coalesce(nullif(jsonb_extract_path(__json_ref_source.value, 'metadata'), 'null'::jsonb), jsonb_build_object('k''); drop table audit; --', $1::jsonb)), true) from __json_ref_source), array['metadata','k''); drop table audit; --']::text[], $2::jsonb, true)`,
+      `jsonb_set((with __json_ref_source as (select ${sourceSql} as value) select jsonb_set(coalesce(nullif(__json_ref_source.value, 'null'::jsonb), '{}'::jsonb), array['metadata']::text[], coalesce(nullif(jsonb_extract_path(__json_ref_source.value, 'metadata'), 'null'::jsonb), jsonb_build_object('k''); drop table audit; --', $1::text::jsonb)), true) from __json_ref_source), array['metadata','k''); drop table audit; --']::text[], $2::text::jsonb, true)`,
     )
     expect(query.params).toEqual([
       JSON.stringify(maliciousValue),
@@ -243,7 +243,7 @@ describe('JSON Ref API', () => {
       ['drizzle', 'postgres'].map((value) => JSON.stringify(value)),
     )
     expect(query.sql).toBe(
-      `(with __json_ref_source as (select ${profileSql} as value) select jsonb_set(__json_ref_source.value, array['user','preferences','tags']::text[], coalesce(nullif(jsonb_extract_path(__json_ref_source.value, 'user','preferences','tags'), 'null'::jsonb), '[]'::jsonb) || jsonb_build_array($1::jsonb, $2::jsonb), true) from __json_ref_source)`,
+      `(with __json_ref_source as (select ${profileSql} as value) select jsonb_set(__json_ref_source.value, array['user','preferences','tags']::text[], coalesce(nullif(jsonb_extract_path(__json_ref_source.value, 'user','preferences','tags'), 'null'::jsonb), '[]'::jsonb) || jsonb_build_array($1::text::jsonb, $2::text::jsonb), true) from __json_ref_source)`,
     )
     expectTypeOf(result).toEqualTypeOf<SQL<Profile>>()
   })
@@ -255,7 +255,7 @@ describe('JSON Ref API', () => {
 
     expect(query.params).toEqual([JSON.stringify('intro')])
     expect(query.sql).toBe(
-      `jsonb_set(${profileSql}, array['user','preferences','tags','0']::text[], $1::jsonb, true)`,
+      `jsonb_set(${profileSql}, array['user','preferences','tags','0']::text[], $1::text::jsonb, true)`,
     )
     expectTypeOf(result).toEqualTypeOf<SQL<Profile>>()
   })
@@ -288,7 +288,7 @@ describe('JSON Ref API', () => {
 
     expect(query.params).toEqual([JSON.stringify('Ada'), JSON.stringify(2)])
     expect(query.sql).toBe(
-      `jsonb_set(jsonb_set(${profileSql}, array['user','name']::text[], $1::jsonb, true), array['user','id']::text[], $2::jsonb, true)`,
+      `jsonb_set(jsonb_set(${profileSql}, array['user','name']::text[], $1::text::jsonb, true), array['user','id']::text[], $2::text::jsonb, true)`,
     )
     expectTypeOf(result).toEqualTypeOf<SQL<Profile>>()
   })
@@ -303,7 +303,7 @@ describe('JSON Ref API', () => {
 
     expect(query.params).toEqual([JSON.stringify('Ada'), JSON.stringify(2)])
     expect(query.sql).toBe(
-      `jsonb_set(jsonb_set(${profileSql}, array['user','name']::text[], $1::jsonb, true), array['user','id']::text[], $2::jsonb, true)`,
+      `jsonb_set(jsonb_set(${profileSql}, array['user','name']::text[], $1::text::jsonb, true), array['user','id']::text[], $2::text::jsonb, true)`,
     )
     expectTypeOf(result).toEqualTypeOf<SQL<Profile>>()
   })
@@ -355,7 +355,7 @@ describe('JSON Ref API', () => {
 
     expect(query.params).toEqual([JSON.stringify('api')])
     expect(query.sql).toBe(
-      `coalesce(${profileSql}, 'null'::jsonb) || coalesce(jsonb_build_object('metadata', jsonb_build_object('importedAt', $1::jsonb)), 'null'::jsonb)`,
+      `coalesce(${profileSql}, 'null'::jsonb) || coalesce(jsonb_build_object('metadata', jsonb_build_object('importedAt', $1::text::jsonb)), 'null'::jsonb)`,
     )
     expectTypeOf(result).toEqualTypeOf<SQL<Profile>>()
   })
@@ -367,7 +367,7 @@ describe('JSON Ref API', () => {
 
     expect(query.params).toEqual([JSON.stringify('en-US')])
     expect(query.sql).toBe(
-      `(with __json_ref_source as (select ${profileSql} as value) select jsonb_set(__json_ref_source.value, array['user','preferences']::text[], coalesce(coalesce(nullif(jsonb_extract_path(__json_ref_source.value, 'user','preferences'), 'null'::jsonb), '{}'::jsonb), 'null'::jsonb) || coalesce(jsonb_build_object('locale', $1::jsonb), 'null'::jsonb), true) from __json_ref_source)`,
+      `(with __json_ref_source as (select ${profileSql} as value) select jsonb_set(__json_ref_source.value, array['user','preferences']::text[], coalesce(coalesce(nullif(jsonb_extract_path(__json_ref_source.value, 'user','preferences'), 'null'::jsonb), '{}'::jsonb), 'null'::jsonb) || coalesce(jsonb_build_object('locale', $1::text::jsonb), 'null'::jsonb), true) from __json_ref_source)`,
     )
     expectTypeOf(result).toEqualTypeOf<SQL<Profile>>()
   })
@@ -395,7 +395,7 @@ describe('JSON Ref API', () => {
 
     expect(query.params).toEqual([JSON.stringify('unknown')])
     expect(query.sql).toBe(
-      `coalesce(nullif(jsonb_extract_path(${profileSql}, 'metadata'), 'null'::jsonb), jsonb_build_object('importedAt', $1::jsonb))`,
+      `coalesce(nullif(jsonb_extract_path(${profileSql}, 'metadata'), 'null'::jsonb), jsonb_build_object('importedAt', $1::text::jsonb))`,
     )
     expectTypeOf(result).toEqualTypeOf<
       SQL<{ importedAt?: string } | { importedAt: string }>

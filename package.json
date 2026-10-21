@@ -101,14 +101,14 @@
     "@biomejs/biome": "2.5.0",
     "@electric-sql/pglite": "0.5.3",
     "@types/node": "^22.19.21",
-    "drizzle-orm": "1.0.0-rc.3",
+    "drizzle-orm": "1.0.0-rc.5",
     "postgres": "^3.4.9",
     "temporal-polyfill": "^1.0.1",
     "typescript": "7.0.1-rc",
     "vitest": "4.1.9"
   },
   "peerDependencies": {
-    "drizzle-orm": "1.0.0-rc.3",
+    "drizzle-orm": "1.0.0-rc.5",
     "temporal-polyfill": "^1.0.1"
   },
   "peerDependenciesMeta": {

@@ -38,7 +38,7 @@ describe('JSON Array Push SQL injection handling', () => {
 
     expect(query.params).toEqual(payloads.map(jsonParam))
     expect(query.sql).toBe(
-      `coalesce(nullif(${sourceSql}, 'null'::jsonb), '[]'::jsonb) || jsonb_build_array($1::jsonb, $2::jsonb, $3::jsonb, $4::jsonb)`,
+      `coalesce(nullif(${sourceSql}, 'null'::jsonb), '[]'::jsonb) || jsonb_build_array($1::text::jsonb, $2::text::jsonb, $3::text::jsonb, $4::text::jsonb)`,
     )
     for (const payload of payloads) expect(query.sql).not.toContain(payload)
     await expect(executeQuery(db, result)).resolves.toEqual(payloads)
@@ -70,7 +70,7 @@ describe('JSON Array Push SQL injection handling', () => {
 
     expect(query.params).toEqual([jsonParam(value)])
     expect(query.sql).toBe(
-      `coalesce(nullif(${sourceSql}, 'null'::jsonb), '[]'::jsonb) || jsonb_build_array($1::jsonb)`,
+      `coalesce(nullif(${sourceSql}, 'null'::jsonb), '[]'::jsonb) || jsonb_build_array($1::text::jsonb)`,
     )
     expect(query.sql).not.toContain(key)
     expect(query.sql).not.toContain(nestedKey)
@@ -96,7 +96,7 @@ describe('JSON Array Push SQL injection handling', () => {
 
     expect(query.params).toEqual([jsonParam(pushedArray)])
     expect(query.sql).toBe(
-      `coalesce(nullif(${sourceSql}, 'null'::jsonb), '[]'::jsonb) || jsonb_build_array($1::jsonb)`,
+      `coalesce(nullif(${sourceSql}, 'null'::jsonb), '[]'::jsonb) || jsonb_build_array($1::text::jsonb)`,
     )
     expect(query.sql).not.toContain(firstPayload)
     expect(query.sql).not.toContain(secondPayload)
@@ -109,7 +109,7 @@ describe('JSON Array Push SQL injection handling', () => {
 
     expect(query.params).toEqual(['null', 'null'])
     expect(query.sql).toBe(
-      `coalesce(nullif(${sourceSql}, 'null'::jsonb), '[]'::jsonb) || jsonb_build_array($1::jsonb, $2::jsonb)`,
+      `coalesce(nullif(${sourceSql}, 'null'::jsonb), '[]'::jsonb) || jsonb_build_array($1::text::jsonb, $2::text::jsonb)`,
     )
     await expect(executeQuery(db, result)).resolves.toEqual([null, null])
   })

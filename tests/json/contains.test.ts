@@ -39,7 +39,7 @@ describe('JSON Contains', () => {
     expect(query.params).toEqual([
       JSON.stringify({ profile: { email: 'user@example.com' } }),
     ])
-    expect(query.sql).toBe(`${jsonObjectSql} @> $1::jsonb`)
+    expect(query.sql).toBe(`${jsonObjectSql} @> $1::text::jsonb`)
     expectTypeOf(result).toEqualTypeOf<SQL<boolean>>()
   })
 
@@ -52,7 +52,7 @@ describe('JSON Contains', () => {
     expect(query.params).toEqual([
       JSON.stringify({ profile: { email: 'user@example.com' } }),
     ])
-    expect(query.sql).toBe(`${jsonObjectSql} @> $1::jsonb`)
+    expect(query.sql).toBe(`${jsonObjectSql} @> $1::text::jsonb`)
   })
 
   it('generates root containment SQL from scalar proxy paths', () => {
@@ -62,7 +62,7 @@ describe('JSON Contains', () => {
     expect(query.params).toEqual([
       JSON.stringify({ profile: { status: 'active' } }),
     ])
-    expect(query.sql).toBe(`${jsonObjectSql} @> $1::jsonb`)
+    expect(query.sql).toBe(`${jsonObjectSql} @> $1::text::jsonb`)
   })
 
   it('generates root containment SQL for array values', () => {
@@ -72,7 +72,7 @@ describe('JSON Contains', () => {
     const query = dialect.sqlToQuery(result)
 
     expect(query.params).toEqual([JSON.stringify({ tags: [{ name: 'tag1' }] })])
-    expect(query.sql).toBe(`${jsonObjectSql} @> $1::jsonb`)
+    expect(query.sql).toBe(`${jsonObjectSql} @> $1::text::jsonb`)
   })
 
   it('generates root containment SQL from array proxy paths', () => {
@@ -80,7 +80,7 @@ describe('JSON Contains', () => {
     const query = dialect.sqlToQuery(result)
 
     expect(query.params).toEqual([JSON.stringify({ tags: [{ name: 'tag1' }] })])
-    expect(query.sql).toBe(`${jsonObjectSql} @> $1::jsonb`)
+    expect(query.sql).toBe(`${jsonObjectSql} @> $1::text::jsonb`)
   })
 
   it('accepts SQL containment values', () => {
@@ -107,7 +107,7 @@ describe('JSON Contains', () => {
 
     expect(query.params).toEqual([JSON.stringify('active')])
     expect(query.sql).toBe(
-      `${jsonObjectSql} @> jsonb_build_object('profile', jsonb_build_object('status', $1::jsonb))`,
+      `${jsonObjectSql} @> jsonb_build_object('profile', jsonb_build_object('status', $1::text::jsonb))`,
     )
   })
 
@@ -116,6 +116,6 @@ describe('JSON Contains', () => {
     const query = dialect.sqlToQuery(result)
 
     expect(query.params).toEqual([JSON.stringify({ some: 'json' })])
-    expect(query.sql).toBe(`"test"."jsoncol" @> $1::jsonb`)
+    expect(query.sql).toBe(`"test"."jsoncol" @> $1::text::jsonb`)
   })
 })

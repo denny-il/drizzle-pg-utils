@@ -5,12 +5,13 @@ import type {
   SQLJSONNullish,
   SQLJSONValue,
 } from '../types.ts'
+import { jsonbParam } from '../param.ts'
 import { jsonBuild } from './build.ts'
 
 type AcceptableValue = any[] | SQLJSONNullish
 
 function jsonbLiteral(value: unknown) {
-  return sql`${JSON.stringify(value === undefined ? null : value)}::jsonb`
+  return jsonbParam(value === undefined ? null : value)
 }
 
 function valueOrEmptyArray<T extends SQLJSONValue<AcceptableValue>>(
