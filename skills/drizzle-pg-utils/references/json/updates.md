@@ -1,6 +1,6 @@
 # JSON Update Helpers
 
-Prefer the callable ref API for updates: `json(source).path.$set(...)` for one write and `json(source).$pipe(...)` for chained writes. See [ref.md](ref.md) for the full ref API. `set(source)` remains available; `setPipe(...)` is deprecated.
+Prefer the callable ref API for updates: `json(source).path.$set(...)` for one write and `json(source).$pipe(...)` for chained writes. See [ref.md](ref.md) for the full ref API. `set(...)` and `setPipe(...)` are deprecated.
 
 ## Imports
 
@@ -79,12 +79,15 @@ await db.update(users).set({
 
 For SQL expression conversion details and trust boundaries, see [build-coalesce-merge.md](build-coalesce-merge.md).
 
-## Legacy Builders
+## Deprecated Builders
 
-`json.set(source)` builds the same single-path update through a dedicated proxy and remains supported:
+`json.set(source)` is deprecated. Replace it with `json(source)`; `.$set(...)` and `.$default(...)` keep the same signatures:
 
 ```typescript
+// Before
 json.set(users.profile).user.preferences.theme.$set('dark')
+// After
+json(users.profile).user.preferences.theme.$set('dark')
 ```
 
 `json.setPipe(source, ...ops)` is deprecated. Migrate to `json(source).$pipe(...)` or `json.pipe(source, ...ops)`; the step signature is unchanged.

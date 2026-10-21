@@ -12,6 +12,9 @@ import { jsonRef, jsonRefPipe } from './operations/ref.ts'
 import { jsonSet, jsonSetPipe } from './operations/set.ts'
 import type { SQLJSONRefAPI } from './types.ts'
 
+/**
+ * @deprecated Use `json(source).path.$value` / `.$text` instead.
+ */
 export { jsonAccess as access } from './operations/access.ts'
 export {
   jsonArrayDelete as arrayDelete,
@@ -20,9 +23,15 @@ export {
 } from './operations/array.ts'
 export { jsonBuild as build } from './operations/build.ts'
 export { jsonCoalesce as coalesce } from './operations/coalesce.ts'
+/**
+ * @deprecated Use `json(source).path.$contains(...)` / `json(source).$contains(...)` instead.
+ */
 export { jsonContains as contains } from './operations/contains.ts'
 export { jsonMerge as merge } from './operations/merge.ts'
 export { jsonRefPipe as pipe } from './operations/ref.ts'
+/**
+ * @deprecated Use `json(source).path.$set(...)` / `.$default(...)` instead.
+ */
 export { jsonSet as set } from './operations/set.ts'
 /**
  * @deprecated Use `json(source).$pipe(...)` instead.

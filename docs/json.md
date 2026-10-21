@@ -50,11 +50,11 @@ await db.update(users).set({
 
 ## Choose an Import Style
 
-| Import style             | Use it when                                                        | Example                                                                 |
-| ------------------------ | ------------------------------------------------------------------ | ----------------------------------------------------------------------- |
-| Root namespace           | You want one `json.*` namespace alongside the rest of the package. | `import { json } from '@denny-il/drizzle-pg-utils'`                     |
-| JSON subpath             | You only want JSON helpers.                                        | `import { access, pipe, merge } from '@denny-il/drizzle-pg-utils/json'` |
-| Direct operation subpath | You want a single helper or smaller imports.                       | `import { jsonSet } from '@denny-il/drizzle-pg-utils/json/set'`         |
+| Import style             | Use it when                                                        | Example                                                                |
+| ------------------------ | ------------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| Root namespace           | You want one `json.*` namespace alongside the rest of the package. | `import { json } from '@denny-il/drizzle-pg-utils'`                    |
+| JSON subpath             | You only want JSON helpers.                                        | `import { pipe, merge, build } from '@denny-il/drizzle-pg-utils/json'` |
+| Direct operation subpath | You want a single helper or smaller imports.                       | `import { jsonMerge } from '@denny-il/drizzle-pg-utils/json/merge'`    |
 
 There is no default export from `@denny-il/drizzle-pg-utils/json`.
 
@@ -202,21 +202,20 @@ await db
 
 ## Helper Map
 
-| Helper                                                | What it does                                       | Notes                                                                     |
-| ----------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------- |
-| `json(source)`                                        | Callable typed ref API                             | Primary API for path access, updates, containment, and pipes              |
-| `access(source)`                                      | Typed JSON path extraction                         | Use `.$value` or `.$text`                                                 |
-| `set(source)`                                         | Build a single `jsonb_set(...)` update             | Use `.$set(...)` and optional `.$default(...)`                            |
-| `pipe(source, ...ops)` / `json(source).$pipe(...ops)` | Chain multiple JSON updates                        | Each step sees the previous result                                        |
-| `setPipe(source, ...ops)`                             | Deprecated chain helper                            | Use `json(source).$pipe(...)` or `json.pipe(source, ...)`                 |
-| `build(value)`                                        | Convert JS values and SQL snippets into JSONB SQL  | Handles nested arrays, objects, and SQL expressions                       |
-| `coalesce(source, fallback)`                          | Replace SQL `NULL` and JSON `null` with a fallback | Useful before updates                                                     |
-| `contains(source)`                                    | Typed JSONB containment builder                    | Use `.$contains(...)`; emits full-column index-friendly `source @> value` |
-| `contains(source, value)`                             | JSONB root containment predicate                   | Direct form for already-shaped containment values                         |
-| `merge(left, right)`                                  | Apply PostgreSQL JSONB `\|\|` semantics            | SQL `NULL` is normalized to JSON `null` first                             |
-| `arrayPush(target, ...values)`                        | Append values to a JSON array                      | Nullish arrays become `[]`; `undefined` becomes JSON `null`               |
-| `arraySet(target, index, value)`                      | Replace an element at an index                     | Nullish arrays become `[]`; out-of-bounds indexes are no-ops              |
-| `arrayDelete(target, index)`                          | Remove an element at an index                      | Nullish arrays become `[]`; out-of-bounds indexes are no-ops              |
+| Helper                                                | What it does                                       | Notes                                                                   |
+| ----------------------------------------------------- | -------------------------------------------------- | ----------------------------------------------------------------------- |
+| `json(source)`                                        | Callable typed ref API                             | Primary API for path access, updates, containment, and pipes            |
+| `access(source)`                                      | Deprecated path extraction                         | Use `json(source).path.$value` or `.$text`                              |
+| `set(source)`                                         | Deprecated single-update builder                   | Use `json(source).path.$set(...)` or `.$default(...)`                   |
+| `pipe(source, ...ops)` / `json(source).$pipe(...ops)` | Chain multiple JSON updates                        | Each step sees the previous result                                      |
+| `setPipe(source, ...ops)`                             | Deprecated chain helper                            | Use `json(source).$pipe(...)` or `json.pipe(source, ...)`               |
+| `build(value)`                                        | Convert JS values and SQL snippets into JSONB SQL  | Handles nested arrays, objects, and SQL expressions                     |
+| `coalesce(source, fallback)`                          | Replace SQL `NULL` and JSON `null` with a fallback | Useful before updates                                                   |
+| `contains(source)` / `contains(source, value)`        | Deprecated containment builder                     | Use `json(source).path.$contains(...)` or `json(source).$contains(...)` |
+| `merge(left, right)`                                  | Apply PostgreSQL JSONB `\|\|` semantics            | SQL `NULL` is normalized to JSON `null` first                           |
+| `arrayPush(target, ...values)`                        | Append values to a JSON array                      | Nullish arrays become `[]`; `undefined` becomes JSON `null`             |
+| `arraySet(target, index, value)`                      | Replace an element at an index                     | Nullish arrays become `[]`; out-of-bounds indexes are no-ops            |
+| `arrayDelete(target, index)`                          | Remove an element at an index                      | Nullish arrays become `[]`; out-of-bounds indexes are no-ops            |
 
 ## Important Behavior
 
@@ -257,27 +256,25 @@ json(users.profile).config.$key('$value').$text
 
 ### Containment keeps queries index-friendly
 
-Use `contains(...)` for JSONB `@>` predicates that should use a full-column GIN or `jsonb_path_ops` index.
+Use `.$contains(...)` for JSONB `@>` predicates that should use a full-column GIN or `jsonb_path_ops` index.
 
 ```typescript
 await db
   .select({ id: users.id })
   .from(users)
-  .where(
-    json.contains(users.profile).user.preferences.$contains({ theme: 'dark' }),
-  )
+  .where(json(users.profile).user.preferences.$contains({ theme: 'dark' }))
 ```
 
-That proxy form emits a root containment predicate:
+It emits a root containment predicate:
 
 ```sql
 profile @> '{"user":{"preferences":{"theme":"dark"}}}'::jsonb
 ```
 
-The direct form is useful when you already have the full containment shape:
+Call it on the root ref when you already have the full containment shape:
 
 ```typescript
-json.contains(users.profile, {
+json(users.profile).$contains({
   user: { preferences: { theme: 'dark' } },
 })
 ```
@@ -306,8 +303,7 @@ accessor.user.preferences.tags['0'].$value
 Use `.$default(...)` on optional or nullable branches before deeper updates.
 
 ```typescript
-const safeUpdate = json
-  .set(users.profile)
+const safeUpdate = json(users.profile)
   .user.preferences.$default({ theme: 'light', tags: [] })
   .theme.$set('dark')
 ```
@@ -362,7 +358,7 @@ await db.update(users).set({
 
 The helpers do not all treat nullish values the same way.
 
-- `access(...)` returns SQL `NULL` when the property is missing, JSON `null`, or the source itself is SQL `NULL`.
+- `.$value` and `.$text` return SQL `NULL` when the property is missing, JSON `null`, or the source itself is SQL `NULL`.
 - `coalesce(...)` treats both SQL `NULL` and JSON `null` as empty and returns the fallback.
 - `arrayPush(...)`, `arraySet(...)`, and `arrayDelete(...)` treat nullish array targets as `[]`.
 - `merge(...)` normalizes SQL `NULL` to JSON `null` before applying PostgreSQL `||` semantics.
@@ -389,7 +385,7 @@ await db.update(users).set({
 })
 ```
 
-That makes it a good companion for `json(source)`, `set(...)`, `pipe(...)`, and `merge(...)`.
+That makes it a good companion for `json(source)`, `pipe(...)`, and `merge(...)`.
 
 SQL expressions are a trust boundary. Plain JavaScript values are always bound as query parameters, so user input should normally be passed as plain values:
 
@@ -480,35 +476,34 @@ await db.update(users).set({
 ### Namespace methods
 
 - `json(source)`
-- `json.access(source)`
+- `json.access(source)` deprecated; use `json(source).path.$value` / `.$text`
 - `json.arrayDelete(source, index)`
 - `json.arrayPush(source, ...values)`
 - `json.arraySet(source, index, value)`
 - `json.build(value)`
 - `json.coalesce(source, fallback)`
-- `json.contains(source)`
-- `json.contains(source, value)`
+- `json.contains(source)` / `json.contains(source, value)` deprecated; use `json(source).path.$contains(...)`
 - `json.merge(left, right)`
 - `json.pipe(source, ...operations)`
-- `json.set(source)`
+- `json.set(source)` deprecated; use `json(source).path.$set(...)`
 - `json.setPipe(source, ...operations)` deprecated; use `json(source).$pipe(...)`
 
 ### Direct operation exports
 
-- `access` from `@denny-il/drizzle-pg-utils/json`
+- `access` from `@denny-il/drizzle-pg-utils/json` (deprecated)
 - `arrayDelete`, `arrayPush`, `arraySet` from `@denny-il/drizzle-pg-utils/json`
 - `build` from `@denny-il/drizzle-pg-utils/json`
 - `coalesce` from `@denny-il/drizzle-pg-utils/json`
-- `contains` from `@denny-il/drizzle-pg-utils/json`
+- `contains` from `@denny-il/drizzle-pg-utils/json` (deprecated)
 - `merge` from `@denny-il/drizzle-pg-utils/json`
-- `pipe`, `set`, `setPipe` from `@denny-il/drizzle-pg-utils/json`; `setPipe` is deprecated
+- `pipe`, `set`, `setPipe` from `@denny-il/drizzle-pg-utils/json`; `set` and `setPipe` are deprecated
 
 ### Per-operation subpaths
 
-- `@denny-il/drizzle-pg-utils/json/access`
+- `@denny-il/drizzle-pg-utils/json/access` (deprecated)
 - `@denny-il/drizzle-pg-utils/json/array`
 - `@denny-il/drizzle-pg-utils/json/build`
 - `@denny-il/drizzle-pg-utils/json/coalesce`
-- `@denny-il/drizzle-pg-utils/json/contains`
+- `@denny-il/drizzle-pg-utils/json/contains` (deprecated)
 - `@denny-il/drizzle-pg-utils/json/merge`
-- `@denny-il/drizzle-pg-utils/json/set`
+- `@denny-il/drizzle-pg-utils/json/set` (`jsonSet` is deprecated)

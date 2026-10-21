@@ -34,10 +34,16 @@ export type SQLJSONContains<
       }
     : {})
 
+/**
+ * @deprecated Use `json(source).path.$contains(...)` / `json(source).$contains(...)` instead.
+ */
 export function jsonContains<Source extends SQLJSONValue>(
   source: Source,
 ): SQLJSONContains<Source>
 
+/**
+ * @deprecated Use `json(source).path.$contains(...)` / `json(source).$contains(...)` instead.
+ */
 export function jsonContains<
   Source extends SQLJSONValue,
   SourceType extends SQLJSONExtractType<Source> = SQLJSONExtractType<Source>,
@@ -48,6 +54,9 @@ export function jsonContains<
     | SQLJSONValue<SQLJSONContainmentValue<SQLJSONDenullify<SourceType>>>,
 ): SQL<boolean>
 
+/**
+ * @deprecated Use `json(source).path.$contains(...)` / `json(source).$contains(...)` instead.
+ */
 export function jsonContains<Source extends SQLJSONValue>(
   source: Source,
   ...args: [

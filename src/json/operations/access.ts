@@ -38,6 +38,9 @@ export type SQLJSONAccess<
   $text: SQL<SQLJSONNullify<IsNullish, string>>
 }
 
+/**
+ * @deprecated Use `json(source).path.$value` / `.$text` instead.
+ */
 export function jsonAccess<Source extends SQLJSONValue>(
   source: Source,
 ): SQLJSONAccess<Source> {

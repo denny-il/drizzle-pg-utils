@@ -25,14 +25,12 @@ import {
 Use `arrayPush(target, ...values)` for append semantics.
 
 ```typescript
-const tags = json.access(users.profile).user.preferences.tags.$value
+const tags = json(users.profile).user.preferences.tags
 
 await db
   .update(users)
   .set({
-    profile: json
-      .set(users.profile)
-      .user.preferences.tags.$set(json.arrayPush(tags, 'drizzle', 'postgres')),
+    profile: tags.$set(json.arrayPush(tags.$value, 'drizzle', 'postgres')),
   })
   .where(eq(users.id, userId))
 ```
@@ -45,9 +43,7 @@ Use `arraySet(target, index, value)` when replacing an existing index.
 
 ```typescript
 await db.update(users).set({
-  profile: json
-    .set(users.profile)
-    .user.preferences.tags.$set(json.arraySet(tags, 0, 'intro')),
+  profile: tags.$set(json.arraySet(tags.$value, 0, 'intro')),
 })
 ```
 
@@ -57,9 +53,7 @@ await db.update(users).set({
 
 ```typescript
 await db.update(users).set({
-  profile: json
-    .set(users.profile)
-    .user.preferences.tags.$set(json.arrayDelete(tags, 0)),
+  profile: tags.$set(json.arrayDelete(tags.$value, 0)),
 })
 ```
 

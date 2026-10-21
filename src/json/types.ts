@@ -46,15 +46,24 @@ export type SQLJSONExtractType<Source extends SQLJSONValue> =
       : never
 
 export type SQLJSONRefAPI = typeof jsonRef & {
+  /**
+   * @deprecated Use `json(source).path.$value` / `.$text` instead.
+   */
   access: typeof jsonAccess
   arrayDelete: typeof jsonArrayDelete
   arrayPush: typeof jsonArrayPush
   arraySet: typeof jsonArraySet
   build: typeof jsonBuild
   coalesce: typeof jsonCoalesce
+  /**
+   * @deprecated Use `json(source).path.$contains(...)` / `json(source).$contains(...)` instead.
+   */
   contains: typeof jsonContains
   merge: typeof jsonMerge
   pipe: typeof jsonRefPipe
+  /**
+   * @deprecated Use `json(source).path.$set(...)` / `.$default(...)` instead.
+   */
   set: typeof jsonSet
   /**
    * @deprecated Use `json(source).$pipe(...)` instead.

@@ -81,6 +81,9 @@ export type SQLJSONSet<
           >
         })
 
+/**
+ * @deprecated Use `json(source).path.$set(...)` / `.$default(...)` instead.
+ */
 export function jsonSet<Source extends SQLJSONValue<object | null>>(
   source: Source,
 ): SQLJSONSet<Source, Source, true> {
