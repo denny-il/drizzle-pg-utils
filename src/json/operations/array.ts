@@ -7,7 +7,7 @@ import type {
   SQLJSONNullish,
   SQLJSONValue,
 } from '../types.ts'
-import { jsonBuild } from './build.ts'
+import { jsonSetValue } from '../utils.ts'
 
 type AcceptableValue = any[] | SQLJSONNullish
 
@@ -103,9 +103,7 @@ export function jsonArraySet<
   index: number,
   value: ElementType | SQLJSONValue<ElementType>,
 ): SQL<SQLJSONDenullify<SourceType>> {
-  const _value = isSQLWrapper(value)
-    ? jsonBuild(value as any)
-    : jsonbLiteral(value)
+  const _value = isSQLWrapper(value) ? jsonSetValue(value) : jsonbLiteral(value)
   return sql`jsonb_set(${valueOrEmptyArray(target)}, '{${arrayIndex(index)}}', ${_value}, false)`
 }
 

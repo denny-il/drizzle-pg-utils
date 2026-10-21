@@ -364,6 +364,7 @@ The helpers do not all treat nullish values the same way.
 - `coalesce(...)` treats both SQL `NULL` and JSON `null` as empty and returns the fallback.
 - `arrayPush(...)`, `arraySet(...)`, and `arrayDelete(...)` treat nullish array targets as `[]`.
 - `merge(...)` normalizes SQL `NULL` to JSON `null` before applying PostgreSQL `||` semantics.
+- `.$set(...)`, `.$default(...)`, and `arraySet(...)` write JSON `null` at the path when a SQL value evaluates to SQL `NULL`, instead of letting `jsonb_set` turn the whole document into SQL `NULL`.
 
 That behavior is useful, but it also means `merge(...)` is not a plain wrapper around `left || right` when SQL `NULL` is involved.
 

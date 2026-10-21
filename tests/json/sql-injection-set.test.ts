@@ -102,7 +102,7 @@ describe('JSON Set SQL injection hardening', () => {
     const query = dialect.sqlToQuery(result)
 
     expect(query.sql).toBe(
-      `jsonb_set(${sourceSql}, array['payload']::text[], $1, true)`,
+      `jsonb_set(${sourceSql}, array['payload']::text[], coalesce($1, 'null'::jsonb), true)`,
     )
     expect(query.params).toEqual(["x'); select 1; --"])
   })
@@ -114,7 +114,7 @@ describe('JSON Set SQL injection hardening', () => {
     const query = dialect.sqlToQuery(result)
 
     expect(query.sql).toBe(
-      `jsonb_set(${sourceSql}, array['payload']::text[], to_jsonb(jsonb_build_object('safe', $1::text)), true)`,
+      `jsonb_set(${sourceSql}, array['payload']::text[], coalesce(to_jsonb(jsonb_build_object('safe', $1::text)), 'null'::jsonb), true)`,
     )
     expect(query.params).toEqual(['x'])
   })

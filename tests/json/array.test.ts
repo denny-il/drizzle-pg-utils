@@ -145,7 +145,7 @@ describe('JSON Array Operations', () => {
 
       expect(query.params).toEqual([])
       expect(query.sql).toBe(
-        `jsonb_set(coalesce(nullif(${numberArraySql}, 'null'::jsonb), '[]'::jsonb), '{2}', to_jsonb('777'::jsonb), false)`,
+        `jsonb_set(coalesce(nullif(${numberArraySql}, 'null'::jsonb), '[]'::jsonb), '{2}', coalesce(to_jsonb('777'::jsonb), 'null'::jsonb), false)`,
       )
     })
 
@@ -156,7 +156,7 @@ describe('JSON Array Operations', () => {
 
       expect(query.params).toEqual([42])
       expect(query.sql).toBe(
-        `jsonb_set(coalesce(nullif(${numberArraySql}, 'null'::jsonb), '[]'::jsonb), '{1}', $1, false)`,
+        `jsonb_set(coalesce(nullif(${numberArraySql}, 'null'::jsonb), '[]'::jsonb), '{1}', coalesce($1, 'null'::jsonb), false)`,
       )
     })
 

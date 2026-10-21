@@ -32,6 +32,16 @@ export const jsonExtractText = (
   return sql<string>`jsonb_extract_path_text(${source}, ${jsonPathArgs(path)})`
 }
 
+/**
+ * Builds the new value for `jsonb_set`. `jsonb_set` is strict, so a SQL value
+ * that evaluates to NULL would turn the whole document into SQL NULL; coalesce
+ * it to JSON null so only the target path is affected.
+ */
+export const jsonSetValue = (value: unknown): SQL => {
+  const built = jsonBuild(value as any)
+  return isSQLWrapper(value) ? sql`coalesce(${built}, 'null'::jsonb)` : built
+}
+
 export const jsonSetPath = (
   source: SQLJSONValue,
   path: string[],
@@ -40,8 +50,8 @@ export const jsonSetPath = (
   rootError = 'Cannot set default value at root level',
 ) => {
   if (path.length === 0) throw new Error(rootError)
-  return sql`jsonb_set(${source}, ${jsonPathArray(path)}, ${jsonBuild(
-    value as any,
+  return sql`jsonb_set(${source}, ${jsonPathArray(path)}, ${jsonSetValue(
+    value,
   )}, ${sql`${!!createMissing}`.inlineParams()})`
 }
 
@@ -57,8 +67,8 @@ export const jsonDefaultPath = (
   const currentValueSQL = sql`jsonb_extract_path(${source}, ${pathArgs})`
   return sql`jsonb_set(coalesce(nullif(${source}, 'null'::jsonb), '{}'::jsonb), ${jsonPathArray(
     path,
-  )}, coalesce(nullif(${currentValueSQL}, 'null'::jsonb), ${jsonBuild(
-    value as any,
+  )}, coalesce(nullif(${currentValueSQL}, 'null'::jsonb), ${jsonSetValue(
+    value,
   )}), ${sql`${!!createMissing}`.inlineParams()})`
 }
 
