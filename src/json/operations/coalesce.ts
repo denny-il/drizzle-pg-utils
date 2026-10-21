@@ -1,5 +1,6 @@
 import { type SQL, sql } from 'drizzle-orm'
 
+import { jsonSource } from '../source.ts'
 import type {
   SQLJSONDenullify,
   SQLJSONExtractType,
@@ -24,5 +25,5 @@ export function jsonCoalesce<
 ): SQL<
   SQLJSONDenullify<SQLJSONExtractType<Source>> | SQLJSONBuildUnwrapType<Value>
 > {
-  return sql`coalesce(nullif(${source}, 'null'::jsonb), ${jsonBuild(value)})`
+  return sql`coalesce(nullif(${jsonSource(source)}, 'null'::jsonb), ${jsonBuild(value)})`
 }

@@ -1,6 +1,7 @@
 import { isSQLWrapper, type SQL, sql } from 'drizzle-orm'
 
 import { jsonbParam } from '../param.ts'
+import { jsonSource } from '../source.ts'
 import type {
   SQLJSONDenullify,
   SQLJSONExtractType,
@@ -8,6 +9,7 @@ import type {
   SQLJSONValue,
 } from '../types.ts'
 import { jsonSetValue } from '../utils.ts'
+import { jsonBuild } from './build.ts'
 
 type AcceptableValue = any[] | SQLJSONNullish
 
@@ -31,7 +33,7 @@ function valueOrEmptyArray<T extends SQLJSONValue<AcceptableValue>>(
 ): SQL<SQLJSONDenullify<SQLJSONExtractType<T>>> {
   return sql<
     SQLJSONDenullify<SQLJSONExtractType<T>>
-  >`coalesce(nullif(${value}, 'null'::jsonb), '[]'::jsonb)`
+  >`coalesce(nullif(${jsonSource(value)}, 'null'::jsonb), '[]'::jsonb)`
 }
 
 /**
@@ -65,7 +67,7 @@ export function jsonArrayPush<
   ...values: Array<ElementType | SQLJSONValue<ElementType>>
 ): SQL<SQLJSONDenullify<SourceType>> {
   const _values = values.map((value) =>
-    isSQLWrapper(value) ? value : jsonbLiteral(value),
+    isSQLWrapper(value) ? jsonBuild(value) : jsonbLiteral(value),
   )
   const _value = sql`jsonb_build_array(${sql.join(_values, sql`, `)})`
   return sql`${valueOrEmptyArray(target)} || ${_value}`

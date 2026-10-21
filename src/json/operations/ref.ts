@@ -1,6 +1,7 @@
 import { isSQLWrapper, type SQL, sql } from 'drizzle-orm'
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
 
+import { jsonSource } from '../source.ts'
 import type {
   SQLJSONDenullify,
   SQLJSONExtractType,
@@ -241,7 +242,7 @@ function buildPush(source: SQLJSONValue, path: string[], values: unknown[]) {
 
 function buildDelete(source: SQLJSONValue, path: string[]) {
   if (path.length === 0) throw new Error('Cannot delete root JSON value')
-  return sql`${source} #- ${jsonPathArray(path)}`
+  return sql`${jsonSource(source)} #- ${jsonPathArray(path)}`
 }
 
 function buildMerge(source: SQLJSONValue, path: string[], value: unknown) {

@@ -112,8 +112,8 @@ describe('JSON Build SQL injection handling', () => {
     const computedQuery = dialect.sqlToQuery(jsonBuild({ computed }))
     const rawQuery = dialect.sqlToQuery(jsonBuild(trustedRawJson))
 
-    expect(bareQuery.sql).toBe(`jsonb_build_object('safe', $1)`)
-    expect(bareQuery.params).toEqual([barePayload])
+    expect(bareQuery.sql).toBe(`jsonb_build_object('safe', $1::text::jsonb)`)
+    expect(bareQuery.params).toEqual([JSON.stringify(barePayload)])
     expect(computedQuery.sql).toBe(
       `jsonb_build_object('computed', to_jsonb(lower($1)))`,
     )
