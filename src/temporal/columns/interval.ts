@@ -1,6 +1,7 @@
 import { SQL } from 'drizzle-orm'
 import { customType, type IntervalConfig } from 'drizzle-orm/pg-core'
 
+import { fromPostgresInterval, toPostgresInterval } from '../format.ts'
 import type { TemporalColumn } from '../types.ts'
 
 type Config<T extends typeof globalThis.Temporal> = {
@@ -35,9 +36,13 @@ export function createInterval<T extends typeof globalThis.Temporal>(
       dataType: (config?: IntervalConfig) =>
         `interval${config?.fields ? ` ${config.fields}` : ''}${typeof config?.precision !== 'undefined' ? ` (${config.precision})` : ''}`,
       fromDriver: (val: string) =>
-        Temporal.Duration.from(val) as InstanceType<T['Duration']>,
+        Temporal.Duration.from(fromPostgresInterval(val)) as InstanceType<
+          T['Duration']
+        >,
       toDriver: (val: InstanceType<T['Duration']> | SQL) =>
-        val instanceof SQL ? val : val.toString({ ...options }),
+        val instanceof SQL
+          ? val
+          : toPostgresInterval(val.toString({ ...options })),
     }),
   }
 }
