@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto'
 import { PGlite } from '@electric-sql/pglite'
 import {
   type AnyRelations,
@@ -15,6 +16,7 @@ import {
   type PostgresJsDatabase,
 } from 'drizzle-orm/postgres-js'
 import postgres, { type Sql } from 'postgres'
+import { inject } from 'vitest'
 
 export const dialect = new PgDialect()
 
@@ -42,10 +44,24 @@ export const createDatabase = async <
   options: CreateDatabaseOptions<TRelations> = {},
 ): Promise<TestDatabase<TRelations>> => {
   if (process.env.DATABASE_URL) {
-    const client = postgres(process.env.DATABASE_URL, {
+    // Test files run in parallel against one shared database, so give every
+    // call its own fresh schema, mirroring a fresh PGlite instance. Unqualified
+    // DDL then can't race or collide with other files or with leftovers from
+    // aborted runs. `search_path` is a startup parameter, so it also applies
+    // when the pool reconnects after `idle_timeout`. Global setup drops the
+    // schemas when the run finishes.
+    const schema = `${inject('testSchemaPrefix')}${randomBytes(4).toString('hex')}`
+    // postgres-js lets URL query params override `connection`, so a
+    // `?search_path=` in DATABASE_URL would silently put every file back on a
+    // shared schema.
+    const url = new URL(process.env.DATABASE_URL)
+    url.searchParams.delete('search_path')
+    const client = postgres(url.href, {
       idle_timeout: 1,
       max: 1,
+      connection: { search_path: schema },
     })
+    await client`create schema ${client(schema)}`
     return drizzlePostgres({
       client,
       relations: options.relations,
