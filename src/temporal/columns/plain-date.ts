@@ -1,6 +1,7 @@
 import { SQL } from 'drizzle-orm'
 import { customType } from 'drizzle-orm/pg-core'
 
+import { fromPostgresDateTime, toPostgresDateTime } from '../format.ts'
 import type { TemporalColumn } from '../types.ts'
 
 type Config<T extends typeof globalThis.Temporal> = {
@@ -30,9 +31,15 @@ export function createPlainDate<T extends typeof globalThis.Temporal>(
       codec: 'date:string',
       dataType: () => 'date',
       fromDriver: (val: string) =>
-        Temporal.PlainDate.from(val) as InstanceType<T['PlainDate']>,
+        Temporal.PlainDate.from(fromPostgresDateTime(val)) as InstanceType<
+          T['PlainDate']
+        >,
       toDriver: (val: InstanceType<T['PlainDate']> | SQL) =>
-        val instanceof SQL ? val : val.toString({ ...options }),
+        val instanceof SQL
+          ? val
+          : toPostgresDateTime(
+              val.toString({ calendarName: 'never', ...options }),
+            ),
     }),
   }
 }

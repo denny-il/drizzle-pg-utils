@@ -176,7 +176,9 @@ event.eventTimestampz instanceof Temporal.Instant
 
 ### `interval` depends on PostgreSQL output format
 
-`interval` columns decode with `Temporal.Duration.from(...)`, so PostgreSQL must emit ISO 8601 intervals.
+`interval` columns decode with `Temporal.Duration.from(...)`, so PostgreSQL must emit ISO 8601 intervals. Negative durations round-trip; PostgreSQL's per-field signs are converted to Temporal's single leading sign.
+
+PostgreSQL stores months, days, and time as independently signed fields, so it can hold mixed-sign intervals such as `interval '1 day -3 hours'` (often produced by interval arithmetic). `Temporal.Duration` requires one sign for every field, so reading such a value throws. Normalize it in SQL first if needed, for example with `justify_interval(...)`, keeping in mind that this treats a day as 24 hours and a month as 30 days.
 
 ```sql
 SET intervalstyle = 'iso_8601';
@@ -244,7 +246,7 @@ const [event] = await db
   .limit(1)
 ```
 
-Selected values decode back to Temporal instances.
+Selected values decode back to Temporal instances. Year zero, BCE years, and expanded ISO years are converted to and from PostgreSQL year notation.
 
 ### Filter with Temporal values
 
