@@ -1,5 +1,6 @@
-import { sql } from 'drizzle-orm'
-import { describe, expect, it } from 'vitest'
+import { type SQL, sql } from 'drizzle-orm'
+import { integer, pgTable, timestamp } from 'drizzle-orm/pg-core'
+import { describe, expect, expectTypeOf, it } from 'vitest'
 
 import { jsonBuild } from '../../src/json/operations/build.ts'
 import { dialect, table } from '../utils.ts'
@@ -42,6 +43,36 @@ describe('JSON Build', () => {
   it('accepts column SQL wrappers inside objects', () => {
     const result = jsonBuild({ columnValue: table.jsoncol })
 
-    expect(result).toBeDefined()
+    expect(dialect.sqlToQuery(result).sql).toBe(
+      `jsonb_build_object('columnValue', to_jsonb("test"."jsoncol"))`,
+    )
+    expectTypeOf(result).toEqualTypeOf<SQL<{ columnValue: { some: 'json' } }>>()
+  })
+
+  it('accepts untyped SQL snippets', () => {
+    const result = jsonBuild({ at: sql`now()::text`, source: 'api' })
+
+    expectTypeOf(result).toEqualTypeOf<SQL<{ at: unknown; source: string }>>()
+  })
+
+  it('types columns by their to_jsonb output', () => {
+    const other = pgTable('other', {
+      n: integer('n'),
+      at: timestamp('at').notNull(),
+    })
+    const result = jsonBuild({
+      nullableJson: table.jsoncolNullable,
+      n: other.n,
+      at: other.at,
+    })
+
+    // `at` decodes to a `Date` in drizzle but is a string in the built JSON.
+    expectTypeOf(result).toEqualTypeOf<
+      SQL<{
+        nullableJson: { some: 'json' } | null
+        n: number | null
+        at: string
+      }>
+    >()
   })
 })

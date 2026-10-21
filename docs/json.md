@@ -211,7 +211,7 @@ await db
 | `coalesce(source, fallback)`                          | Replace SQL `NULL` and JSON `null` with a fallback | Useful before updates                                                     |
 | `contains(source)`                                    | Typed JSONB containment builder                    | Use `.$contains(...)`; emits full-column index-friendly `source @> value` |
 | `contains(source, value)`                             | JSONB root containment predicate                   | Direct form for already-shaped containment values                         |
-| `merge(left, right)`                                  | Apply PostgreSQL JSONB `                           |                                                                           | ` semantics | SQL `NULL` is normalized to JSON `null` first |
+| `merge(left, right)`                                  | Apply PostgreSQL JSONB `\|\|` semantics            | SQL `NULL` is normalized to JSON `null` first                             |
 | `arrayPush(target, ...values)`                        | Append values to a JSON array                      | Nullish arrays become `[]`; `undefined` becomes JSON `null`               |
 | `arraySet(target, index, value)`                      | Replace an element at an index                     | Nullish arrays become `[]`; out-of-bounds indexes are no-ops              |
 | `arrayDelete(target, index)`                          | Remove an element at an index                      | Nullish arrays become `[]`; out-of-bounds indexes are no-ops              |

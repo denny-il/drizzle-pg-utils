@@ -26,7 +26,7 @@ import {
 import { jsonCoalesce } from './coalesce.ts'
 import type { SQLJSONContainmentValue } from './contains.ts'
 import { jsonMerge } from './merge.ts'
-import type { SQLJSONSetMixedValue } from './set.ts'
+import type { SQLJSONSetMixedValue, SQLJSONSetNull } from './set.ts'
 
 const refDefaultSourceSymbol = Symbol('SQLJSONRefDefaultSource')
 
@@ -34,7 +34,7 @@ type SQLJSONArrayElement<Type> =
   SQLJSONDenullify<Type> extends readonly (infer Element)[] ? Element : never
 
 type SQLJSONRefSetFn<Type, RootSource extends SQLJSONValue> = (
-  value: SQLJSONSetMixedValue<SQLJSONDenullify<Type>>,
+  value: SQLJSONSetMixedValue<SQLJSONDenullify<Type>> | SQLJSONSetNull<Type>,
   createMissing?: boolean,
 ) => SQL<SQLJSONExtractType<RootSource>>
 
@@ -70,6 +70,7 @@ type SQLJSONRefReservedKey =
   | '$delete'
   | '$key'
   | 'getSQL'
+  | 'shouldOmitSQLParens'
   | 'toString'
   | 'valueOf'
 
@@ -89,6 +90,9 @@ export type SQLJSONRef<
   Value extends SQLJSONValue = RootSource,
   Root extends boolean = true,
   CanContain extends boolean = true,
+  DeclaredNullable extends boolean = null extends SQLJSONExtractType<Value>
+    ? true
+    : false,
   Type extends SQLJSONExtractType<Value> = SQLJSONExtractType<Value>,
   ObjectType extends SQLJSONDenullify<Type> = SQLJSONDenullify<Type>,
   IsNullish extends boolean = SQLJSONIsNullish<Type> extends true
@@ -125,7 +129,10 @@ export type SQLJSONRef<
     : {}) &
   (Root extends false
     ? {
-        $set: SQLJSONRefSetFn<Type, RootSource>
+        $set: SQLJSONRefSetFn<
+          DeclaredNullable extends true ? Type : SQLJSONDenullify<Type>,
+          RootSource
+        >
         $delete(): SQL<SQLJSONExtractType<RootSource>>
       }
     : {}) &
@@ -143,7 +150,8 @@ export type SQLJSONRef<
           RootSource,
           SQL<Element | null>,
           false,
-          false
+          false,
+          null extends Element ? true : false
         >
       }
     : IsObject extends false
@@ -153,23 +161,19 @@ export type SQLJSONRef<
             K in keyof ObjectType as K extends SQLJSONRefReservedKey ? never : K
           ]-?: SQLJSONRef<
             RootSource,
-            SQL<
-              | ObjectType[K]
-              | (IsNullish extends true
-                  ? null
-                  : ObjectType extends any[]
-                    ? null
-                    : never)
-            >,
+            SQL<ObjectType[K] | (IsNullish extends true ? null : never)>,
             false,
-            CanContain
+            CanContain,
+            null extends ObjectType[K] ? true : false
           >
         })
 
 type SQLJSONDefaultRef<
   RootSource extends SQLJSONValue,
   Value extends SQLJSONValue,
-> = SQLJSONRef<RootSource, Value, false> & {
+> = Omit<SQLJSONRef<RootSource, Value, false>, 'getSQL'> & {
+  // A `$default` continuation renders as the whole updated document.
+  getSQL(): SQL<SQLJSONExtractType<RootSource>>
   readonly [refDefaultSourceSymbol]: SQL<SQLJSONExtractType<RootSource>>
 }
 

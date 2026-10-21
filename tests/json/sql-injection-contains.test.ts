@@ -36,7 +36,9 @@ describe('JSON Contains SQL injection and misuse resistance', () => {
     const maliciousPath = `profile"} || '{"admin":true}'::jsonb || '{"profile`
     const maliciousValue = `dark'); select pg_sleep(99); --`
     const source = sql`'{"profile\":{\"theme\":\"dark\"}}'::jsonb`
-    const result = jsonContains(source)[maliciousPath].$contains(maliciousValue)
+    const result = (jsonContains(source) as any)[maliciousPath].$contains(
+      maliciousValue,
+    )
     const query = dialect.sqlToQuery(result)
 
     expect(query.sql).toBe(
@@ -68,7 +70,7 @@ describe('JSON Contains SQL injection and misuse resistance', () => {
 
   it('public contains alias generates the same SQL and params as jsonContains', () => {
     const source = jsonBuild({ stable: true })
-    const value = {
+    const value: any = {
       payload: `alias'); drop table contains_sentinel; --`,
     }
 

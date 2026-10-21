@@ -126,7 +126,7 @@ describe('JSON Array Push SQL injection handling', () => {
     const typedComputed = sql<
       Record<string, string>
     >`jsonb_build_object('safe', ${computedPayload}::text)`
-    const result = jsonArrayPush(source, bareParam, computed)
+    const result = jsonArrayPush<typeof source>(source, bareParam, computed)
     const query = dialect.sqlToQuery(result)
 
     expect(query.params).toEqual([barePayload, computedPayload])
@@ -136,7 +136,11 @@ describe('JSON Array Push SQL injection handling', () => {
     expect(query.sql).not.toContain(barePayload)
     expect(query.sql).not.toContain(computedPayload)
 
-    const runtimeResult = jsonArrayPush(source, typedParam, typedComputed)
+    const runtimeResult = jsonArrayPush<typeof source>(
+      source,
+      typedParam,
+      typedComputed,
+    )
     const runtimeQuery = dialect.sqlToQuery(runtimeResult)
 
     expect(runtimeQuery.params).toEqual([barePayload, computedPayload])

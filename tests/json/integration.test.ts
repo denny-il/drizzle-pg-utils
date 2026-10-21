@@ -908,7 +908,7 @@ describe('JSON Integration Tests', () => {
 
     it('should push undefined values as JSON null', async () => {
       const baseArray = sql<Array<string | null>>`'["a"]'::jsonb`
-      const pushedArray = jsonArrayPush(baseArray, undefined)
+      const pushedArray = jsonArrayPush(baseArray, undefined as any)
       const result = await executeQuery(db, pushedArray)
 
       expect(result).toEqual(['a', null])
@@ -924,7 +924,7 @@ describe('JSON Integration Tests', () => {
 
     it('should set undefined values as JSON null', async () => {
       const baseArray = sql<Array<string | null>>`'["a", "b"]'::jsonb`
-      const updatedArray = jsonArraySet(baseArray, 1, undefined)
+      const updatedArray = jsonArraySet(baseArray, 1, undefined as any)
       const result = await executeQuery(db, updatedArray)
 
       expect(result).toEqual(['a', null])

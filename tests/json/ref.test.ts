@@ -2,7 +2,12 @@ import { isSQLWrapper, type SQL, sql } from 'drizzle-orm'
 import { describe, expect, expectTypeOf, it } from 'vitest'
 
 import { json } from '../../src/index.ts'
-import { createDatabase, dialect, executeQuery } from '../utils.ts'
+import {
+  closeDatabase,
+  createDatabase,
+  dialect,
+  executeQuery,
+} from '../utils.ts'
 
 describe('JSON Ref API', () => {
   type Profile = {
@@ -385,7 +390,7 @@ describe('JSON Ref API', () => {
 
       expect(result).toEqual({ metadata: { x: 1 } })
     } finally {
-      await client.$client.close()
+      await closeDatabase(client)
     }
   }, 15_000)
 
@@ -452,7 +457,24 @@ describe('JSON Ref API', () => {
     expectTypeOf(profile.user.name).not.toHaveProperty('$push')
     expectTypeOf(strictArray.tags[0].$value).toEqualTypeOf<SQL<string | null>>()
 
+    const sqlWrapperKeys = json(
+      sql<{ shouldOmitSQLParens: string }>`'{}'::jsonb`,
+    )
+    expectTypeOf(
+      sqlWrapperKeys.$key('shouldOmitSQLParens').$value,
+    ).toEqualTypeOf<SQL<unknown>>()
+
+    type NullableLeaf = { value: string | null; tags: string[] }
+    const nullableLeaf = json(sql<NullableLeaf>`'{"tags":[]}'::jsonb`)
+    expectTypeOf(nullableLeaf.value.$set(null)).toEqualTypeOf<
+      SQL<NullableLeaf>
+    >()
+
     const expectTypeErrors = (value: typeof profile) => {
+      // @ts-expect-error array elements are not declared nullable.
+      nullableLeaf.tags[0].$set(null)
+      // @ts-expect-error non-nullable leaves reject null.
+      value.user.name.$set(null)
       // @ts-expect-error scalar setters require the scalar value type.
       value.user.name.$set(123)
       // @ts-expect-error containment values must match known JSON literal types.
@@ -467,6 +489,8 @@ describe('JSON Ref API', () => {
       value.user.preferences.$contains(sql`jsonb_build_object('theme', 'dark')`)
       // @ts-expect-error reserved helper names require $key(name).
       value.metadata.$value.$set('bad')
+      // @ts-expect-error SQLWrapper hook names require $key(name).
+      sqlWrapperKeys.shouldOmitSQLParens.$set('bad')
       // @ts-expect-error root default is not exposed.
       nullableProfile.$default({})
       // @ts-expect-error non-root paths do not expose root pipe.
