@@ -94,3 +94,8 @@ export const executeRows = async <TRow extends Record<string, unknown>>(
   const results = await client.execute(query)
   return (Array.isArray(results) ? results : results.rows) as TRow[]
 }
+
+export const closeDatabase = (client: TestDatabase): Promise<void> =>
+  client.$client instanceof PGlite
+    ? client.$client.close()
+    : client.$client.end()
