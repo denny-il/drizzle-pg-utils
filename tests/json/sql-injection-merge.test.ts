@@ -58,10 +58,10 @@ describe('JSON Merge SQL injection and misuse resistance', () => {
       JSON.stringify(true),
       JSON.stringify(nestedValue),
       JSON.stringify(arrayValue),
-      'wrapped value',
+      JSON.stringify('wrapped value'),
     ])
     expect(query.sql).toBe(
-      `coalesce(jsonb_build_object('stable', $1::text::jsonb), 'null'::jsonb) || coalesce(jsonb_build_object('payload', jsonb_build_object('nested''); select pg_sleep(10); --', $2::text::jsonb),'values', jsonb_build_array($3::text::jsonb,$4)), 'null'::jsonb)`,
+      `coalesce(jsonb_build_object('stable', $1::text::jsonb), 'null'::jsonb) || coalesce(jsonb_build_object('payload', jsonb_build_object('nested''); select pg_sleep(10); --', $2::text::jsonb),'values', jsonb_build_array($3::text::jsonb,$4::text::jsonb)), 'null'::jsonb)`,
     )
     expect(query.sql).not.toContain(nestedValue)
     expect(query.sql).not.toContain(arrayValue)

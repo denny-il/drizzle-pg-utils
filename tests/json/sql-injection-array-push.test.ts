@@ -129,9 +129,9 @@ describe('JSON Array Push SQL injection handling', () => {
     const result = jsonArrayPush<typeof source>(source, bareParam, computed)
     const query = dialect.sqlToQuery(result)
 
-    expect(query.params).toEqual([barePayload, computedPayload])
+    expect(query.params).toEqual([JSON.stringify(barePayload), computedPayload])
     expect(query.sql).toBe(
-      `coalesce(nullif(${sourceSql}, 'null'::jsonb), '[]'::jsonb) || jsonb_build_array($1, jsonb_build_object('safe', $2))`,
+      `coalesce(nullif(${sourceSql}, 'null'::jsonb), '[]'::jsonb) || jsonb_build_array($1::text::jsonb, to_jsonb(jsonb_build_object('safe', $2)))`,
     )
     expect(query.sql).not.toContain(barePayload)
     expect(query.sql).not.toContain(computedPayload)
@@ -145,7 +145,7 @@ describe('JSON Array Push SQL injection handling', () => {
 
     expect(runtimeQuery.params).toEqual([barePayload, computedPayload])
     expect(runtimeQuery.sql).toBe(
-      `coalesce(nullif(${sourceSql}, 'null'::jsonb), '[]'::jsonb) || jsonb_build_array($1::text, jsonb_build_object('safe', $2::text))`,
+      `coalesce(nullif(${sourceSql}, 'null'::jsonb), '[]'::jsonb) || jsonb_build_array(to_jsonb($1::text), to_jsonb(jsonb_build_object('safe', $2::text)))`,
     )
     await expect(executeQuery(db, runtimeResult)).resolves.toEqual([
       barePayload,

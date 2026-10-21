@@ -6,5 +6,5 @@ import { type SQL, sql } from 'drizzle-orm'
  * already serialized string a second time.
  */
 export function jsonbParam(value: unknown): SQL {
-  return sql`${JSON.stringify(value)}::text::jsonb`
+  return sql`${JSON.stringify(value === undefined ? null : value)}::text::jsonb`
 }

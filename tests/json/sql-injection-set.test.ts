@@ -102,9 +102,9 @@ describe('JSON Set SQL injection hardening', () => {
     const query = dialect.sqlToQuery(result)
 
     expect(query.sql).toBe(
-      `jsonb_set(${sourceSql}, array['payload']::text[], coalesce($1, 'null'::jsonb), true)`,
+      `jsonb_set(${sourceSql}, array['payload']::text[], coalesce($1::text::jsonb, 'null'::jsonb), true)`,
     )
-    expect(query.params).toEqual(["x'); select 1; --"])
+    expect(query.params).toEqual([JSON.stringify("x'); select 1; --")])
   })
 
   it('embeds non-bare SQLWrapper values as intentional SQL expressions', () => {
