@@ -1,8 +1,8 @@
 import { type SQL, sql } from 'drizzle-orm'
-
 import { describe, expect, expectTypeOf, it } from 'vitest'
-import type { SQLJSONExtractType } from '../../src/json/types.ts'
+
 import { jsonMerge } from '../../src/json/operations/merge.ts'
+import type { SQLJSONExtractType } from '../../src/json/types.ts'
 import { dialect, table } from '../utils.ts'
 
 describe('JSON Merge Operations', () => {

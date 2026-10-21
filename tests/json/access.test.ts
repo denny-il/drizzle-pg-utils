@@ -1,11 +1,11 @@
 import { type SQL, sql } from 'drizzle-orm'
-
 import { describe, expect, expectTypeOf, it } from 'vitest'
-import type { SQLJSONExtractType } from '../../src/json/types.ts'
+
 import {
   jsonAccess,
   type SQLJSONAccess,
 } from '../../src/json/operations/access.ts'
+import type { SQLJSONExtractType } from '../../src/json/types.ts'
 import { dialect, table } from '../utils.ts'
 
 describe('JSON Accessor', () => {

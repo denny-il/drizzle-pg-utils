@@ -1,6 +1,6 @@
 import { type SQL, sql } from 'drizzle-orm'
-
 import { describe, expect, expectTypeOf, it } from 'vitest'
+
 import {
   jsonSet,
   jsonSetPipe,

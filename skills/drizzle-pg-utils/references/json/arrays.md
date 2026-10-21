@@ -8,7 +8,11 @@ For appends on a document path, the ref API is shorter: `json(users.profile).use
 
 ```typescript
 import { json } from '@denny-il/drizzle-pg-utils'
-import { arrayDelete, arrayPush, arraySet } from '@denny-il/drizzle-pg-utils/json'
+import {
+  arrayDelete,
+  arrayPush,
+  arraySet,
+} from '@denny-il/drizzle-pg-utils/json'
 import {
   jsonArrayDelete,
   jsonArrayPush,
@@ -26,9 +30,9 @@ const tags = json.access(users.profile).user.preferences.tags.$value
 await db
   .update(users)
   .set({
-    profile: json.set(users.profile).user.preferences.tags.$set(
-      json.arrayPush(tags, 'drizzle', 'postgres'),
-    ),
+    profile: json
+      .set(users.profile)
+      .user.preferences.tags.$set(json.arrayPush(tags, 'drizzle', 'postgres')),
   })
   .where(eq(users.id, userId))
 ```
@@ -41,9 +45,9 @@ Use `arraySet(target, index, value)` when replacing an existing index.
 
 ```typescript
 await db.update(users).set({
-  profile: json.set(users.profile).user.preferences.tags.$set(
-    json.arraySet(tags, 0, 'intro'),
-  ),
+  profile: json
+    .set(users.profile)
+    .user.preferences.tags.$set(json.arraySet(tags, 0, 'intro')),
 })
 ```
 
@@ -53,9 +57,9 @@ await db.update(users).set({
 
 ```typescript
 await db.update(users).set({
-  profile: json.set(users.profile).user.preferences.tags.$set(
-    json.arrayDelete(tags, 0),
-  ),
+  profile: json
+    .set(users.profile)
+    .user.preferences.tags.$set(json.arrayDelete(tags, 0)),
 })
 ```
 

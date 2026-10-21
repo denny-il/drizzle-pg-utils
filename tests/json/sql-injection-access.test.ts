@@ -1,6 +1,7 @@
 import { access } from '@denny-il/drizzle-pg-utils/json'
 import { sql } from 'drizzle-orm'
 import { beforeAll, describe, expect, it } from 'vitest'
+
 import { jsonAccess } from '../../src/json/operations/access.ts'
 import {
   createDatabase,
@@ -38,15 +39,18 @@ const hostileKeys = [
 ] as const
 
 describe('jsonAccess SQL injection hardening', () => {
-  it.each(
-    hostileKeys,
-  )('renders hostile key %s as one escaped path literal', (key) => {
-    const accessor = jsonAccess(emptyJson) as any
-    const query = dialect.sqlToQuery(accessor[key].$value)
+  it.each(hostileKeys)(
+    'renders hostile key %s as one escaped path literal',
+    (key) => {
+      const accessor = jsonAccess(emptyJson) as any
+      const query = dialect.sqlToQuery(accessor[key].$value)
 
-    expect(query.params).toEqual([])
-    expect(query.sql).toBe(`jsonb_extract_path('{}'::jsonb, ${sqlString(key)})`)
-  })
+      expect(query.params).toEqual([])
+      expect(query.sql).toBe(
+        `jsonb_extract_path('{}'::jsonb, ${sqlString(key)})`,
+      )
+    },
+  )
 
   it('renders hostile nested keys as separate escaped path literals', () => {
     const firstKey = "safe','stolen"

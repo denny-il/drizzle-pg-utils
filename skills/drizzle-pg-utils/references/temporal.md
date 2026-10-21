@@ -2,29 +2,28 @@
 
 ## Entrypoints
 
-| Import path | Use when |
-| --- | --- |
-| `@denny-il/drizzle-pg-utils/temporal` | Consumer wants explicit `create*` factories |
-| `@denny-il/drizzle-pg-utils/temporal/global` | Consumer has `globalThis.Temporal` or imports `temporal-polyfill/global` |
-| `@denny-il/drizzle-pg-utils/temporal/polyfill` | Consumer wants helpers bound to `temporal-polyfill` without globals |
+| Import path                                    | Use when                                                                 |
+| ---------------------------------------------- | ------------------------------------------------------------------------ |
+| `@denny-il/drizzle-pg-utils/temporal`          | Consumer wants explicit `create*` factories                              |
+| `@denny-il/drizzle-pg-utils/temporal/global`   | Consumer has `globalThis.Temporal` or imports `temporal-polyfill/global` |
+| `@denny-il/drizzle-pg-utils/temporal/polyfill` | Consumer wants helpers bound to `temporal-polyfill` without globals      |
 
 ## Column Map
 
-| Helper | Temporal value | PostgreSQL type |
-| --- | --- | --- |
-| `timestamp` | `Temporal.PlainDateTime` | `timestamp[(precision)]` |
-| `timestampz` | `Temporal.Instant` | `timestamp[(precision)] with time zone` |
-| `plainDate` | `Temporal.PlainDate` | `date` |
-| `time` | `Temporal.PlainTime` | `time[(precision)]` |
-| `interval` | `Temporal.Duration` | `interval[fields][(precision)]` |
-| `yearMonth` | `Temporal.PlainYearMonth` | `text` |
-| `monthDay` | `Temporal.PlainMonthDay` | `text` |
+| Helper       | Temporal value            | PostgreSQL type                         |
+| ------------ | ------------------------- | --------------------------------------- |
+| `timestamp`  | `Temporal.PlainDateTime`  | `timestamp[(precision)]`                |
+| `timestampz` | `Temporal.Instant`        | `timestamp[(precision)] with time zone` |
+| `plainDate`  | `Temporal.PlainDate`      | `date`                                  |
+| `time`       | `Temporal.PlainTime`      | `time[(precision)]`                     |
+| `interval`   | `Temporal.Duration`       | `interval[fields][(precision)]`         |
+| `yearMonth`  | `Temporal.PlainYearMonth` | `text`                                  |
+| `monthDay`   | `Temporal.PlainMonthDay`  | `text`                                  |
 
 ## Basic Example
 
 ```typescript
 import 'temporal-polyfill/global'
-import { pgTable, serial, text } from 'drizzle-orm/pg-core'
 import {
   interval,
   plainDate,
@@ -32,6 +31,7 @@ import {
   timestamp,
   timestampz,
 } from '@denny-il/drizzle-pg-utils/temporal/global'
+import { pgTable, serial, text } from 'drizzle-orm/pg-core'
 
 const events = pgTable('events', {
   id: serial('id').primaryKey(),
@@ -66,7 +66,6 @@ const [event] = await db
 ## Factories
 
 ```typescript
-import { Temporal } from 'temporal-polyfill'
 import {
   createInterval,
   createMonthDay,
@@ -76,6 +75,7 @@ import {
   createTimestampz,
   createYearMonth,
 } from '@denny-il/drizzle-pg-utils/temporal'
+import { Temporal } from 'temporal-polyfill'
 
 const plainDate = createPlainDate(Temporal)
 const yearMonth = createYearMonth(Temporal)

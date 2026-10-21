@@ -34,8 +34,8 @@ const reports = pgTable(
 ### Explicit binding when you do not want globals
 
 ```typescript
-import { Temporal } from 'temporal-polyfill'
 import { createTimestampz } from '@denny-il/drizzle-pg-utils/temporal'
+import { Temporal } from 'temporal-polyfill'
 
 const timestampz = createTimestampz(Temporal, {
   smallestUnit: 'millisecond',
@@ -50,11 +50,11 @@ There are three ways to import Temporal helpers, depending on your runtime and p
 - `@denny-il/drizzle-pg-utils/temporal/global`
 - `@denny-il/drizzle-pg-utils/temporal/polyfill`
 
-| Import path | Use it when | Exports |
-| --- | --- | --- |
-| `@denny-il/drizzle-pg-utils/temporal` | You want to bind helpers yourself. | `create*` factories, shared types |
-| `@denny-il/drizzle-pg-utils/temporal/global` | Your runtime already has `globalThis.Temporal`, or you install a global polyfill yourself. | Prebound helpers using `globalThis.Temporal` |
-| `@denny-il/drizzle-pg-utils/temporal/polyfill` | You want helpers already bound to `temporal-polyfill` without touching globals. | Prebound helpers using `temporal-polyfill` |
+| Import path                                    | Use it when                                                                                | Exports                                      |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------ | -------------------------------------------- |
+| `@denny-il/drizzle-pg-utils/temporal`          | You want to bind helpers yourself.                                                         | `create*` factories, shared types            |
+| `@denny-il/drizzle-pg-utils/temporal/global`   | Your runtime already has `globalThis.Temporal`, or you install a global polyfill yourself. | Prebound helpers using `globalThis.Temporal` |
+| `@denny-il/drizzle-pg-utils/temporal/polyfill` | You want helpers already bound to `temporal-polyfill` without touching globals.            | Prebound helpers using `temporal-polyfill`   |
 
 All three expose the same helper shapes once bound: `.column(...)` for every type, plus `.constraints(...)` for `yearMonth` and `monthDay`.
 
@@ -76,8 +76,6 @@ This example uses the global entrypoint. If you prefer `/temporal/polyfill` or t
 
 ```typescript
 import 'temporal-polyfill/global'
-import { eq, gte } from 'drizzle-orm'
-import { pgTable, serial, text } from 'drizzle-orm/pg-core'
 import {
   interval,
   plainDate,
@@ -85,6 +83,8 @@ import {
   timestamp,
   timestampz,
 } from '@denny-il/drizzle-pg-utils/temporal/global'
+import { eq, gte } from 'drizzle-orm'
+import { pgTable, serial, text } from 'drizzle-orm/pg-core'
 
 const events = pgTable('events', {
   id: serial('id').primaryKey(),
@@ -124,15 +124,15 @@ SET intervalstyle = 'iso_8601';
 
 ## PostgreSQL Type Map
 
-| Helper | Temporal value | PostgreSQL type | Notes |
-| --- | --- | --- | --- |
-| `timestamp` | `Temporal.PlainDateTime` | `timestamp[(precision)]` | No timezone |
-| `timestampz` | `Temporal.Instant` | `timestamp[(precision)] with time zone` | Stores an absolute instant |
-| `plainDate` | `Temporal.PlainDate` | `date` | Date only |
-| `time` | `Temporal.PlainTime` | `time[(precision)]` | Time only |
-| `interval` | `Temporal.Duration` | `interval[fields][(precision)]` | Requires `intervalstyle = 'iso_8601'` |
-| `yearMonth` | `Temporal.PlainYearMonth` | `text` | Optional regex constraint |
-| `monthDay` | `Temporal.PlainMonthDay` | `text` | Optional regex constraint |
+| Helper       | Temporal value            | PostgreSQL type                         | Notes                                 |
+| ------------ | ------------------------- | --------------------------------------- | ------------------------------------- |
+| `timestamp`  | `Temporal.PlainDateTime`  | `timestamp[(precision)]`                | No timezone                           |
+| `timestampz` | `Temporal.Instant`        | `timestamp[(precision)] with time zone` | Stores an absolute instant            |
+| `plainDate`  | `Temporal.PlainDate`      | `date`                                  | Date only                             |
+| `time`       | `Temporal.PlainTime`      | `time[(precision)]`                     | Time only                             |
+| `interval`   | `Temporal.Duration`       | `interval[fields][(precision)]`         | Requires `intervalstyle = 'iso_8601'` |
+| `yearMonth`  | `Temporal.PlainYearMonth` | `text`                                  | Optional regex constraint             |
+| `monthDay`   | `Temporal.PlainMonthDay`  | `text`                                  | Optional regex constraint             |
 
 ## Important Behavior
 
@@ -141,13 +141,11 @@ SET intervalstyle = 'iso_8601';
 `timestampz` maps directly to `Temporal.Instant`. If you already have a `Temporal.ZonedDateTime`, convert it with `.toInstant()` before writing.
 
 ```typescript
-const input = Temporal.ZonedDateTime.from('2026-03-15T09:30:00+01:00[Europe/Kyiv]')
+const input = Temporal.ZonedDateTime.from('2026-03-15T09:30:00+00:00[UTC]')
 
 await db.insert(events).values({ createdAt: input.toInstant() })
 
-const [row] = await db
-  .select({ createdAt: events.createdAt })
-  .from(events)
+const [row] = await db.select({ createdAt: events.createdAt }).from(events)
 
 row!.createdAt instanceof Temporal.Instant
 // true
@@ -203,7 +201,6 @@ These two helpers store strings and decode them back into Temporal values.
 Use factories when you want explicit binding or shared serialization rules.
 
 ```typescript
-import { Temporal } from 'temporal-polyfill'
 import {
   createInterval,
   createPlainDate,
@@ -211,6 +208,7 @@ import {
   createTimestamp,
   createTimestampz,
 } from '@denny-il/drizzle-pg-utils/temporal'
+import { Temporal } from 'temporal-polyfill'
 
 const plainDate = createPlainDate(Temporal)
 const time = createTime(Temporal, { smallestUnit: 'millisecond' })

@@ -92,20 +92,21 @@
     "test": "vitest run",
     "build": "tsc --build tsconfig.build.json",
     "check:type": "tsc --noEmit",
-    "check:lint": "biome lint .",
-    "check:fmt": "biome format .",
+    "check:lint": "oxlint --deny-warnings",
+    "check:fmt": "oxfmt --check",
     "check": "pnpm run check:fmt && pnpm run check:lint && pnpm run check:type",
-    "fmt": "biome check --write ."
+    "fmt": "oxlint --fix && oxfmt"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.0",
-    "@electric-sql/pglite": "0.5.3",
-    "@types/node": "^22.19.21",
+    "@electric-sql/pglite": "0.5.11",
+    "@types/node": "^22.20.5",
     "drizzle-orm": "1.0.0-rc.5",
+    "oxfmt": "0.74.0",
+    "oxlint": "1.89.0",
     "postgres": "^3.4.9",
-    "temporal-polyfill": "^1.0.1",
-    "typescript": "7.0.1-rc",
-    "vitest": "4.1.9"
+    "temporal-polyfill": "^1.0.6",
+    "typescript": "7.1.0-beta",
+    "vitest": "5.0.5"
   },
   "peerDependencies": {
     "drizzle-orm": "1.0.0-rc.5",

@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto'
+
 import { type SQLWrapper, sql } from 'drizzle-orm'
 import { jsonb, pgTable } from 'drizzle-orm/pg-core'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+
 import { json } from '../../src/index.ts'
 import { jsonAccess } from '../../src/json/operations/access.ts'
 import { jsonContains } from '../../src/json/operations/contains.ts'

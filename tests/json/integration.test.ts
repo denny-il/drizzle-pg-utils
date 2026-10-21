@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm'
 import { beforeAll, describe, expect, it } from 'vitest'
+
 import { jsonAccess } from '../../src/json/operations/access.ts'
 import {
   jsonArrayDelete,
@@ -47,9 +48,8 @@ describe('JSON Integration Tests', () => {
     expect(jsonImportSet.jsonSet).toEqual(jsonImport.set)
     expect(jsonImportSet.jsonSetPipe).toEqual(jsonImport.setPipe)
 
-    const jsonImportArray = await import(
-      '@denny-il/drizzle-pg-utils/json/array'
-    )
+    const jsonImportArray =
+      await import('@denny-il/drizzle-pg-utils/json/array')
     expect(jsonImportArray.jsonArrayDelete).toBeDefined()
     expect(jsonImportArray.jsonArrayPush).toBeDefined()
     expect(jsonImportArray.jsonArraySet).toBeDefined()
@@ -57,33 +57,28 @@ describe('JSON Integration Tests', () => {
     expect(jsonImportArray.jsonArrayPush).toEqual(jsonImport.arrayPush)
     expect(jsonImportArray.jsonArraySet).toEqual(jsonImport.arraySet)
 
-    const jsonImportAccess = await import(
-      '@denny-il/drizzle-pg-utils/json/access'
-    )
+    const jsonImportAccess =
+      await import('@denny-il/drizzle-pg-utils/json/access')
     expect(jsonImportAccess.jsonAccess).toBeDefined()
     expect(jsonImportAccess.jsonAccess).toEqual(jsonImport.access)
 
-    const jsonImportMerge = await import(
-      '@denny-il/drizzle-pg-utils/json/merge'
-    )
+    const jsonImportMerge =
+      await import('@denny-il/drizzle-pg-utils/json/merge')
     expect(jsonImportMerge.jsonMerge).toBeDefined()
     expect(jsonImportMerge.jsonMerge).toEqual(jsonImport.merge)
 
-    const jsonImportBuild = await import(
-      '@denny-il/drizzle-pg-utils/json/build'
-    )
+    const jsonImportBuild =
+      await import('@denny-il/drizzle-pg-utils/json/build')
     expect(jsonImportBuild.jsonBuild).toBeDefined()
     expect(jsonImportBuild.jsonBuild).toEqual(jsonImport.build)
 
-    const jsonImportCoalesce = await import(
-      '@denny-il/drizzle-pg-utils/json/coalesce'
-    )
+    const jsonImportCoalesce =
+      await import('@denny-il/drizzle-pg-utils/json/coalesce')
     expect(jsonImportCoalesce.jsonCoalesce).toBeDefined()
     expect(jsonImportCoalesce.jsonCoalesce).toEqual(jsonImport.coalesce)
 
-    const jsonImportContains = await import(
-      '@denny-il/drizzle-pg-utils/json/contains'
-    )
+    const jsonImportContains =
+      await import('@denny-il/drizzle-pg-utils/json/contains')
     expect(jsonImportContains.jsonContains).toBeDefined()
     expect(jsonImportContains.jsonContains).toEqual(jsonImport.contains)
   })

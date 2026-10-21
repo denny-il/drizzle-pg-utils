@@ -1,5 +1,6 @@
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
 import type { SQL } from 'drizzle-orm/sql'
+
 import type {
   SQLJSONDenullify,
   SQLJSONExtractType,
@@ -35,9 +36,8 @@ export type SQLJSONSet<
         ? false
         : true
       : false,
-  IsObject extends ObjectType extends object
-    ? true
-    : false = ObjectType extends object ? true : false,
+  IsObject extends (ObjectType extends object ? true : false) =
+    ObjectType extends object ? true : false,
 > = (Root extends false
   ? {
       $set: SQLJSONSetFn<Type, Source>

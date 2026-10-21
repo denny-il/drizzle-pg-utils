@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm'
 import { beforeAll, describe, expect, it } from 'vitest'
+
 import { arraySet } from '../../src/json/index.ts'
 import { jsonArraySet } from '../../src/json/operations/array.ts'
 import { jsonBuild } from '../../src/json/operations/build.ts'

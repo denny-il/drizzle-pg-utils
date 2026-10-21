@@ -1,11 +1,12 @@
 import { isSQLWrapper, type SQL, sql } from 'drizzle-orm'
+
+import { jsonbParam } from '../param.ts'
 import type {
   SQLJSONDenullify,
   SQLJSONExtractType,
   SQLJSONNullish,
   SQLJSONValue,
 } from '../types.ts'
-import { jsonbParam } from '../param.ts'
 import { jsonBuild } from './build.ts'
 
 type AcceptableValue = any[] | SQLJSONNullish
@@ -46,8 +47,8 @@ function valueOrEmptyArray<T extends SQLJSONValue<AcceptableValue>>(
 export function jsonArrayPush<
   Target extends SQLJSONValue<AcceptableValue>,
   SourceType extends SQLJSONExtractType<Target> = SQLJSONExtractType<Target>,
-  ElementType extends
-    SQLJSONDenullify<SourceType>[number] = SQLJSONDenullify<SourceType>[number],
+  ElementType extends SQLJSONDenullify<SourceType>[number] =
+    SQLJSONDenullify<SourceType>[number],
 >(
   target: Target,
   ...values: Array<ElementType | SQLJSONValue<ElementType>>
@@ -84,8 +85,8 @@ export function jsonArrayPush<
 export function jsonArraySet<
   Target extends SQLJSONValue<AcceptableValue>,
   SourceType extends SQLJSONExtractType<Target> = SQLJSONExtractType<Target>,
-  ElementType extends
-    SQLJSONDenullify<SourceType>[number] = SQLJSONDenullify<SourceType>[number],
+  ElementType extends SQLJSONDenullify<SourceType>[number] =
+    SQLJSONDenullify<SourceType>[number],
 >(
   target: Target,
   index: number,
