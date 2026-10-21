@@ -135,7 +135,7 @@ describe('jsonSetPipe SQL injection hardening', () => {
 
     expect(query.params).toEqual([wrapperValue, wrapperValue])
     expect(query.sql).toBe(
-      "jsonb_set(jsonb_set('{}'::jsonb, array['bare']::text[], $1, true), array['expr']::text[], to_jsonb(lower($2)), true)",
+      "jsonb_set(jsonb_set('{}'::jsonb, array['bare']::text[], coalesce($1, 'null'::jsonb), true), array['expr']::text[], coalesce(to_jsonb(lower($2)), 'null'::jsonb), true)",
     )
     expect(query.sql).not.toContain(wrapperValue)
     expectNoExecutableInjection(query.sql)
