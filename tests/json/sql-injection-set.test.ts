@@ -16,7 +16,7 @@ describe('JSON Set SQL injection hardening', () => {
     const query = dialect.sqlToQuery(result)
 
     expect(query.sql).toBe(
-      `jsonb_set(${sourceSql}, array['x''), true); drop table users; --','nested','a,b{c}']::text[], $1::jsonb, true)`,
+      `jsonb_set(${sourceSql}, array['x''), true); drop table users; --','nested','a,b{c}']::text[], $1::text::jsonb, true)`,
     )
     expect(query.params).toEqual([JSON.stringify("v'); select 1; --")])
   })
@@ -30,7 +30,7 @@ describe('JSON Set SQL injection hardening', () => {
     const query = dialect.sqlToQuery(result)
 
     expect(query.sql).toBe(
-      `jsonb_set(${sourceSql}, array['payload']::text[], jsonb_build_object('k''); drop table audit; --', $1::jsonb,'safe', $2::jsonb), true)`,
+      `jsonb_set(${sourceSql}, array['payload']::text[], jsonb_build_object('k''); drop table audit; --', $1::text::jsonb,'safe', $2::text::jsonb), true)`,
     )
     expect(query.params).toEqual([
       JSON.stringify("v'); select 1; --"),
@@ -48,7 +48,7 @@ describe('JSON Set SQL injection hardening', () => {
     const query = dialect.sqlToQuery(result)
 
     expect(query.sql).toBe(
-      `jsonb_set(jsonb_set(coalesce(nullif(${sourceSql}, 'null'::jsonb), '{}'::jsonb), array['cfg''); drop table cfg; --']::text[], coalesce(nullif(jsonb_extract_path(${sourceSql}, 'cfg''); drop table cfg; --'), 'null'::jsonb), jsonb_build_object('d''); drop table d; --', $1::jsonb)), true), array['cfg''); drop table cfg; --','leaf''); drop table l; --']::text[], $2::jsonb, false)`,
+      `jsonb_set(jsonb_set(coalesce(nullif(${sourceSql}, 'null'::jsonb), '{}'::jsonb), array['cfg''); drop table cfg; --']::text[], coalesce(nullif(jsonb_extract_path(${sourceSql}, 'cfg''); drop table cfg; --'), 'null'::jsonb), jsonb_build_object('d''); drop table d; --', $1::text::jsonb)), true), array['cfg''); drop table cfg; --','leaf''); drop table l; --']::text[], $2::text::jsonb, false)`,
     )
     expect(query.params).toEqual([
       JSON.stringify("default'); --"),
@@ -69,11 +69,11 @@ describe('JSON Set SQL injection hardening', () => {
     )
 
     expect(setQuery.sql).toBe(
-      `jsonb_set(${sourceSql}, array['payload']::text[], $1::jsonb, true)`,
+      `jsonb_set(${sourceSql}, array['payload']::text[], $1::text::jsonb, true)`,
     )
     expect(setQuery.params).toEqual([JSON.stringify('safe')])
     expect(defaultQuery.sql).toBe(
-      `jsonb_set(jsonb_set(coalesce(nullif(${sourceSql}, 'null'::jsonb), '{}'::jsonb), array['payload']::text[], coalesce(nullif(jsonb_extract_path(${sourceSql}, 'payload'), 'null'::jsonb), $1::jsonb), false), array['payload','leaf']::text[], $2::jsonb, true)`,
+      `jsonb_set(jsonb_set(coalesce(nullif(${sourceSql}, 'null'::jsonb), '{}'::jsonb), array['payload']::text[], coalesce(nullif(jsonb_extract_path(${sourceSql}, 'payload'), 'null'::jsonb), $1::text::jsonb), false), array['payload','leaf']::text[], $2::text::jsonb, true)`,
     )
     expect(defaultQuery.params).toEqual([
       JSON.stringify('safe'),
@@ -88,7 +88,7 @@ describe('JSON Set SQL injection hardening', () => {
     const query = dialect.sqlToQuery(result)
 
     expect(query.sql).toBe(
-      `jsonb_set(${sourceSql}, array['payload']::text[], $1::jsonb, true)`,
+      `jsonb_set(${sourceSql}, array['payload']::text[], $1::text::jsonb, true)`,
     )
     expect(query.params).toEqual([JSON.stringify("'}::jsonb); select 1; --")])
   })
@@ -121,7 +121,7 @@ describe('JSON Set SQL injection hardening', () => {
     const query = dialect.sqlToQuery(result)
 
     expect(query.sql).toBe(
-      `jsonb_set(${sourceSql}, array['alias''); drop table alias; --']::text[], $1::jsonb, true)`,
+      `jsonb_set(${sourceSql}, array['alias''); drop table alias; --']::text[], $1::text::jsonb, true)`,
     )
     expect(query.params).toEqual([JSON.stringify('ok')])
   })

@@ -58,7 +58,7 @@ describe('JSON Set', () => {
         ['new-url', 'light', false].map((v) => JSON.stringify(v)),
       )
       expect(query.sql).toBe(
-        `jsonb_set(${jsonObjectSql}, array['profile']::text[], jsonb_build_object('avatar', $1::jsonb,'settings', jsonb_build_object('theme', $2::jsonb,'notifications', $3::jsonb)), true)`,
+        `jsonb_set(${jsonObjectSql}, array['profile']::text[], jsonb_build_object('avatar', $1::text::jsonb,'settings', jsonb_build_object('theme', $2::text::jsonb,'notifications', $3::text::jsonb)), true)`,
       )
     })
 
@@ -79,7 +79,7 @@ describe('JSON Set', () => {
         ['new-url', 'light', false].map((v) => JSON.stringify(v)),
       )
       expect(query.sql).toBe(
-        `jsonb_set(${jsonObjectSql}, array['profile']::text[], jsonb_build_object('avatar', $1::jsonb,'settings', jsonb_build_object('theme', $2::jsonb,'notifications', $3::jsonb)), false)`,
+        `jsonb_set(${jsonObjectSql}, array['profile']::text[], jsonb_build_object('avatar', $1::text::jsonb,'settings', jsonb_build_object('theme', $2::text::jsonb,'notifications', $3::text::jsonb)), false)`,
       )
     })
   })
@@ -100,7 +100,7 @@ describe('JSON Set', () => {
         ['updated-url', 'light', false].map((v) => JSON.stringify(v)),
       )
       expect(query.sql).toBe(
-        `jsonb_set(${jsonObjectSql}, array['profile']::text[], jsonb_build_object('avatar', $1::jsonb,'settings', jsonb_build_object('theme', $2::jsonb,'notifications', $3::jsonb)), true)`,
+        `jsonb_set(${jsonObjectSql}, array['profile']::text[], jsonb_build_object('avatar', $1::text::jsonb,'settings', jsonb_build_object('theme', $2::text::jsonb,'notifications', $3::text::jsonb)), true)`,
       )
     })
 
@@ -116,7 +116,7 @@ describe('JSON Set', () => {
         ['light', false].map((v) => JSON.stringify(v)),
       )
       expect(query.sql).toBe(
-        `jsonb_set(${jsonObjectSql}, array['profile','settings']::text[], jsonb_build_object('theme', $1::jsonb,'notifications', $2::jsonb), true)`,
+        `jsonb_set(${jsonObjectSql}, array['profile','settings']::text[], jsonb_build_object('theme', $1::text::jsonb,'notifications', $2::text::jsonb), true)`,
       )
     })
 
@@ -129,7 +129,7 @@ describe('JSON Set', () => {
         ['Updated Name'].map((v) => JSON.stringify(v)),
       )
       expect(query.sql).toBe(
-        `jsonb_set(${jsonObjectSql}, array['name']::text[], $1::jsonb, true)`,
+        `jsonb_set(${jsonObjectSql}, array['name']::text[], $1::text::jsonb, true)`,
       )
     })
   })
@@ -144,7 +144,7 @@ describe('JSON Set', () => {
         ['new-tag1', 'new-tag2', 'new-tag3'].map((v) => JSON.stringify(v)),
       )
       expect(query.sql).toBe(
-        `jsonb_set(${jsonObjectSql}, array['tags']::text[], jsonb_build_array($1::jsonb,$2::jsonb,$3::jsonb), true)`,
+        `jsonb_set(${jsonObjectSql}, array['tags']::text[], jsonb_build_array($1::text::jsonb,$2::text::jsonb,$3::text::jsonb), true)`,
       )
     })
 
@@ -158,7 +158,7 @@ describe('JSON Set', () => {
         ['js-tag', 'another-js-tag'].map((v) => JSON.stringify(v)),
       )
       expect(query.sql).toBe(
-        `jsonb_set(${jsonObjectSql}, array['tags']::text[], jsonb_build_array($1::jsonb,to_jsonb('sql-generated-tag'::text),$2::jsonb), true)`,
+        `jsonb_set(${jsonObjectSql}, array['tags']::text[], jsonb_build_array($1::text::jsonb,to_jsonb('sql-generated-tag'::text),$2::text::jsonb), true)`,
       )
     })
 
@@ -188,7 +188,7 @@ describe('JSON Set', () => {
         ['value', 42, true].map((v) => JSON.stringify(v)),
       )
       expect(query.sql).toBe(
-        `jsonb_set(${jsonObjectSql}, array['metadata']::text[], jsonb_build_object('stringKey', $1::jsonb,'numberKey', $2::jsonb,'booleanKey', $3::jsonb), true)`,
+        `jsonb_set(${jsonObjectSql}, array['metadata']::text[], jsonb_build_object('stringKey', $1::text::jsonb,'numberKey', $2::text::jsonb,'booleanKey', $3::text::jsonb), true)`,
       )
     })
 
@@ -203,7 +203,7 @@ describe('JSON Set', () => {
 
       expect(query.params).toEqual(['js-value'].map((v) => JSON.stringify(v)))
       expect(query.sql).toBe(
-        `jsonb_set(${jsonObjectSql}, array['metadata']::text[], jsonb_build_object('jsKey', $1::jsonb,'sqlKey', to_jsonb(42::integer)), true)`,
+        `jsonb_set(${jsonObjectSql}, array['metadata']::text[], jsonb_build_object('jsKey', $1::text::jsonb,'sqlKey', to_jsonb(42::integer)), true)`,
       )
     })
 
@@ -220,7 +220,7 @@ describe('JSON Set', () => {
 
       expect(query.params).toEqual(['deep-value'].map((v) => JSON.stringify(v)))
       expect(query.sql).toBe(
-        `jsonb_set(${jsonObjectSql}, array['metadata']::text[], jsonb_build_object('nested', jsonb_build_object('level1', jsonb_build_object('level2', $1::jsonb))), true)`,
+        `jsonb_set(${jsonObjectSql}, array['metadata']::text[], jsonb_build_object('nested', jsonb_build_object('level1', jsonb_build_object('level2', $1::text::jsonb))), true)`,
       )
     })
   })
@@ -417,7 +417,7 @@ describe('JSON Set', () => {
 
       expect(query.params).toEqual([null].map((v) => JSON.stringify(v)))
       expect(query.sql).toBe(
-        `jsonb_set(${jsonObjectSql}, array['metadata']::text[], jsonb_build_object('nullKey', $1::jsonb), true)`,
+        `jsonb_set(${jsonObjectSql}, array['metadata']::text[], jsonb_build_object('nullKey', $1::text::jsonb), true)`,
       )
     })
 
@@ -451,7 +451,7 @@ describe('JSON Set', () => {
 
       expect(query.params).toEqual(['updated'].map((v) => JSON.stringify(v)))
       expect(query.sql).toBe(
-        `jsonb_set('{"value": "test"}'::jsonb, array['value']::text[], $1::jsonb, true)`,
+        `jsonb_set('{"value": "test"}'::jsonb, array['value']::text[], $1::text::jsonb, true)`,
       )
     })
   })
@@ -464,7 +464,7 @@ describe('JSON Set', () => {
 
       expect(query.params).toEqual(['light'].map((v) => JSON.stringify(v)))
       expect(query.sql).toBe(
-        `jsonb_set(${jsonObjectSql}, array['profile','settings','theme']::text[], $1::jsonb, true)`,
+        `jsonb_set(${jsonObjectSql}, array['profile','settings','theme']::text[], $1::text::jsonb, true)`,
       )
     })
 
@@ -475,7 +475,7 @@ describe('JSON Set', () => {
 
       expect(query.params).toEqual([999].map((v) => JSON.stringify(v)))
       expect(query.sql).toBe(
-        `jsonb_set(${jsonObjectSql}, array['id']::text[], $1::jsonb, true)`,
+        `jsonb_set(${jsonObjectSql}, array['id']::text[], $1::text::jsonb, true)`,
       )
     })
   })
@@ -494,13 +494,13 @@ describe('JSON Set', () => {
       const tagsQuery = dialect.sqlToQuery(tagsUpdate)
 
       expect(nameQuery.sql).toBe(
-        `jsonb_set(${jsonObjectSql}, array['name']::text[], $1::jsonb, true)`,
+        `jsonb_set(${jsonObjectSql}, array['name']::text[], $1::text::jsonb, true)`,
       )
       expect(profileQuery.sql).toBe(
-        `jsonb_set(${jsonObjectSql}, array['profile','avatar']::text[], $1::jsonb, true)`,
+        `jsonb_set(${jsonObjectSql}, array['profile','avatar']::text[], $1::text::jsonb, true)`,
       )
       expect(tagsQuery.sql).toBe(
-        `jsonb_set(${jsonObjectSql}, array['tags']::text[], jsonb_build_array($1::jsonb,$2::jsonb), true)`,
+        `jsonb_set(${jsonObjectSql}, array['tags']::text[], jsonb_build_array($1::text::jsonb,$2::text::jsonb), true)`,
       )
 
       expect(nameQuery.params).toEqual(
@@ -533,7 +533,7 @@ describe('JSON Set', () => {
 
       expect(query.params).toEqual(['very-deep'].map((v) => JSON.stringify(v)))
       expect(query.sql).toBe(
-        `jsonb_set('{"level1": {"level2": {"level3": {"level4": {"value": "deep"}}}}}'::jsonb, array['level1','level2','level3','level4','value']::text[], $1::jsonb, true)`,
+        `jsonb_set('{"level1": {"level2": {"level3": {"level4": {"value": "deep"}}}}}'::jsonb, array['level1','level2','level3','level4','value']::text[], $1::text::jsonb, true)`,
       )
     })
   })
@@ -550,7 +550,7 @@ describe('JSON Set', () => {
         ['new-avatar.jpg', 'dark'].map((v) => JSON.stringify(v)),
       )
       expect(query.sql).toBe(
-        `jsonb_set(jsonb_set(${jsonObjectSql}, array['profile','avatar']::text[], $1::jsonb, true), array['profile','settings','theme']::text[], $2::jsonb, true)`,
+        `jsonb_set(jsonb_set(${jsonObjectSql}, array['profile','avatar']::text[], $1::text::jsonb, true), array['profile','settings','theme']::text[], $2::text::jsonb, true)`,
       )
     })
   })
@@ -567,7 +567,7 @@ describe('JSON Set', () => {
         ['default', 'updated'].map((v) => JSON.stringify(v)),
       )
       expect(query.sql).toBe(
-        `jsonb_set(jsonb_set(coalesce(nullif(${jsonObjectSql}, 'null'::jsonb), '{}'::jsonb), array['optionalObject']::text[], coalesce(nullif(jsonb_extract_path(${jsonObjectSql}, 'optionalObject'), 'null'::jsonb), jsonb_build_object('key', $1::jsonb)), true), array['optionalObject','key']::text[], $2::jsonb, true)`,
+        `jsonb_set(jsonb_set(coalesce(nullif(${jsonObjectSql}, 'null'::jsonb), '{}'::jsonb), array['optionalObject']::text[], coalesce(nullif(jsonb_extract_path(${jsonObjectSql}, 'optionalObject'), 'null'::jsonb), jsonb_build_object('key', $1::text::jsonb)), true), array['optionalObject','key']::text[], $2::text::jsonb, true)`,
       )
     })
 
@@ -582,7 +582,7 @@ describe('JSON Set', () => {
         ['default1', 'default2', 'updated'].map((v) => JSON.stringify(v)),
       )
       expect(query.sql).toBe(
-        `jsonb_set(jsonb_set(coalesce(nullif(${jsonObjectSql}, 'null'::jsonb), '{}'::jsonb), array['optionalArray']::text[], coalesce(nullif(jsonb_extract_path(${jsonObjectSql}, 'optionalArray'), 'null'::jsonb), jsonb_build_array(jsonb_build_object('key', $1::jsonb),jsonb_build_object('key', $2::jsonb))), true), array['optionalArray','0','key']::text[], $3::jsonb, true)`,
+        `jsonb_set(jsonb_set(coalesce(nullif(${jsonObjectSql}, 'null'::jsonb), '{}'::jsonb), array['optionalArray']::text[], coalesce(nullif(jsonb_extract_path(${jsonObjectSql}, 'optionalArray'), 'null'::jsonb), jsonb_build_array(jsonb_build_object('key', $1::text::jsonb),jsonb_build_object('key', $2::text::jsonb))), true), array['optionalArray','0','key']::text[], $3::text::jsonb, true)`,
       )
     })
 
@@ -597,7 +597,7 @@ describe('JSON Set', () => {
         ['default', 'updated'].map((v) => JSON.stringify(v)),
       )
       expect(query.sql).toBe(
-        `jsonb_set(jsonb_set(coalesce(nullif(${jsonObjectSql}, 'null'::jsonb), '{}'::jsonb), array['optionalObject']::text[], coalesce(nullif(jsonb_extract_path(${jsonObjectSql}, 'optionalObject'), 'null'::jsonb), jsonb_build_object('key', $1::jsonb)), false), array['optionalObject','key']::text[], $2::jsonb, true)`,
+        `jsonb_set(jsonb_set(coalesce(nullif(${jsonObjectSql}, 'null'::jsonb), '{}'::jsonb), array['optionalObject']::text[], coalesce(nullif(jsonb_extract_path(${jsonObjectSql}, 'optionalObject'), 'null'::jsonb), jsonb_build_object('key', $1::text::jsonb)), false), array['optionalObject','key']::text[], $2::text::jsonb, true)`,
       )
     })
 
@@ -613,7 +613,7 @@ describe('JSON Set', () => {
 
       expect(query.params).toEqual(['updated'].map((v) => JSON.stringify(v)))
       expect(query.sql).toBe(
-        `jsonb_set(jsonb_set(coalesce(nullif(${jsonObjectSql}, 'null'::jsonb), '{}'::jsonb), array['optionalObject']::text[], coalesce(nullif(jsonb_extract_path(${jsonObjectSql}, 'optionalObject'), 'null'::jsonb), to_jsonb(jsonb_build_object('key', 'sql-default'))), true), array['optionalObject','key']::text[], $1::jsonb, true)`,
+        `jsonb_set(jsonb_set(coalesce(nullif(${jsonObjectSql}, 'null'::jsonb), '{}'::jsonb), array['optionalObject']::text[], coalesce(nullif(jsonb_extract_path(${jsonObjectSql}, 'optionalObject'), 'null'::jsonb), to_jsonb(jsonb_build_object('key', 'sql-default'))), true), array['optionalObject','key']::text[], $1::text::jsonb, true)`,
       )
     })
 
@@ -632,7 +632,7 @@ describe('JSON Set', () => {
         ['defaultKey', 'defaultKey2', 'newValue'].map((v) => JSON.stringify(v)),
       )
       expect(query.sql).toBe(
-        `jsonb_set(jsonb_set(coalesce(nullif(${jsonObjectSql}, 'null'::jsonb), '{}'::jsonb), array['optionalArray']::text[], coalesce(nullif(jsonb_extract_path(${jsonObjectSql}, 'optionalArray'), 'null'::jsonb), jsonb_build_array(jsonb_build_object('key', $1::jsonb,'key2', $2::jsonb))), true), array['optionalArray','0','key2']::text[], $3::jsonb, true)`,
+        `jsonb_set(jsonb_set(coalesce(nullif(${jsonObjectSql}, 'null'::jsonb), '{}'::jsonb), array['optionalArray']::text[], coalesce(nullif(jsonb_extract_path(${jsonObjectSql}, 'optionalArray'), 'null'::jsonb), jsonb_build_array(jsonb_build_object('key', $1::text::jsonb,'key2', $2::text::jsonb))), true), array['optionalArray','0','key2']::text[], $3::text::jsonb, true)`,
       )
     })
 
@@ -672,7 +672,7 @@ describe('JSON Set', () => {
 
       expect(query.params).toEqual(['json'].map((v) => JSON.stringify(v)))
       expect(query.sql).toBe(
-        `jsonb_set("test"."jsoncol", array['some']::text[], $1::jsonb, true)`,
+        `jsonb_set("test"."jsoncol", array['some']::text[], $1::text::jsonb, true)`,
       )
     })
 
@@ -683,7 +683,7 @@ describe('JSON Set', () => {
 
       expect(query.params).toEqual(['json'].map((v) => JSON.stringify(v)))
       expect(query.sql).toBe(
-        `jsonb_set("test"."jsoncol", array['some']::text[], $1::jsonb, true)`,
+        `jsonb_set("test"."jsoncol", array['some']::text[], $1::text::jsonb, true)`,
       )
     })
   })

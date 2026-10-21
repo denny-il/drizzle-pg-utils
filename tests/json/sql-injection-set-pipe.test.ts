@@ -78,7 +78,7 @@ describe('jsonSetPipe SQL injection hardening', () => {
       JSON.stringify(maliciousValue),
     ])
     expect(query.sql).toContain(
-      `jsonb_build_object(${quotedSqlString(maliciousObjectKey)}, $1::jsonb)`,
+      `jsonb_build_object(${quotedSqlString(maliciousObjectKey)}, $1::text::jsonb)`,
     )
     expect(query.sql).toContain(
       `jsonb_extract_path('{}'::jsonb, ${quotedSqlString(defaultPath)})`,
@@ -108,11 +108,11 @@ describe('jsonSetPipe SQL injection hardening', () => {
     )
 
     expect(setQuery.sql).toBe(
-      `jsonb_set('{}'::jsonb, array['field']::text[], $1::jsonb, true)`,
+      `jsonb_set('{}'::jsonb, array['field']::text[], $1::text::jsonb, true)`,
     )
     expect(setQuery.params).toEqual([JSON.stringify('safe-value')])
     expect(defaultQuery.sql).toBe(
-      `jsonb_set(jsonb_set(coalesce(nullif('{}'::jsonb, 'null'::jsonb), '{}'::jsonb), array['field']::text[], coalesce(nullif(jsonb_extract_path('{}'::jsonb, 'field'), 'null'::jsonb), $1::jsonb), false), array['field','leaf']::text[], $2::jsonb, true)`,
+      `jsonb_set(jsonb_set(coalesce(nullif('{}'::jsonb, 'null'::jsonb), '{}'::jsonb), array['field']::text[], coalesce(nullif(jsonb_extract_path('{}'::jsonb, 'field'), 'null'::jsonb), $1::text::jsonb), false), array['field','leaf']::text[], $2::text::jsonb, true)`,
     )
     expect(defaultQuery.params).toEqual([
       JSON.stringify('safe-value'),
@@ -150,7 +150,7 @@ describe('jsonSetPipe SQL injection hardening', () => {
         },
       },
       keep: true,
-    })}::jsonb`
+    })}::text::jsonb`
 
     const result = await executeQuery(
       db,

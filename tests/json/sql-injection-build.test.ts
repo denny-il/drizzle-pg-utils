@@ -31,7 +31,7 @@ describe('JSON Build SQL injection handling', () => {
     for (const payload of payloads) {
       const query = dialect.sqlToQuery(jsonBuild(payload))
 
-      expect(query.sql).toBe('$1::jsonb')
+      expect(query.sql).toBe('$1::text::jsonb')
       expect(query.sql).not.toContain(payload)
       expect(query.params).toEqual([jsonParam(payload)])
       await expect(executeQuery(db, jsonBuild(payload))).resolves.toBe(payload)

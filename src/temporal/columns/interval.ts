@@ -30,6 +30,7 @@ export function createInterval<T extends typeof globalThis.Temporal>(
 ): TemporalIntervalType<T> {
   return {
     column: customType<Config<T>>({
+      codec: 'interval',
       dataType: (config?: IntervalConfig) =>
         `interval${config?.fields ? ` ${config.fields}` : ''}${typeof config?.precision !== 'undefined' ? ` (${config.precision})` : ''}`,
       fromDriver: (val: string) =>

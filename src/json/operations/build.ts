@@ -1,4 +1,13 @@
-import { isSQLWrapper, type SQL, type SQLWrapper, sql } from 'drizzle-orm'
+import {
+  is,
+  isSQLWrapper,
+  type SQL,
+  type SQLWrapper,
+  Param,
+  Placeholder,
+  sql,
+} from 'drizzle-orm'
+import { jsonbParam } from '../param.ts'
 
 export type SQLJSONBuildMixedPrimitiveType =
   | string
@@ -34,19 +43,14 @@ export type SQLJSONBuildUnwrapType<T extends SQLJSONBuildMixedType> =
 export function jsonBuild<T extends SQLJSONBuildMixedType>(
   value: T,
 ): SQL<SQLJSONBuildUnwrapType<T>> {
-  function isEmptyStringChunk(chunk: unknown) {
-    const value = (chunk as { value?: unknown }).value
-    return Array.isArray(value) && value.length === 1 && value[0] === ''
-  }
-
+  // A bare param is `sql\`${value}\``, which drizzle builds as a single
+  // bound value chunk. Single nested SQL chunks (e.g. from `sql.join`) are
+  // expressions and still need `to_jsonb`.
   function isBareParamSQL(value: SQLWrapper) {
     const queryChunks = (value as { queryChunks?: unknown[] }).queryChunks
-    return (
-      Array.isArray(queryChunks) &&
-      queryChunks.length === 3 &&
-      isEmptyStringChunk(queryChunks[0]) &&
-      isEmptyStringChunk(queryChunks[2])
-    )
+    if (!Array.isArray(queryChunks) || queryChunks.length !== 1) return false
+    const [chunk] = queryChunks
+    return !isSQLWrapper(chunk) || is(chunk, Param) || is(chunk, Placeholder)
   }
 
   function processValue(value: any): SQLWrapper {
@@ -74,7 +78,7 @@ export function jsonBuild<T extends SQLJSONBuildMixedType>(
     }
 
     // Handle primitive values
-    return sql`${JSON.stringify(value)}::jsonb`
+    return jsonbParam(value)
   }
 
   return processValue(value) as any

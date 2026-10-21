@@ -29,6 +29,7 @@ export function createTimestampz<T extends typeof globalThis.Temporal>(
 ): TemporalTimestampzType<T> {
   return {
     column: customType<Config<T>>({
+      codec: 'timestamptz:string',
       dataType: (config?: TimeConfig) =>
         `timestamp${typeof config?.precision !== 'undefined' ? ` (${config.precision})` : ''} with time zone`,
       fromDriver: (val: string) =>

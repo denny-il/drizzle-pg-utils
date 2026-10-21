@@ -32,7 +32,7 @@ describe('JSON Merge SQL injection and misuse resistance', () => {
       JSON.stringify(maliciousValue),
     ])
     expect(query.sql).toBe(
-      `coalesce(jsonb_build_object('stable', $1::jsonb), 'null'::jsonb) || coalesce(jsonb_build_object('x''); drop table merge_sentinel; --', $2::jsonb), 'null'::jsonb)`,
+      `coalesce(jsonb_build_object('stable', $1::text::jsonb), 'null'::jsonb) || coalesce(jsonb_build_object('x''); drop table merge_sentinel; --', $2::text::jsonb), 'null'::jsonb)`,
     )
     expect(query.sql).not.toContain(maliciousValue)
   })
@@ -60,7 +60,7 @@ describe('JSON Merge SQL injection and misuse resistance', () => {
       'wrapped value',
     ])
     expect(query.sql).toBe(
-      `coalesce(jsonb_build_object('stable', $1::jsonb), 'null'::jsonb) || coalesce(jsonb_build_object('payload', jsonb_build_object('nested''); select pg_sleep(10); --', $2::jsonb),'values', jsonb_build_array($3::jsonb,$4)), 'null'::jsonb)`,
+      `coalesce(jsonb_build_object('stable', $1::text::jsonb), 'null'::jsonb) || coalesce(jsonb_build_object('payload', jsonb_build_object('nested''); select pg_sleep(10); --', $2::text::jsonb),'values', jsonb_build_array($3::text::jsonb,$4)), 'null'::jsonb)`,
     )
     expect(query.sql).not.toContain(nestedValue)
     expect(query.sql).not.toContain(arrayValue)

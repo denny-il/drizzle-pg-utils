@@ -29,6 +29,7 @@ export function createTime<T extends typeof globalThis.Temporal>(
 ): TemporalTimeType<T> {
   return {
     column: customType<Config<T>>({
+      codec: 'time',
       dataType: (config?: TimeConfig) =>
         `time${typeof config?.precision !== 'undefined' ? ` (${config.precision})` : ''}`,
       fromDriver: (val: string) =>

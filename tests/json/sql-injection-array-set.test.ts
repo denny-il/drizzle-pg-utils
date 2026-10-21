@@ -66,7 +66,7 @@ describe('jsonArraySet SQL injection hardening', () => {
     const query = dialect.sqlToQuery(result)
 
     expect(query.sql).toBe(
-      `jsonb_set(coalesce(nullif(${arraySql}, 'null'::jsonb), '[]'::jsonb), '{0}', $1::jsonb, false)`,
+      `jsonb_set(coalesce(nullif(${arraySql}, 'null'::jsonb), '[]'::jsonb), '{0}', $1::text::jsonb, false)`,
     )
     expect(query.sql).not.toContain(maliciousValue)
     expect(query.params).toEqual([jsonParam(maliciousValue)])
@@ -86,7 +86,7 @@ describe('jsonArraySet SQL injection hardening', () => {
     const query = dialect.sqlToQuery(result)
 
     expect(query.sql).toBe(
-      `jsonb_set(coalesce(nullif(${arraySql}, 'null'::jsonb), '[]'::jsonb), '{0}', $1::jsonb, false)`,
+      `jsonb_set(coalesce(nullif(${arraySql}, 'null'::jsonb), '[]'::jsonb), '{0}', $1::text::jsonb, false)`,
     )
     expect(query.sql).not.toContain(maliciousObjectKey)
     expect(query.sql).not.toContain(maliciousObjectValue)
@@ -104,7 +104,7 @@ describe('jsonArraySet SQL injection hardening', () => {
     const query = dialect.sqlToQuery(result)
 
     expect(query.sql).toBe(
-      `jsonb_set(coalesce(nullif(${arraySql}, 'null'::jsonb), '[]'::jsonb), '{0}', to_jsonb(jsonb_build_object(${sqlString(maliciousObjectKey)}, $1::jsonb)), false)`,
+      `jsonb_set(coalesce(nullif(${arraySql}, 'null'::jsonb), '[]'::jsonb), '{0}', to_jsonb(jsonb_build_object(${sqlString(maliciousObjectKey)}, $1::text::jsonb)), false)`,
     )
     expect(query.sql).not.toContain('skip')
     expect(query.sql).not.toContain(maliciousObjectValue)
@@ -123,10 +123,10 @@ describe('jsonArraySet SQL injection hardening', () => {
     const nullQuery = dialect.sqlToQuery(nullResult)
 
     expect(undefinedQuery.sql).toBe(
-      `jsonb_set(coalesce(nullif(${arraySql}, 'null'::jsonb), '[]'::jsonb), '{0}', $1::jsonb, false)`,
+      `jsonb_set(coalesce(nullif(${arraySql}, 'null'::jsonb), '[]'::jsonb), '{0}', $1::text::jsonb, false)`,
     )
     expect(nullQuery.sql).toBe(
-      `jsonb_set(coalesce(nullif(${arraySql}, 'null'::jsonb), '[]'::jsonb), '{1}', $1::jsonb, false)`,
+      `jsonb_set(coalesce(nullif(${arraySql}, 'null'::jsonb), '[]'::jsonb), '{1}', $1::text::jsonb, false)`,
     )
     expect(undefinedQuery.params).toEqual(['null'])
     expect(nullQuery.params).toEqual(['null'])
@@ -186,7 +186,7 @@ describe('jsonArraySet SQL injection hardening', () => {
     const query = dialect.sqlToQuery(result)
 
     expect(query.sql).toBe(
-      `jsonb_set(coalesce(nullif(${arraySql}, 'null'::jsonb), '[]'::jsonb), '{1}', $1::jsonb, false)`,
+      `jsonb_set(coalesce(nullif(${arraySql}, 'null'::jsonb), '[]'::jsonb), '{1}', $1::text::jsonb, false)`,
     )
     expect(query.sql).not.toContain(maliciousValue)
     expect(query.params).toEqual([jsonParam(maliciousValue)])

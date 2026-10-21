@@ -24,7 +24,7 @@ describe('JSON Contains SQL injection and misuse resistance', () => {
     const query = dialect.sqlToQuery(result)
 
     expect(query.sql).toBe(
-      `'{"safe":true,"payload":"kept"}'::jsonb @> $1::jsonb`,
+      `'{"safe":true,"payload":"kept"}'::jsonb @> $1::text::jsonb`,
     )
     expect(query.sql).not.toContain(maliciousValue)
     expect(query.params).toEqual([JSON.stringify({ payload: maliciousValue })])
@@ -38,7 +38,9 @@ describe('JSON Contains SQL injection and misuse resistance', () => {
     const result = jsonContains(source)[maliciousPath].$contains(maliciousValue)
     const query = dialect.sqlToQuery(result)
 
-    expect(query.sql).toBe(`'{"profile":{"theme":"dark"}}'::jsonb @> $1::jsonb`)
+    expect(query.sql).toBe(
+      `'{"profile":{"theme":"dark"}}'::jsonb @> $1::text::jsonb`,
+    )
     expect(query.sql).not.toContain(maliciousPath)
     expect(query.sql).not.toContain(maliciousValue)
     expect(query.params).toEqual([
