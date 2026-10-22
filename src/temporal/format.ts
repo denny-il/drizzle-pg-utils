@@ -11,8 +11,11 @@ export function toPostgresDateTime(value: string): string {
 export function fromPostgresDateTime(value: string): string {
   const bc = value.endsWith(' BC')
   const dateTime = bc ? value.slice(0, -3) : value
-  return dateTime.replace(/^(\d+)(-.*)$/, (_, year, rest) => {
-    const isoYear = bc ? 1 - Number(year) : Number(year)
+  // A leading `-` is a signed astronomical year, which @effect/sql-pg emits
+  // for dates it decodes itself (`-0001-03-04` for PostgreSQL's
+  // `0002-03-04 BC`). PostgreSQL's own output never has one.
+  return dateTime.replace(/^(-?)(\d+)(-.*)$/, (_, sign, year, rest) => {
+    const isoYear = sign ? -Number(year) : bc ? 1 - Number(year) : Number(year)
     const iso =
       isoYear < 0
         ? `-${String(-isoYear).padStart(6, '0')}`

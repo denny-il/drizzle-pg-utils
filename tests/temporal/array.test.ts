@@ -54,7 +54,7 @@ beforeEach(async () => {
 })
 
 describe('Temporal array columns', () => {
-  it('decodes partial dates, multidimensional arrays, and empty arrays', async () => {
+  it('decodes partial dates and empty arrays', async () => {
     const [record] = await db
       .insert(temporalArrayTable)
       .values({
@@ -63,23 +63,37 @@ describe('Temporal array columns', () => {
           Temporal.PlainYearMonth.from('2026-10'),
         ],
         monthDays: [Temporal.PlainMonthDay.from('02-29')],
-        dateMatrix: [
-          [Temporal.PlainDate.from('0000-01-02')],
-          [Temporal.PlainDate.from('2026-10-22')],
-        ],
         durations: [Temporal.Duration.from('-PT1H')],
         plainTimes: [],
       })
       .returning()
     expect(record!.yearMonths!.map(String)).toEqual(['-000001-02', '2026-10'])
     expect(record!.monthDays!.map(String)).toEqual(['02-29'])
-    expect(record!.dateMatrix!.map((row) => row.map(String))).toEqual([
-      ['0000-01-02'],
-      ['2026-10-22'],
-    ])
     expect(record!.durations![0]!.toString()).toBe('-PT1H')
     expect(record!.plainTimes).toEqual([])
   })
+
+  // @effect/sql-pg 4.0 only decodes one-dimensional arrays. Skipped rather
+  // than expected to fail: the failed decode also leaves its connection
+  // unusable, which would fail every later test in this file.
+  it.skipIf(testDriver === 'effect-postgres')(
+    'decodes multidimensional arrays',
+    async () => {
+      const [record] = await db
+        .insert(temporalArrayTable)
+        .values({
+          dateMatrix: [
+            [Temporal.PlainDate.from('0000-01-02')],
+            [Temporal.PlainDate.from('2026-10-22')],
+          ],
+        })
+        .returning()
+      expect(record!.dateMatrix!.map((row) => row.map(String))).toEqual([
+        ['0000-01-02'],
+        ['2026-10-22'],
+      ])
+    },
+  )
 
   // Drizzle rc.5's postgres-js array parser turns unquoted SQL NULL into the
   // string 'NULL'. Other drivers preserve null; detect an upstream fix.
