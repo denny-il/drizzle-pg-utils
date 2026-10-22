@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm'
-import { getTableConfig, pgTable } from 'drizzle-orm/pg-core'
+import { pgTable } from 'drizzle-orm/pg-core'
 import { Temporal } from 'temporal-polyfill'
 import { beforeAll, describe, expect, it } from 'vitest'
 
@@ -11,7 +11,12 @@ import {
   timestampz,
   yearMonth,
 } from '../../src/temporal/polyfill.ts'
-import { createDatabase, type TestDatabase, testDriver } from '../utils.ts'
+import {
+  createDatabase,
+  tableChecks,
+  type TestDatabase,
+  testDriver,
+} from '../utils.ts'
 
 const dates = pgTable(
   'temporal_edge_cases',
@@ -33,12 +38,8 @@ let db: TestDatabase
 beforeAll(async () => {
   db = await createDatabase()
   await db.execute(sql`set intervalstyle = 'iso_8601'`)
-  const checks = getTableConfig(dates).checks.map(
-    (check) =>
-      sql`constraint ${sql.identifier(check.name)} check (${check.value})`,
-  )
   await db.execute(
-    sql`create table temporal_edge_cases (date date, duration interval, timestamp timestamp, instant timestamptz, "yearMonth" text, "monthDay" text, ${sql.join(checks, sql`, `)})`,
+    sql`create table temporal_edge_cases (date date, duration interval, timestamp timestamp, instant timestamptz, "yearMonth" text, "monthDay" text, ${tableChecks(dates)})`,
   )
 })
 

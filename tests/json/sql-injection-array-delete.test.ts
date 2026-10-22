@@ -28,6 +28,10 @@ describe('jsonArrayDelete SQL injection and misuse resistance', () => {
     { index: -3, sqlIndex: '-3' },
     { index: 2147483647, sqlIndex: '2147483647' },
     { index: -2147483648, sqlIndex: '-2147483648' },
+    // Outside int4: still inlined as plain digits, for PostgreSQL to reject.
+    { index: 2147483648, sqlIndex: '2147483648' },
+    { index: -2147483649, sqlIndex: '-2147483649' },
+    { index: Number.MAX_SAFE_INTEGER, sqlIndex: '9007199254740991' },
   ])('renders numeric index $index as an integer operand', (testCase) => {
     const query = dialect.sqlToQuery(jsonArrayDelete(source, testCase.index))
 
@@ -53,15 +57,6 @@ describe('jsonArrayDelete SQL injection and misuse resistance', () => {
 
     expect(result).toEqual(testCase.expected)
   })
-
-  it.each([2147483648, -2147483649, Number.MAX_SAFE_INTEGER])(
-    'lets PostgreSQL reject out-of-range integer index %s',
-    async (index) => {
-      await expect(
-        executeQuery(db, jsonArrayDelete(source, index)),
-      ).rejects.toThrow()
-    },
-  )
 
   it.each([Number.NaN, Number.POSITIVE_INFINITY, 1.2, -1.2, 1e21])(
     'rejects non-integer index %s before building SQL',

@@ -36,11 +36,6 @@ describe('JSON Set', () => {
   const jsonObject = sql<JsonType>`${sql.raw(jsonObjectSql)}`
 
   describe('Basic Property Setting', () => {
-    it('creates a setter function', () => {
-      const setter = jsonSet(jsonObject)
-      expect(typeof setter).toBe('object')
-    })
-
     it('sets a complete object value', () => {
       const setter = jsonSet(jsonObject)
       const newValue = {
@@ -403,9 +398,12 @@ describe('JSON Set', () => {
         sql<{ value: string | null }>`'{"value": "old"}'::jsonb`,
       )
 
-      const result = setter.value.$set(null)
+      const query = dialect.sqlToQuery(setter.value.$set(null))
 
-      expect(result).toBeDefined()
+      expect(query.params).toEqual(['null'])
+      expect(query.sql).toBe(
+        `jsonb_set('{"value": "old"}'::jsonb, array['value']::text[], $1::text::jsonb, true)`,
+      )
     })
   })
 

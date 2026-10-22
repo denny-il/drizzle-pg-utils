@@ -104,6 +104,7 @@ SET intervalstyle = 'iso_8601';
 
 - `yearMonth` accepts `YYYY-MM` and signed expanded-year strings like `+010000-01`, within Temporal's supported range.
 - `monthDay` accepts zero-padded `MM-DD` strings with month-specific day bounds, including `02-29` and rejecting values like `02-30`.
+- `constraints(...)` returns an array: spread it into `(table) => [...]`. Spreading two into an object, `(table) => ({ ...a, ...b })`, silently keeps only the last one.
 
 ```typescript
 const reports = pgTable(
@@ -113,10 +114,10 @@ const reports = pgTable(
     reportMonth: yearMonth.column('report_month'),
     holidayDate: monthDay.column('holiday_date'),
   },
-  (table) => ({
+  (table) => [
     ...yearMonth.constraints(table.reportMonth),
     ...monthDay.constraints(table.holidayDate),
-  }),
+  ],
 )
 ```
 

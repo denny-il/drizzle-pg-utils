@@ -24,7 +24,6 @@ describe('JSON Contains', () => {
   it('creates typed proxy containment helpers', () => {
     const contains = jsonContains(jsonObject)
 
-    expect(contains).toBeDefined()
     expectTypeOf(contains).toEqualTypeOf<SQLJSONContains<SQL<JsonType>>>()
     expectTypeOf(
       contains.profile.email.$contains('user@example.com'),
@@ -125,10 +124,10 @@ describe('JSON Contains', () => {
 
     // `@>` cannot match array positions; an index path would build
     // `{"tags":{"0":...}}`, which never matches an array.
-    const expectTypeErrors = () => {
+    // Never called: `pnpm check:type` verifies the expected errors.
+    const _expectTypeErrors = () => {
       // @ts-expect-error array-index containment is not supported.
       contains.tags[0].$contains({ name: 'tag1' })
     }
-    expect(expectTypeErrors).toBeTypeOf('function')
   })
 })

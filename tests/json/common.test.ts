@@ -8,6 +8,7 @@ import type {
   SQLJSONNullify,
 } from '../../src/json/types.ts'
 import { normalizeNullish } from '../../src/json/utils.ts'
+import { dialect } from '../utils.ts'
 
 describe('JSON Common Types and Utilities', () => {
   describe('Type Utilities', () => {
@@ -49,11 +50,13 @@ describe('JSON Common Types and Utilities', () => {
   })
 
   describe('normalizeNullish', () => {
-    it('generates SQL for null normalization', () => {
+    it('coalesces SQL NULL to JSON null', () => {
       const jsonValue = sql<{ test: string } | null>`'{"test": "value"}'::jsonb`
       const result = normalizeNullish(jsonValue)
 
-      expect(result).toBeDefined()
+      expect(dialect.sqlToQuery(result).sql).toBe(
+        `coalesce('{"test": "value"}'::jsonb, 'null'::jsonb)`,
+      )
       expectTypeOf(result).toEqualTypeOf<
         SQL<{
           test: string
@@ -61,27 +64,11 @@ describe('JSON Common Types and Utilities', () => {
       >()
     })
 
-    it('handles non-nullable values', () => {
+    it('keeps the type of non-nullable values', () => {
       const jsonValue = sql<{ test: string }>`'{"test": "value"}'::jsonb`
-      // This should still work even for non-nullable types
       const result = normalizeNullish(jsonValue)
 
-      expect(result).toBeDefined()
       expectTypeOf(result).toEqualTypeOf<SQL<{ test: string }>>()
-    })
-
-    it('works with different JSON types', () => {
-      const stringValue = sql<string | null>`'"test"'::jsonb`
-      const numberValue = sql<number | null>`'42'::jsonb`
-      const arrayValue = sql<string[] | null>`'["a", "b"]'::jsonb`
-
-      const stringResult = normalizeNullish(stringValue)
-      const numberResult = normalizeNullish(numberValue)
-      const arrayResult = normalizeNullish(arrayValue)
-
-      expect(stringResult).toBeDefined()
-      expect(numberResult).toBeDefined()
-      expect(arrayResult).toBeDefined()
     })
   })
 
@@ -122,39 +109,6 @@ describe('JSON Common Types and Utilities', () => {
 
       expectTypeOf<Denullified>().toEqualTypeOf<
         Array<{ id: number; name: string }>
-      >()
-    })
-  })
-
-  describe('Runtime Behavior', () => {
-    it('normalizeNullish creates proper SQL structure', () => {
-      const testValue = sql<string | null>`'test'::jsonb`
-      const result = normalizeNullish(testValue)
-
-      // Check that it's a SQL object with the expected structure
-      expect(result).toBeDefined()
-      expect(typeof result).toBe('object')
-    })
-  })
-
-  describe('Type Compatibility', () => {
-    it('works with SQL expressions', () => {
-      const sqlValue = sql<{ test: string }>`'{"test": "value"}'::jsonb`
-      expectTypeOf(sqlValue).toEqualTypeOf<
-        SQL<{
-          test: string
-        }>
-      >()
-    })
-
-    it('preserves SQL wrapper types', () => {
-      const sqlValue = sql<{ test: string }>`'{"test": "value"}'::jsonb`
-      const aliased = sqlValue.as('test_alias')
-
-      expectTypeOf(aliased).toEqualTypeOf<
-        SQL.Aliased<{
-          test: string
-        }>
       >()
     })
   })

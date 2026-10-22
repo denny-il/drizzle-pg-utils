@@ -199,6 +199,7 @@ These two helpers store strings and decode them back into Temporal values.
 - `yearMonth.constraints(...)` validates Temporal-compatible `YYYY-MM` and signed expanded-year strings like `+010000-01`.
 - `monthDay.constraints(...)` validates Temporal-compatible `MM-DD` strings, including month-specific day bounds like `02-29` and rejecting `02-30`.
 - The checks are designed to match `Temporal.PlainYearMonth.from(...)` and `Temporal.PlainMonthDay.from(...)` string parsing for ISO values.
+- `constraints(...)` returns an array of checks. Spread it into the array form of the table's extra config, `(table) => [...]`. Spreading two of them into an object, `(table) => ({ ...a, ...b })`, keeps only the last one, because both arrays use the same index keys.
 
 ## Driver Notes
 
@@ -341,10 +342,10 @@ const reports = pgTable(
     reportMonth: yearMonth.column('report_month'),
     holidayDate: monthDay.column('holiday_date'),
   },
-  (table) => ({
+  (table) => [
     ...yearMonth.constraints(table.reportMonth),
     ...monthDay.constraints(table.holidayDate),
-  }),
+  ],
 )
 ```
 
