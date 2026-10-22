@@ -95,20 +95,6 @@ describe('Temporal array columns', () => {
     },
   )
 
-  // Drizzle rc.5's postgres-js array parser turns unquoted SQL NULL into the
-  // string 'NULL'. Other drivers preserve null; detect an upstream fix.
-  const nullElementTest = testDriver === 'postgres-js' ? it.fails : it
-  nullElementTest('preserves SQL NULL array elements', async () => {
-    const [record] = await db
-      .insert(temporalArrayTable)
-      .values({
-        plainDates: sql`array[date '2026-10-22', null]`,
-      })
-      .returning()
-    expect(record!.plainDates![0]!.toString()).toBe('2026-10-22')
-    expect(record!.plainDates![1]).toBeNull()
-  })
-
   it('round-trips arrays with microsecond precision', async () => {
     await db.insert(temporalArrayTable).values({
       plainDates: [

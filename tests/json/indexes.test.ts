@@ -131,13 +131,13 @@ describe('JSONB index compatibility', () => {
     const query = sql`
       select ${kindAccessor} as kind
       from ${indexedTable}
-      where ${indexedTable.data} @> ${jsonbLiteral({ kind: 'alpha' })}
+      where ${jsonContains(indexedTable.data, { kind: 'alpha' })}
       limit 1
     `
     const countQuery = sql`
       select count(*)::int as match_count
       from ${indexedTable}
-      where ${indexedTable.data} @> ${jsonbLiteral({ kind: 'alpha' })}
+      where ${jsonContains(indexedTable.data, { kind: 'alpha' })}
     `
 
     const [baselineCount] = await runQuery<{ match_count: number }>(countQuery)
@@ -164,15 +164,15 @@ describe('JSONB index compatibility', () => {
     const query = sql`
       select ${emailAccessor} as email
       from ${indexedTable}
-      where ${indexedTable.data} @> ${jsonbLiteral({
-        profile: { email: 'user42@example.com' },
+      where ${json(indexedTable.data).profile.$contains({
+        email: 'user42@example.com',
       })}
     `
     const countQuery = sql`
       select count(*)::int as match_count
       from ${indexedTable}
-      where ${indexedTable.data} @> ${jsonbLiteral({
-        profile: { email: 'user42@example.com' },
+      where ${json(indexedTable.data).profile.$contains({
+        email: 'user42@example.com',
       })}
     `
 

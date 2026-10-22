@@ -1,5 +1,5 @@
 import { type SQL, sql } from 'drizzle-orm'
-import { describe, expect, expectTypeOf, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, expectTypeOf, it } from 'vitest'
 
 import {
   jsonArrayDelete,
@@ -7,9 +7,26 @@ import {
   jsonArraySet,
 } from '../../src/json/operations/array.ts'
 import type { SQLJSONExtractType } from '../../src/json/types.ts'
-import { dialect, table } from '../utils.ts'
+import {
+  closeDatabase,
+  createDatabase,
+  dialect,
+  executeQuery,
+  table,
+  type TestDatabase,
+} from '../utils.ts'
 
 describe('JSON Array Operations', () => {
+  let db: TestDatabase
+
+  beforeAll(async () => {
+    db = await createDatabase()
+  })
+
+  afterAll(async () => {
+    await closeDatabase(db)
+  })
+
   const numberArraySql = `'[1, 2, 3]'::jsonb`
   const numberArray = sql<number[]>`${sql.raw(numberArraySql)}`
 
@@ -235,29 +252,34 @@ describe('JSON Array Operations', () => {
   })
 
   describe('Complex Array Operations', () => {
-    it('chains multiple array operations', () => {
+    it('chains multiple array operations', async () => {
       // Push then set then delete
       const step1 = jsonArrayPush(numberArray, 4, 5)
       const step2 = jsonArraySet(step1, 0, 99)
       const result = jsonArrayDelete(step2, 2)
 
-      const query = dialect.sqlToQuery(result)
-      expect(query.sql).toBeDefined()
+      expect(await executeQuery(db, result)).toEqual([99, 2, 4, 5])
     })
 
-    it('handles mixed type arrays', () => {
+    it('handles mixed type arrays', async () => {
       const mixedArraySql = `'["text", 42, true]'::jsonb`
       const mixedArray = sql<
         (string | number | boolean)[]
       >`${sql.raw(mixedArraySql)}`
 
-      const pushResult = jsonArrayPush(mixedArray, false)
-      const setResult = jsonArraySet(mixedArray, 1, 'updated')
-      const deleteResult = jsonArrayDelete(mixedArray, 0)
-
-      expect(dialect.sqlToQuery(pushResult).sql).toBeDefined()
-      expect(dialect.sqlToQuery(setResult).sql).toBeDefined()
-      expect(dialect.sqlToQuery(deleteResult).sql).toBeDefined()
+      expect(await executeQuery(db, jsonArrayPush(mixedArray, false))).toEqual([
+        'text',
+        42,
+        true,
+        false,
+      ])
+      expect(
+        await executeQuery(db, jsonArraySet(mixedArray, 1, 'updated')),
+      ).toEqual(['text', 'updated', true])
+      expect(await executeQuery(db, jsonArrayDelete(mixedArray, 0))).toEqual([
+        42,
+        true,
+      ])
     })
 
     it('works with nested arrays', () => {

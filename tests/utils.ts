@@ -6,7 +6,13 @@ import {
   type SQLWrapper,
   sql,
 } from 'drizzle-orm'
-import { jsonb, PgDialect, pgTable } from 'drizzle-orm/pg-core'
+import {
+  getTableConfig,
+  jsonb,
+  PgDialect,
+  type PgTable,
+  pgTable,
+} from 'drizzle-orm/pg-core'
 import { inject } from 'vitest'
 
 import {
@@ -29,6 +35,19 @@ export const table = pgTable('test', {
   arraycolNullable:
     jsonb('arraycolNullable').$type<Array<{ id: number; name: string }>>(),
 })
+
+/**
+ * The table's check constraints as `constraint ... check (...)` DDL, so tests
+ * install the constraints the library actually exports.
+ */
+export const tableChecks = (table: PgTable) =>
+  sql.join(
+    getTableConfig(table).checks.map(
+      (check) =>
+        sql`constraint ${sql.identifier(check.name)} check (${check.value})`,
+    ),
+    sql`, `,
+  )
 
 type CreateDatabaseOptions<TRelations extends AnyRelations> = {
   relations?: TRelations

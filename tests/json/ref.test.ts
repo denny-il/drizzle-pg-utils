@@ -470,7 +470,8 @@ describe('JSON Ref API', () => {
       SQL<NullableLeaf>
     >()
 
-    const expectTypeErrors = (value: typeof profile) => {
+    // Never called: `pnpm check:type` verifies the expected errors.
+    const _expectTypeErrors = (value: typeof profile) => {
       // @ts-expect-error array elements are not declared nullable.
       nullableLeaf.tags[0].$set(null)
       // @ts-expect-error non-nullable leaves reject null.
@@ -496,6 +497,5 @@ describe('JSON Ref API', () => {
       // @ts-expect-error non-root paths do not expose root pipe.
       value.metadata.$pipe()
     }
-    expect(expectTypeErrors).toBeTypeOf('function')
   })
 })

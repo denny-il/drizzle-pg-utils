@@ -29,12 +29,6 @@ describe('JSON Accessor', () => {
   const jsonObject = sql<JsonType>`${sql.raw(jsonObjectSql)}`
 
   describe('Basic Property Access', () => {
-    it('creates accessor for simple property', () => {
-      const accessor = jsonAccess(jsonObject)
-      expect(accessor).toBeDefined()
-      expect(typeof accessor).toBe('object')
-    })
-
     it('generates correct SQL for root access', () => {
       const accessor = jsonAccess(jsonObject)
       const query = dialect.sqlToQuery(accessor.$value)

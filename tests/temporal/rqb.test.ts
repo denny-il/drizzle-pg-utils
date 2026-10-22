@@ -13,6 +13,7 @@ import { createDatabase, type TestDatabase } from '../utils.ts'
 const temporalUsersTable = pgTable('temporal_rqb_users', {
   id: serial('id').primaryKey(),
   name: text('name').notNull(),
+  joinedAt: timestampz.column('joined_at'),
 })
 
 const temporalEventsTable = pgTable('temporal_rqb_events', {
@@ -54,7 +55,8 @@ beforeAll(async () => {
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS temporal_rqb_users (
       id SERIAL PRIMARY KEY,
-      name TEXT NOT NULL
+      name TEXT NOT NULL,
+      joined_at TIMESTAMP WITH TIME ZONE
     )
   `)
 
@@ -106,15 +108,13 @@ describe('Temporal RQB column types', () => {
   it('maps temporal columns from nested one relation JSON', async () => {
     const [user] = await db
       .insert(temporalUsersTable)
-      .values({ name: 'Grace' })
+      .values({
+        name: 'Grace',
+        joinedAt: TemporalImpl.Instant.from('2026-06-08T04:16:31.123456Z'),
+      })
       .returning()
 
-    await db.insert(temporalEventsTable).values({
-      eventDate: TemporalImpl.PlainDate.from('2026-06-08'),
-      eventTimestamp: TemporalImpl.PlainDateTime.from('2026-06-08T11:16:31'),
-      eventTimestampz: TemporalImpl.Instant.from('2026-06-08T04:16:31Z'),
-      userId: user!.id,
-    })
+    await db.insert(temporalEventsTable).values({ userId: user!.id })
 
     const [result] = await db.query.temporalEventsTable.findMany({
       with: {
@@ -122,12 +122,9 @@ describe('Temporal RQB column types', () => {
       },
     })
 
-    expect(result!.eventDate).toBeInstanceOf(Temporal.PlainDate)
-    expect(result!.eventDate!.toString()).toBe('2026-06-08')
-    expect(result!.eventTimestamp).toBeInstanceOf(Temporal.PlainDateTime)
-    expect(result!.eventTimestamp!.toString()).toBe('2026-06-08T11:16:31')
-    expect(result!.eventTimestampz).toBeInstanceOf(Temporal.Instant)
-    expect(result!.eventTimestampz!.toString()).toBe('2026-06-08T04:16:31Z')
-    expect(result!.user!.name).toBe('Grace')
+    expect(result!.user!.joinedAt).toBeInstanceOf(Temporal.Instant)
+    expect(result!.user!.joinedAt!.toString()).toBe(
+      '2026-06-08T04:16:31.123456Z',
+    )
   })
 })

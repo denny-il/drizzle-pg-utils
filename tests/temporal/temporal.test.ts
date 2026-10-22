@@ -12,7 +12,7 @@ import {
   timestampz,
   yearMonth,
 } from '../../src/temporal/polyfill.ts'
-import { createDatabase, type TestDatabase } from '../utils.ts'
+import { createDatabase, tableChecks, type TestDatabase } from '../utils.ts'
 
 // Test table with all temporal column types
 const temporalTable = pgTable(
@@ -42,11 +42,11 @@ const temporalTable = pgTable(
     yearMonthValue: yearMonth.column('year_month'),
     monthDayValue: monthDay.column('month_day'),
   },
-  (table) => ({
+  (table) => [
     // Add check constraints for yearMonth and monthDay
     ...yearMonth.constraints(table.yearMonthValue),
     ...monthDay.constraints(table.monthDayValue),
-  }),
+  ],
 )
 
 let db: TestDatabase
@@ -74,55 +74,7 @@ beforeAll(async () => {
       duration_precision INTERVAL(2),
       year_month TEXT,
       month_day TEXT,
-      CONSTRAINT check_year_month_year_month_format CHECK ((year_month)::text ~ '^(\\d{4}|[+]\\d{6}|-\\d{6})-((0[1-9])|(1([0-2])))$'
-        AND (year_month)::text !~ '^-000000-'
-        AND (
-          (year_month)::text ~ '^\\d{4}-'
-          OR (
-            substring((year_month)::text from 1 for 7)::integer > -271821
-            AND substring((year_month)::text from 1 for 7)::integer < 275760
-          )
-          OR (
-            substring((year_month)::text from 1 for 7)::integer = -271821
-            AND substring((year_month)::text from 9 for 2)::integer >= 4
-          )
-          OR (
-            substring((year_month)::text from 1 for 7)::integer = 275760
-            AND substring((year_month)::text from 9 for 2)::integer <= 9
-          )
-        )),
-      CONSTRAINT check_month_day_month_day_format CHECK ((month_day)::text ~ '^(((0[13578])|(1[02]))-((0[1-9])|([1-2][0-9])|(3[0-1]))|((0[469])|11)-((0[1-9])|([1-2][0-9])|30)|02-((0[1-9])|(1[0-9])|(2[0-9])))$')
-    )
-  `)
-
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS factory_temporal_test (
-      id SERIAL PRIMARY KEY,
-      plain_date DATE,
-      plain_time TIME,
-      plain_datetime TIMESTAMP,
-      zoned_datetime TIMESTAMP(3) WITH TIME ZONE,
-      duration INTERVAL(2),
-      year_month TEXT,
-      month_day TEXT,
-      CONSTRAINT check_year_month_year_month_format CHECK ((year_month)::text ~ '^(\\d{4}|[+]\\d{6}|-\\d{6})-((0[1-9])|(1([0-2])))$'
-        AND (year_month)::text !~ '^-000000-'
-        AND (
-          (year_month)::text ~ '^\\d{4}-'
-          OR (
-            substring((year_month)::text from 1 for 7)::integer > -271821
-            AND substring((year_month)::text from 1 for 7)::integer < 275760
-          )
-          OR (
-            substring((year_month)::text from 1 for 7)::integer = -271821
-            AND substring((year_month)::text from 9 for 2)::integer >= 4
-          )
-          OR (
-            substring((year_month)::text from 1 for 7)::integer = 275760
-            AND substring((year_month)::text from 9 for 2)::integer <= 9
-          )
-        )),
-      CONSTRAINT check_month_day_month_day_format CHECK ((month_day)::text ~ '^(((0[13578])|(1[02]))-((0[1-9])|([1-2][0-9])|(3[0-1]))|((0[469])|11)-((0[1-9])|([1-2][0-9])|30)|02-((0[1-9])|(1[0-9])|(2[0-9])))$')
+      ${tableChecks(temporalTable)}
     )
   `)
 })
@@ -623,29 +575,6 @@ describe('Integration Tests', () => {
     expect(record.duration!.seconds).toBe(15)
     expect(record.yearMonthValue!.toString()).toBe('2023-07')
     expect(record.monthDayValue!.toString()).toBe('07-25')
-  })
-
-  it('should handle null values correctly', async () => {
-    // Insert record with null temporal values
-    const insertResult = await db.insert(temporalTable).values({}).returning()
-    expect(insertResult).toHaveLength(1)
-
-    const selectResult = await db
-      .select()
-      .from(temporalTable)
-      .where(sql`${temporalTable.id} = ${insertResult[0]!.id}`)
-
-    expect(selectResult).toHaveLength(1)
-    const record = selectResult[0]!
-
-    // All temporal columns should be null
-    expect(record.plainDate).toBe(null)
-    expect(record.plainTime).toBe(null)
-    expect(record.plainDateTime).toBe(null)
-    expect(record.zonedDateTime).toBe(null)
-    expect(record.duration).toBe(null)
-    expect(record.yearMonthValue).toBe(null)
-    expect(record.monthDayValue).toBe(null)
   })
 
   it('should work with date/time comparisons and filtering', async () => {

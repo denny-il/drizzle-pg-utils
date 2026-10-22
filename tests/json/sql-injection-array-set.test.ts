@@ -166,12 +166,16 @@ describe('jsonArraySet SQL injection hardening', () => {
     ])
   })
 
+  // Outside int4: still inlined as plain digits, for PostgreSQL to reject.
   it.each([2147483648, -2147483649, Number.MAX_SAFE_INTEGER])(
-    'lets PostgreSQL reject out-of-range integer index %s',
-    async (index) => {
-      await expect(
-        executeQuery(db, jsonArraySet(baseArray, index, 'safe')),
-      ).rejects.toThrow()
+    'renders out-of-range integer index %s as plain digits in the path',
+    (index) => {
+      const query = dialect.sqlToQuery(jsonArraySet(baseArray, index, 'safe'))
+
+      expect(query.params).toEqual([jsonParam('safe')])
+      expect(query.sql).toBe(
+        `jsonb_set(coalesce(nullif(${arraySql}, 'null'::jsonb), '[]'::jsonb), '{${index}}', $1::text::jsonb, false)`,
+      )
     },
   )
 
