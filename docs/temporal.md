@@ -207,7 +207,7 @@ The test suite runs against PGlite, postgres-js, node-postgres, drizzle's `postg
 
 ### Set `intervalstyle` per connection
 
-`SET intervalstyle = 'iso_8601'` only changes the connection it runs on. In a pool, other connections keep the server default, and drivers replace connections on their own: postgres-js reconnects after `idle_timeout`, and drizzle's node-postgres session discards a pooled connection after a failed query. Pass it as a startup parameter so every connection gets it:
+`SET intervalstyle = 'iso_8601'` only changes the connection it runs on. In a pool, other connections keep the server default, and drivers replace connections on their own: postgres-js reconnects after `idle_timeout`, and node-postgres's `pool.query()` discards its connection when the query fails. Pass it as a startup parameter so every connection gets it:
 
 ```typescript
 // node-postgres
