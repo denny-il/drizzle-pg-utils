@@ -3,6 +3,8 @@ import { randomBytes } from 'node:crypto'
 import postgres from 'postgres'
 import type { TestProject } from 'vitest/node'
 
+import { embeddedDrivers, testDriver } from './drivers.ts'
+
 declare module 'vitest' {
   export interface ProvidedContext {
     testSchemaPrefix: string
@@ -17,7 +19,8 @@ export default function setup(project: TestProject) {
   project.provide('testSchemaPrefix', prefix)
 
   const url = process.env.DATABASE_URL
-  if (!url) return
+  // Embedded drivers never touch the server, even when DATABASE_URL is set.
+  if (!url || embeddedDrivers.includes(testDriver)) return
 
   return async () => {
     const client = postgres(url, { max: 1, onnotice: () => {} })

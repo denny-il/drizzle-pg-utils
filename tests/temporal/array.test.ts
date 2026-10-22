@@ -12,7 +12,7 @@ import {
   timestamp,
   timestampz,
 } from '../../src/temporal/polyfill.ts'
-import { createDatabase, type TestDatabase } from '../utils.ts'
+import { createDatabase, type TestDatabase, testDriver } from '../utils.ts'
 
 // Array columns rely on each column's drizzle codec to read elements as text.
 // A codec name drizzle doesn't recognize leaves the raw array literal unparsed.
@@ -82,8 +82,8 @@ describe('Temporal array columns', () => {
   })
 
   // Drizzle rc.5's postgres-js array parser turns unquoted SQL NULL into the
-  // string 'NULL'. PGlite preserves null; detect an upstream fix on Postgres.
-  const nullElementTest = process.env.DATABASE_URL ? it.fails : it
+  // string 'NULL'. Other drivers preserve null; detect an upstream fix.
+  const nullElementTest = testDriver === 'postgres-js' ? it.fails : it
   nullElementTest('preserves SQL NULL array elements', async () => {
     const [record] = await db
       .insert(temporalArrayTable)
