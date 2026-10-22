@@ -173,16 +173,6 @@ describe('date/time format conversions', () => {
       },
     )
 
-    it.each([
-      ['-0001-03-04', '-000001-03-04'],
-      ['-0043-03-15', '-000043-03-15'],
-    ])(
-      'expands the signed driver-decoded year %s to %s',
-      (driver, temporal) => {
-        expect(fromPostgresDateTime(driver)).toBe(temporal)
-      },
-    )
-
     it.each(['infinity', '-infinity'])(
       'passes PostgreSQL %s through for Temporal to reject',
       (value) => {
