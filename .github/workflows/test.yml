@@ -10,36 +10,26 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Use Node.js 22
-        uses: actions/setup-node@v4
+      - uses: ./.github/actions/setup
         with:
           node-version: 22
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          run_install: false
-      - name: Get pnpm store directory
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-      - uses: actions/cache@v4
-        name: Setup pnpm cache
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-      - run: pnpm install
       - run: pnpm check
 
   test:
-    name: Test Node ${{ matrix.node }} / Postgres ${{ matrix.postgres }}
+    name: Test Node ${{ matrix.node }} / Postgres ${{ matrix.postgres }} / ${{ matrix.driver }}
     strategy:
+      fail-fast: false
       matrix:
         node:
           - 22
           - 24
           - 26
+        driver:
+          - postgres-js
+          - node-postgres
+          - postgres
+          - pg-proxy
+          - effect-postgres
         postgres:
           - 14
           - 15
@@ -66,27 +56,81 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Use Node.js ${{ matrix.node }}
-        uses: actions/setup-node@v4
+      - uses: ./.github/actions/setup
         with:
           node-version: ${{ matrix.node }}
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          run_install: false
-      - name: Get pnpm store directory
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-      - uses: actions/cache@v4
-        name: Setup pnpm cache
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-      - run: pnpm install
       - run: pnpm run build
       - run: pnpm run test
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/drizzle_pg_utils
+          TEST_DRIVER: ${{ matrix.driver }}
+
+  # Embedded drivers run their own Postgres build, so they need no service
+  # container and don't vary with the server version.
+  test-embedded:
+    name: Test Node ${{ matrix.node }} / ${{ matrix.driver }}
+    strategy:
+      fail-fast: false
+      matrix:
+        node:
+          - 22
+          - 24
+          - 26
+        driver:
+          - pglite
+          - effect-pglite
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          node-version: ${{ matrix.node }}
+      - run: pnpm run build
+      - run: pnpm run test
+        env:
+          TEST_DRIVER: ${{ matrix.driver }}
+
+  # Bun SQL only exists in the Bun runtime, so vitest itself runs under Bun.
+  # Node is still installed for pnpm.
+  test-bun:
+    name: Test Bun / Postgres ${{ matrix.postgres }} / bun-sql
+    strategy:
+      fail-fast: false
+      matrix:
+        postgres:
+          - 14
+          - 15
+          - 16
+          - 17
+          - 18
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:${{ matrix.postgres }}-alpine
+        env:
+          POSTGRES_DB: drizzle_pg_utils
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          node-version: 24
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: pnpm run build
+      - run: pnpm run test:bun
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/drizzle_pg_utils
+          TEST_DRIVER: bun-sql
