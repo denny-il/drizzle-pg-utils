@@ -122,6 +122,8 @@ If you use `interval`, PostgreSQL must use ISO 8601 interval output:
 SET intervalstyle = 'iso_8601';
 ```
 
+With a connection pool, set it per connection instead; see [Set `intervalstyle` per connection](#set-intervalstyle-per-connection).
+
 ## PostgreSQL Type Map
 
 | Helper       | Temporal value            | PostgreSQL type                         | Notes                                 |
@@ -184,7 +186,7 @@ PostgreSQL stores months, days, and time as independently signed fields, so it c
 SET intervalstyle = 'iso_8601';
 ```
 
-You can also set it in PostgreSQL configuration for a permanent default:
+`SET` only affects the current connection, so with a pool set it per connection; see [Set `intervalstyle` per connection](#set-intervalstyle-per-connection). You can also set it in PostgreSQL configuration for a permanent default:
 
 ```text
 intervalstyle = 'iso_8601'
@@ -197,6 +199,62 @@ These two helpers store strings and decode them back into Temporal values.
 - `yearMonth.constraints(...)` validates Temporal-compatible `YYYY-MM` and signed expanded-year strings like `+010000-01`.
 - `monthDay.constraints(...)` validates Temporal-compatible `MM-DD` strings, including month-specific day bounds like `02-29` and rejecting `02-30`.
 - The checks are designed to match `Temporal.PlainYearMonth.from(...)` and `Temporal.PlainMonthDay.from(...)` string parsing for ISO values.
+
+## Driver Notes
+
+The test suite runs against PGlite, postgres-js, node-postgres, drizzle's `postgres` driver (minipg), bun-sql, effect-postgres, and effect-pglite.
+
+### Set `intervalstyle` per connection
+
+`SET intervalstyle = 'iso_8601'` only changes the connection it runs on. In a pool, other connections keep the server default, and drivers replace connections on their own: postgres-js reconnects after `idle_timeout`, and drizzle's node-postgres session discards a pooled connection after a failed query. Pass it as a startup parameter so every connection gets it:
+
+```typescript
+// node-postgres
+new Pool({ connectionString, options: '-c intervalstyle=iso_8601' })
+
+// postgres-js
+postgres(url, { connection: { intervalstyle: 'iso_8601' } })
+
+// drizzle-orm/postgres (minipg)
+createPool({ url, options: '-c intervalstyle=iso_8601' })
+
+// bun-sql
+new SQL({ url, connection: { intervalstyle: 'iso_8601' } })
+
+// effect-postgres
+PgClient.layer({
+  url: Redacted.make(url), // Redacted from 'effect'
+  startupParameters: { intervalstyle: 'iso_8601' },
+})
+```
+
+Or make it the default for a database or role:
+
+```sql
+ALTER DATABASE app SET intervalstyle = 'iso_8601';
+```
+
+PGlite has a single connection, so `SET` is enough there.
+
+### Decode SQL expressions with `.mapWith(...)`
+
+Results of `db.execute(...)` and untyped `sql` selections don't go through the Temporal columns, and drivers return date/time values in them differently: some as strings, others as `Date` objects. To get Temporal values, map the expression with a Temporal column:
+
+```typescript
+const [row] = await db
+  .select({ now: sql`now()`.mapWith(events.createdAt) })
+  .from(events)
+  .limit(1)
+
+row!.now instanceof Temporal.Instant
+// true
+```
+
+### Known driver limitations
+
+- **postgres-js** with drizzle-orm 1.0.0-rc.5: drizzle's array parser reads SQL `NULL` elements as the string `'NULL'`, so reading a Temporal array column that contains a `NULL` element throws.
+- **effect-postgres** with @effect/sql-pg 4.0: multidimensional array columns, such as `.array('[][]')`, fail to decode, and the failure leaves the connection unusable. `plainDate` values with negative ISO years also fail to decode, because @effect/sql-pg returns them as `-0001-03-04` instead of PostgreSQL's `0002-03-04 BC`.
+- **pg-proxy** isn't tested. What it decodes depends on what your proxy server returns; Temporal columns expect PostgreSQL's text output for date and time types.
 
 ## Factories and Serialization Defaults
 

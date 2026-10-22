@@ -27,6 +27,9 @@ export function createMonthDay<T extends typeof globalThis.Temporal>(
 ): TemporalPlainMonthDayType<T> {
   return {
     column: customType<Config<T>>({
+      // Without a codec, drivers that need one to encode array params (e.g.
+      // bun-sql) send arrays of these columns unencoded.
+      codec: 'text',
       dataType: () => 'text',
       fromDriver: (val: string) =>
         Temporal.PlainMonthDay.from(val) as InstanceType<T['PlainMonthDay']>,

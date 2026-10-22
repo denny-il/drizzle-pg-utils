@@ -128,7 +128,7 @@ const upcoming = await db
   )
 ```
 
-See `docs/temporal.md` for setup choices, runtime behavior, and examples.
+See `docs/temporal.md` for setup choices, runtime behavior, driver notes, and examples.
 
 ## Documentation
 

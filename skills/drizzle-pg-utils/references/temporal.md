@@ -98,6 +98,8 @@ Temporal columns decode to Temporal instances in normal selects and Drizzle rela
 SET intervalstyle = 'iso_8601';
 ```
 
+`SET` only affects the current connection. With a pool, recommend a startup parameter or a database/role default instead; see [Driver Notes](#driver-notes).
+
 `yearMonth.constraints(column, name?)` and `monthDay.constraints(column, name?)` add optional Temporal-compatible format checks for their text columns.
 
 - `yearMonth` accepts `YYYY-MM` and signed expanded-year strings like `+010000-01`, within Temporal's supported range.
@@ -151,3 +153,36 @@ await db.insert(events).values({
   duration: sql`INTERVAL '2 hours 30 minutes 15 seconds'`,
 })
 ```
+
+## Driver Notes
+
+Tested drivers: PGlite, postgres-js, node-postgres, `drizzle-orm/postgres` (minipg), bun-sql, effect-postgres, effect-pglite.
+
+Set `intervalstyle` per connection. Pools keep other connections on the server default, postgres-js reconnects after `idle_timeout`, and drizzle's node-postgres session discards a pooled connection after a failed query, so a one-off `SET` gets lost:
+
+```typescript
+new Pool({ connectionString, options: '-c intervalstyle=iso_8601' }) // node-postgres
+postgres(url, { connection: { intervalstyle: 'iso_8601' } }) // postgres-js
+createPool({ url, options: '-c intervalstyle=iso_8601' }) // minipg
+new SQL({ url, connection: { intervalstyle: 'iso_8601' } }) // bun-sql
+PgClient.layer({
+  url: Redacted.make(url), // Redacted from 'effect'
+  startupParameters: { intervalstyle: 'iso_8601' },
+}) // effect-postgres
+```
+
+```sql
+ALTER DATABASE app SET intervalstyle = 'iso_8601';
+```
+
+`db.execute(...)` results and untyped `sql` selections aren't decoded by Temporal columns; drivers return strings or `Date` objects there. Decode expressions with `.mapWith(column)`:
+
+```typescript
+db.select({ now: sql`now()`.mapWith(events.createdAt) }).from(events)
+```
+
+Known limitations:
+
+- postgres-js with drizzle-orm 1.0.0-rc.5: SQL `NULL` elements in Temporal arrays are read as `'NULL'`, so decoding throws.
+- effect-postgres with @effect/sql-pg 4.0: multidimensional array columns fail to decode and break the connection; `plainDate` values with negative ISO years fail to decode (`-0001-03-04` instead of `0002-03-04 BC`).
+- pg-proxy is untested; decoding depends on the proxy server returning PostgreSQL text output for date and time types.

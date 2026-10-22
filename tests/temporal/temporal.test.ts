@@ -12,7 +12,7 @@ import {
   timestampz,
   yearMonth,
 } from '../../src/temporal/polyfill.ts'
-import { createDatabase, executeQuery, type TestDatabase } from '../utils.ts'
+import { createDatabase, type TestDatabase } from '../utils.ts'
 
 // Test table with all temporal column types
 const temporalTable = pgTable(
@@ -165,11 +165,14 @@ describe('Temporal Column Types', () => {
       expect(result!.plainDate!.toString()).toBe('2023-07-25')
     })
 
-    it('should work with SQL expressions', async () => {
-      const currentDate = await executeQuery(db, sql`CURRENT_DATE::date`)
+    it('should decode SQL expressions', async () => {
+      const [result] = await db
+        .select({
+          currentDate: sql`CURRENT_DATE`.mapWith(temporalTable.plainDate),
+        })
+        .from(sql`(values (1)) as one`)
 
-      expect(typeof currentDate).toBe('string')
-      expect(currentDate).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+      expect(result!.currentDate).toBeInstanceOf(TemporalImpl.PlainDate)
     })
   })
 
@@ -579,24 +582,21 @@ describe('Integration Tests', () => {
     expect(record.monthDayValue!.toString()).toBe('07-25')
   })
 
-  it('should work with SQL expressions and temporal functions', async () => {
-    // Test using SQL expressions with temporal columns
-    const currentTimestamp = await executeQuery(
-      db,
-      sql`NOW()::timestamp with time zone`,
-    )
+  it('should decode SQL expressions and temporal functions', async () => {
+    const [result] = await db
+      .select({
+        now: sql`NOW()`.mapWith(temporalTable.zonedDateTime),
+        today: sql`CURRENT_DATE`.mapWith(temporalTable.plainDate),
+        // Interval arithmetic
+        tomorrow: sql`(CURRENT_DATE + INTERVAL '1 day')::date`.mapWith(
+          temporalTable.plainDate,
+        ),
+      })
+      .from(sql`(values (1)) as one`)
 
-    expect(typeof currentTimestamp).toBe('string')
-    expect(currentTimestamp).toMatch(/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}/)
-
-    // Test interval arithmetic
-    const futureDate = await executeQuery(
-      db,
-      sql`(CURRENT_DATE + INTERVAL '1 day')::date`,
-    )
-
-    expect(typeof futureDate).toBe('string')
-    expect(futureDate).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    expect(result!.now).toBeInstanceOf(TemporalImpl.Instant)
+    expect(result!.tomorrow).toBeInstanceOf(TemporalImpl.PlainDate)
+    expect(result!.tomorrow.equals(result!.today.add({ days: 1 }))).toBe(true)
   })
 
   it('should accept SQL expressions when inserting temporal columns', async () => {
