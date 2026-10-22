@@ -159,7 +159,7 @@ await db.insert(events).values({
 
 Tested drivers: PGlite, postgres-js, node-postgres, `drizzle-orm/postgres` (minipg), bun-sql, effect-postgres, effect-pglite.
 
-Set `intervalstyle` per connection. Pools keep other connections on the server default, postgres-js reconnects after `idle_timeout`, and drizzle's node-postgres session discards a pooled connection after a failed query, so a one-off `SET` gets lost:
+Set `intervalstyle` per connection. Pools keep other connections on the server default, postgres-js reconnects after `idle_timeout`, and node-postgres's `pool.query()` discards its connection when the query fails, so a one-off `SET` gets lost:
 
 ```typescript
 new Pool({ connectionString, options: '-c intervalstyle=iso_8601' }) // node-postgres
