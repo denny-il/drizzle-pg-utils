@@ -28,7 +28,6 @@ jobs:
           - postgres-js
           - node-postgres
           - postgres
-          - pg-proxy
           - effect-postgres
         postgres:
           - 14

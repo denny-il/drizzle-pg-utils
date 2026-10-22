@@ -3,14 +3,14 @@ import type { PgAsyncDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core'
 
 // Every drizzle Postgres driver that runs against a local server or an
 // embedded database. Drivers for hosted services (Neon, Vercel, Xata, AWS Data
-// API, Aurora DSQL, Netlify DB) aren't covered.
+// API, Aurora DSQL, Netlify DB) aren't covered, nor is pg-proxy: it only
+// forwards queries, so its behavior depends on the user's proxy server.
 export const drivers = [
   'pglite',
   'postgres-js',
   'node-postgres',
   // drizzle's own minipg-based driver, `drizzle-orm/postgres`
   'postgres',
-  'pg-proxy',
   'bun-sql',
   'effect-postgres',
   'effect-pglite',
@@ -119,52 +119,6 @@ export const connect = async ({
         options: `-c search_path=${schema}`,
       })
       return { db: drizzle({ client, relations }), close: () => client.end() }
-    }
-
-    case 'pg-proxy': {
-      const { Client, types } = await import('pg')
-      const { nodePgCodecs } = await import('drizzle-orm/node-postgres')
-      const { drizzle } = await import('drizzle-orm/pg-proxy')
-      // pg-proxy has no codecs of its own and decodes whatever the proxy
-      // server sends. This in-process "server" is node-postgres with drizzle's
-      // node-postgres type parsers, which leave date/time types and their
-      // arrays as text, so the client needs the matching node-postgres codecs
-      // to parse those arrays.
-      const rawTypes = new Set([
-        types.builtins.TIMESTAMPTZ,
-        types.builtins.TIMESTAMP,
-        types.builtins.DATE,
-        types.builtins.INTERVAL,
-        1231, // numeric[]
-        1115, // timestamp[]
-        1185, // timestamptz[]
-        1187, // interval[]
-        1182, // date[]
-      ])
-      const client = new Client({
-        connectionString: url,
-        options: `-c search_path=${schema}`,
-        types: {
-          getTypeParser: ((oid: number, format: 'text' | 'binary') =>
-            rawTypes.has(oid)
-              ? (value: string) => value
-              : types.getTypeParser(oid, format)) as typeof types.getTypeParser,
-        },
-      })
-      await client.connect()
-      const db = drizzle(
-        async (query, params, method) => {
-          const result = await client.query({
-            text: query,
-            values: params,
-            ...(method === 'all' && { rowMode: 'array' as const }),
-          })
-          // Mirror the JSON hop between a real proxy server and its client.
-          return JSON.parse(JSON.stringify({ rows: result.rows }))
-        },
-        { relations, codecs: nodePgCodecs },
-      )
-      return { db, close: () => client.end() }
     }
 
     case 'bun-sql': {
