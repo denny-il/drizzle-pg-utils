@@ -431,6 +431,11 @@ describe('JSON path builder', () => {
       expectTypeOf(json(sql<Doc | null>`doc`).$path.$query).toEqualTypeOf<
         SQL<Array<Doc | null> | null>
       >()
+      // `NULL @? path` is NULL, not false.
+      expectTypeOf(json(docs.maybe).$path.n.$exists).toEqualTypeOf<
+        SQL<boolean | null>
+      >()
+      expectTypeOf(json(docs.doc).$path.n.$exists).toEqualTypeOf<SQL<boolean>>()
     })
 
     it('correlates $entries keys with their values', () => {
@@ -446,6 +451,15 @@ describe('JSON path builder', () => {
       expectTypeOf(
         pair.$entries.$match({ key: 'a' }).value.$query,
       ).toEqualTypeOf<SQL<number[]>>()
+      // JSON object keys are always strings.
+      expectTypeOf(
+        json(sql<Record<number, string>>`doc`).$path.$entries.$first,
+      ).toEqualTypeOf<
+        SQL<{ key: `${number}`; value: string; id: number } | null>
+      >()
+      expectTypeOf(
+        json(sql<{ 1: string }>`doc`).$path.$entries.$first,
+      ).toEqualTypeOf<SQL<{ key: '1'; value: string; id: number } | null>>()
     })
 
     it('narrows union items with $match', () => {
@@ -458,6 +472,13 @@ describe('JSON path builder', () => {
       expectTypeOf(doc.events.$each.kind.$query).toEqualTypeOf<
         SQL<Array<'click' | 'key'>>
       >()
+    })
+
+    it('keeps every union item a widened $match value can match', () => {
+      const match = (kind: Event['kind']) =>
+        doc.events.$each.$match({ kind }).$first
+
+      expectTypeOf(match).returns.toEqualTypeOf<SQL<Event | null>>()
     })
 
     it('leaves unknown JSON open to every navigation and predicate', () => {
@@ -477,7 +498,7 @@ describe('JSON path builder', () => {
             node.$eq(null),
           ),
         ).$exists,
-      ).toEqualTypeOf<SQL<boolean>>()
+      ).toEqualTypeOf<SQL<boolean | null>>()
     })
 
     it('offers predicates by item type', () => {

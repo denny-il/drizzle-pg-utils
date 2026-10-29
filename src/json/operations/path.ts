@@ -64,12 +64,13 @@ export type SQLJSONPathEntry<O> =
     ? { key: string; value: unknown; id: number }
     : O extends unknown
       ? {
-          [K in Extract<keyof O, string>]: {
-            key: K
+          // PostgreSQL object keys are text, so numeric TS keys come back as strings.
+          [K in Extract<keyof O, string | number>]: {
+            key: `${K}`
             value: Present<O[K]>
             id: number
           }
-        }[Extract<keyof O, string>]
+        }[Extract<keyof O, string | number>]
       : never
 
 // `$match` accepts scalar keys of any union member, so a discriminant can be
@@ -94,15 +95,15 @@ type MatchArgument<O, M> = keyof M extends never
   ? never
   : M & Record<Exclude<keyof M, MatchKeys<O>>, never>
 
-// Keeps the union members that can hold every matched value, so a
-// discriminant match narrows the node to that member.
+// Keeps the union members that can hold every matched value, so a literal
+// discriminant narrows the node to that member. Overlap, not assignability,
+// keeps every member a widened value (`kind: E['kind']`) might still match.
+type Overlaps<A, B> = [Extract<A, B> | Extract<B, A>] extends [never]
+  ? false
+  : true
 type MatchNarrow<T, M> = T extends object
   ? {
-      [K in keyof M]-?: K extends keyof T
-        ? M[K] extends T[K]
-          ? true
-          : false
-        : false
+      [K in keyof M]-?: K extends keyof T ? Overlaps<M[K], T[K]> : false
     }[keyof M] extends true
     ? T
     : never
@@ -267,7 +268,7 @@ type PathNavigation<T, Nullable extends boolean> =
  */
 export type SQLJSONPath<T, Nullable extends boolean = true> = {
   /** `source @? path`: whether the path yields any item. GIN-indexable. */
-  readonly $exists: SQL<boolean>
+  readonly $exists: SQL<boolean | (Nullable extends true ? null : never)>
   /** `jsonb_path_query_array(...)`: every yielded item, `[]` when none. */
   readonly $query: SQL<Present<T>[] | (Nullable extends true ? null : never)>
   /** `jsonb_path_query_first(...)`: the first yielded item, or SQL `NULL`. */

@@ -68,4 +68,4 @@ const rows = await db
 
 - `.$exists` is `@?`, which full-column GIN indexes support. Equality (`$eq`, `$in`, `$match`) narrows with `jsonb_ops` and `jsonb_path_ops`, including through `$each`.
 - Equality below `$values` narrows only with `jsonb_ops` (the default operator class).
-- Ranges, `$startsWith`, `$regex`, and existence-only paths scan the whole GIN index; pair them with a selective equality.
+- Ranges, `$startsWith`, `$regex`, existence-only paths, and anything below `$entries` (`.keyvalue()`) scan the whole GIN index; pair them with a selective equality, and prefer `$values` over `$entries` when the key is not needed.

@@ -435,6 +435,7 @@ For `$contains(...)` and `$path.$exists`, a full-column GIN index serves every p
 | `$path` equality (`$eq`, `$in`, `$match`), including `$each` | Narrows               | Narrows                    |
 | `$path` equality below `$values`                             | Narrows               | Scans the whole index      |
 | Ranges, `$startsWith`, `$regex`, existence-only paths        | Scans the whole index | Scans the whole index      |
+| Anything below `$entries`                                    | Scans the whole index | Scans the whole index      |
 
 Combine a selective equality with a range in one filter to keep the index useful. Planner row estimates for `@>` and `@?` do not reflect the data; for extracted scalars, an expression index or `create statistics ... on (expression) from table` (PostgreSQL 14+) followed by `analyze` gives the planner real estimates.
 
