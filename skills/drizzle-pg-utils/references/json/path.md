@@ -45,7 +45,7 @@ const rows = await db
 
 ## Steps and Terminals
 
-- `.key` → `."key"`, `[n]` → `[n]`, `$each` → `[*]` (arrays), `$values` → `.*` (objects and `Record`s), `$entries` → `.keyvalue()` items `{ key, value, id }`.
+- `.key` → `."key"`, `[n]` → `[n]`, `$each` → `[*]` (arrays), `$values` → `.*` (objects and `Record`s), `$entries` → `.keyvalue()` items `{ key, value, id }` (guarded so JSON `null` and other non-objects yield nothing instead of raising an error). Lax mode treats JSON `null` in place of an array as a one-item array, so `$each` and `[n]` can yield `null`.
 - `$key(name)` for `Record` keys, numeric-looking keys (`$key('0')`), and `$`-prefixed or helper-named keys. Numeric property names are array indexes.
 - `$filter((node, p) => predicate)` keeps matching items; `$match({ kind: 'click' })` keeps items with those scalar values and narrows union types.
 - `.$exists` → `source @? path` (GIN-indexable); `.$query` → `jsonb_path_query_array` (`[]` when nothing matches); `.$first` → `jsonb_path_query_first` (SQL `NULL` when nothing matches).

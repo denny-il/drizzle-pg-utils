@@ -365,16 +365,16 @@ const rows = await db
 
 Navigate:
 
-| Step               | jsonpath       | Yields                                                  |
-| ------------------ | -------------- | ------------------------------------------------------- |
-| `.key`             | `."key"`       | The property                                            |
-| `[n]`              | `[n]`          | One array item                                          |
-| `$each`            | `[*]`          | Every array item                                        |
-| `$values`          | `.*`           | Every value of an object or `Record`                    |
-| `$entries`         | `.keyvalue()`  | `{ key, value, id }` for every member, keeping map keys |
-| `$key(name)`       | `."name"`      | Any key: `Record` keys, numeric-looking keys, `$`-names |
-| `$filter(fn)`      | `? (...)`      | The items the predicate accepts                         |
-| `$match({ k: v })` | `? (@.k == v)` | The items with those scalar values; narrows union types |
+| Step               | jsonpath       | Yields                                                                                                 |
+| ------------------ | -------------- | ------------------------------------------------------------------------------------------------------ |
+| `.key`             | `."key"`       | The property                                                                                           |
+| `[n]`              | `[n]`          | One array item                                                                                         |
+| `$each`            | `[*]`          | Every array item                                                                                       |
+| `$values`          | `.*`           | Every value of an object or `Record`                                                                   |
+| `$entries`         | `.keyvalue()`  | `{ key, value, id }` for every member, keeping map keys; non-objects such as JSON `null` yield nothing |
+| `$key(name)`       | `."name"`      | Any key: `Record` keys, numeric-looking keys, `$`-names                                                |
+| `$filter(fn)`      | `? (...)`      | The items the predicate accepts                                                                        |
+| `$match({ k: v })` | `? (@.k == v)` | The items with those scalar values; narrows union types                                                |
 
 Finish with a terminal:
 
@@ -395,6 +395,7 @@ Path semantics to keep in mind:
 - Comparisons are type-strict: the string `"5"` neither equals nor is less than the number `5`, and a comparison against a missing key never matches. `$ne(x)` means "some item differs from `x`", which is not the same as `p.not(node.$eq(x))`.
 - Two conditions on `node.items.$each.a` and `node.items.$each.b` may match different items. To require both on the same item, nest a filter: `node.items.$each.$filter((item, p) => p.and(item.a.$eq(1), item.b.$eq(1))).$exists`.
 - Arrays need `$each` before `$filter(...)` or `$match(...)`: lax mode unwraps arrays, so a filter on the array itself would test its items.
+- A JSON `null` stored where an array is declared counts as a one-item array, so `$each` and `[n]` yield `null` for it; their item types include `null` when the array is nullable.
 - Values are written into the path as JSON literals, and the whole path is one bound parameter. Only JS scalars are accepted; to combine a path with a SQL condition, use Drizzle's `and(...)` around `$exists`. A predicate only works inside the callback that built it.
 - `$path` is only available on the root ref. Numeric property names are array indexes; use `$key('0')` for an object key named `"0"`.
 

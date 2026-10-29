@@ -116,7 +116,11 @@ describe('JSON path builder', () => {
       ['the largest array index', doc.tags[2147483647], '$."tags"[2147483647]'],
       ['$each', doc.events.$each, '$."events"[*]'],
       ['$values', doc.audits.$values, '$."audits".*'],
-      ['$entries', doc.audits.$entries, '$."audits".keyvalue()'],
+      [
+        '$entries',
+        doc.audits.$entries,
+        '$."audits" ? (@.type() == "object").keyvalue()',
+      ],
       ['a numeric key', doc.$key('0'), '$."0"'],
       ['a helper-named key', doc.$key('$value'), '$."$value"'],
       ['an escaped key', doc.$key('we"ird\nkey'), '$."we\\"ird\\nkey"'],
@@ -250,7 +254,7 @@ describe('JSON path builder', () => {
       [
         'navigation after a filter',
         doc.audits.$entries.$filter((e) => e.key.$startsWith('f')).value.score,
-        '$."audits".keyvalue() ? (@."key" starts with "f")."value"."score"',
+        '$."audits" ? (@.type() == "object").keyvalue() ? (@."key" starts with "f")."value"."score"',
       ],
     ])('filters with %s', (_, node, expected) => {
       expect(pathText(node.$exists)).toBe(expected)
@@ -725,6 +729,30 @@ describe('JSON path builder', () => {
       expect(await run(live.$key('we"ird\nkey').$first)).toBe(7)
     })
 
+    it('handles JSON null where an array or object is declared', async () => {
+      const nulls = json(
+        sql<{
+          tags: string[] | null
+          map: Record<string, number> | null
+        }>`'{"tags":null,"map":null}'::jsonb`,
+      ).$path
+
+      // Lax mode treats null as a one-item array, and the types say so.
+      expectTypeOf(nulls.tags.$each.$query).toEqualTypeOf<
+        SQL<Array<string | null>>
+      >()
+      expect(await run(nulls.tags.$each.$query)).toEqual([null])
+      expect(await run(nulls.tags[0].$query)).toEqual([null])
+      expect(
+        await run(nulls.$filter((d) => d.tags.$each.$isNull).$exists),
+      ).toBe(true)
+      // `.keyvalue()` would raise an error on null; it yields nothing instead.
+      expect(await run(nulls.map.$entries.$query)).toEqual([])
+      expect(await jsonType(nulls.map.$entries.$first)).toBeNull()
+      expect(await run(nulls.map.$entries.$exists)).toBe(false)
+      expect(await run(nulls.map.$values.$query)).toEqual([])
+    })
+
     it('matches union items by discriminant', async () => {
       const clicks = live.events.$each.$match({ kind: 'click' })
 
@@ -733,6 +761,12 @@ describe('JSON path builder', () => {
       expect(
         await run(live.events.$each.$match({ kind: 'click', x: 2 }).$query),
       ).toEqual([docValue.events[2]])
+
+      // An optional matcher field may be absent, so it keeps every member.
+      const matcher: { kind: Event['kind']; x?: number } = { kind: 'key' }
+      const keys = live.events.$each.$match(matcher)
+      expectTypeOf(keys.$first).toEqualTypeOf<SQL<Event | null>>()
+      expect(await run(keys.$first)).toEqual(docValue.events[1])
     })
 
     it('requires every condition of a nested filter on the same item', async () => {

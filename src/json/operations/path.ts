@@ -28,6 +28,8 @@ type IsObject<T> = [Defined<T>] extends [never]
       : true
     : false
 type ArrayElement<T> = Defined<T> extends readonly (infer E)[] ? E : never
+// Lax mode wraps a JSON `null` in place of an array, so `[*]` and `[0]` yield it.
+type ArrayItem<T> = Present<ArrayElement<T>> | (null extends T ? null : never)
 
 // Numeric-looking keys would compile to array subscripts, and `$`-prefixed
 // names are helpers, so both need `$key(...)`.
@@ -103,7 +105,12 @@ type Overlaps<A, B> = [Extract<A, B> | Extract<B, A>] extends [never]
   : true
 type MatchNarrow<T, M> = T extends object
   ? {
-      [K in keyof M]-?: K extends keyof T ? Overlaps<M[K], T[K]> : false
+      // An optional matcher field may be absent, so it cannot rule a member out.
+      [K in keyof M]-?: {} extends Pick<M, K>
+        ? true
+        : K extends keyof T
+          ? Overlaps<M[K], T[K]>
+          : false
     }[keyof M] extends true
     ? T
     : never
@@ -193,8 +200,8 @@ type FilterNavigation<T> =
       }
     : IsArray<T> extends true
       ? {
-          readonly $each: SQLJSONPathFilter<Present<ArrayElement<T>>>
-          readonly [index: number]: SQLJSONPathFilter<Present<ArrayElement<T>>>
+          readonly $each: SQLJSONPathFilter<ArrayItem<T>>
+          readonly [index: number]: SQLJSONPathFilter<ArrayItem<T>>
         }
       : IsObject<T> extends true
         ? {
@@ -237,11 +244,8 @@ type PathNavigation<T, Nullable extends boolean> =
       }
     : IsArray<T> extends true
       ? {
-          readonly $each: SQLJSONPath<Present<ArrayElement<T>>, Nullable>
-          readonly [index: number]: SQLJSONPath<
-            Present<ArrayElement<T>>,
-            Nullable
-          >
+          readonly $each: SQLJSONPath<ArrayItem<T>, Nullable>
+          readonly [index: number]: SQLJSONPath<ArrayItem<T>, Nullable>
         }
       : IsObject<T> extends true
         ? {
@@ -433,7 +437,9 @@ function navigate(
     case '$values':
       return next(`${path}.*`)
     case '$entries':
-      return next(`${path}.keyvalue()`)
+      // `.keyvalue()` errors on non-objects even in lax mode (e.g. a JSON
+      // null map), so skip them like the lax accessors do.
+      return next(`${path} ? (@.type() == "object").keyvalue()`)
     case '$key':
       return (key: unknown) => next(`${path}${pathKey(key)}`)
     case '$filter':
