@@ -29,6 +29,7 @@ import {
 } from 'vitest'
 
 import { json } from '../../src/index.ts'
+import type { SQLJSONPathOptions } from '../../src/json/operations/path.ts'
 import {
   closeDatabase,
   createDatabase,
@@ -309,6 +310,10 @@ describe('JSON path variables, $test, strict mode, aggregates, $valueAs, $rows',
 
       expectTypeOf(doc.n.$exists).toEqualTypeOf<SQL<boolean>>()
       expectTypeOf(strict.n.$exists).toEqualTypeOf<SQL<boolean | null>>()
+      const options: SQLJSONPathOptions = { mode: 'lax' }
+      expectTypeOf(json.path(sql<Doc>`doc`, options).n.$exists).toEqualTypeOf<
+        SQL<boolean | null>
+      >()
       expectTypeOf(strict.n.$query).toEqualTypeOf<SQL<number[]>>()
       expectTypeOf(doc.n.$test((n) => n.$gt(1))).toEqualTypeOf<
         SQL<boolean | null>

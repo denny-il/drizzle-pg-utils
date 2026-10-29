@@ -939,6 +939,11 @@ export function jsonPath<Source extends SQLJSONValue>(
   source: Source,
   options: { mode: 'strict' },
 ): SQLJSONPathOf<Source, true>
+// A mode only known at runtime gets strict-mode nullability.
+export function jsonPath<Source extends SQLJSONValue>(
+  source: Source,
+  options?: SQLJSONPathOptions,
+): SQLJSONPathOf<Source, boolean>
 export function jsonPath(
   source: SQLJSONValue,
   options: SQLJSONPathOptions = {},
