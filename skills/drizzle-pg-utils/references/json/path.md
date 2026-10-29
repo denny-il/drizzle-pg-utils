@@ -85,7 +85,7 @@ await db
 - Same-item conditions on array items need a nested filter: `node.items.$each.$filter((item, p) => p.and(item.a.$eq(1), item.b.$eq(1))).$exists`.
 - Use `$each` before `$filter` / `$match` on arrays (type-enforced): lax mode unwraps arrays.
 - Values become JSON literals inside one bound jsonpath parameter; only JS scalars and `p.sql(...)` variables are accepted.
-- Strict mode raises on missing keys and wrong container types in `$query`, `$first`, aggregates, `$rows`, and `$valueAs`; `$exists` and `$test` become SQL `NULL` (typed `boolean | null`). Steps right after `$deep` still skip items without the key.
+- Strict mode raises on missing keys and wrong container types in `$query`, `$first`, aggregates, and `$rows` (`$valueAs` only with `onError: 'error'`); `$exists` and `$test` become SQL `NULL` (typed `boolean | null`). Steps right after `$deep` still skip items without the key.
 - `$path` exists only on the root ref.
 
 ## Index Behavior

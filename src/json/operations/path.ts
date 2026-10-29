@@ -347,8 +347,8 @@ export type SQLJSONPathValueOptions = {
 export type SQLJSONPathOptions = {
   /**
    * `lax` (default) skips missing keys and unwraps arrays. `strict` raises on
-   * them in `$query`, `$first`, `$rows`, `$valueAs`, and aggregates, and makes
-   * `$exists` SQL `NULL`.
+   * them in `$query`, `$first`, `$rows`, and aggregates, makes `$exists` SQL
+   * `NULL`, and makes `$valueAs` `NULL` unless `onError: 'error'`.
    */
   mode?: 'lax' | 'strict'
 }
@@ -833,12 +833,15 @@ function createPathNode(
     get(_, property) {
       if (typeof property === 'symbol') return undefined
       switch (property) {
-        case '$exists':
+        case '$exists': {
           // The operators take no variables; `silent` keeps their error
-          // suppression in the function form.
-          return path.variables.size === 0
-            ? sql<boolean>`${target()} @? ${render(path).path}`
+          // suppression in the function form. Decide on the rendered path:
+          // `$in([])` can drop a subpath along with its variables.
+          const { path: param, object } = render(path)
+          return object === undefined
+            ? sql<boolean>`${target()} @? ${param}`
             : call('jsonb_path_exists', path, true)
+        }
         case '$query':
           return call('jsonb_path_query_array', path)
         case '$first':
@@ -861,8 +864,9 @@ function createPathNode(
               text: 'true',
               variables: noVariables,
             }
-            return state.variables.size === 0
-              ? sql<boolean | null>`${target()} @@ ${render(state).path}`
+            const { path: param, object } = render(state)
+            return object === undefined
+              ? sql<boolean | null>`${target()} @@ ${param}`
               : call('jsonb_path_match', state, true)
           }
         case '$valueAs':

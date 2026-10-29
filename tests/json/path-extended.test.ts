@@ -561,6 +561,23 @@ describe('JSON path variables, $test, strict mode, aggregates, $valueAs, $rows',
         // Steps right after `.**` skip items that lack the key.
         expect(await run(strict.$deep.$key('score').$count)).toBe(3)
       })
+
+      it('keeps $exists silent when $in([]) drops a variable subpath', async () => {
+        const missing = json
+          .path(sql<Doc & { missing?: number }>`${docSql()}`, {
+            mode: 'strict',
+          })
+          .$filter((d, p) =>
+            p.or(
+              d.scores.$each
+                .$filter((n) => n.$gt(p.sql(sql<number>`2::int`)))
+                .$in([]),
+              d.n.$eq(5),
+            ),
+          ).missing
+
+        expect(await run(missing.$exists)).toBeNull()
+      })
     })
 
     describe('aggregates', () => {

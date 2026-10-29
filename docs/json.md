@@ -428,7 +428,7 @@ Path semantics to keep in mind:
 
 #### Strict mode
 
-`json.path(source, { mode: 'strict' })` prefixes the path with `strict`. A missing key or an array where an object was expected raises an error in `$query`, `$first`, `$count` and the other aggregates, `$rows`, and `$valueAs`, instead of yielding nothing. `$exists` and `$test` return SQL `NULL` in that case, so `$exists` is typed `boolean | null`. Steps right after `$deep` still skip items that lack the key, so strict mode is the way to collect values at any depth without duplicates:
+`json.path(source, { mode: 'strict' })` prefixes the path with `strict`. A missing key or an array where an object was expected raises an error in `$query`, `$first`, `$count` and the other aggregates, and `$rows`, instead of yielding nothing. `$valueAs` returns SQL `NULL` unless you pass `onError: 'error'`. `$exists` and `$test` return SQL `NULL` in that case, so `$exists` is typed `boolean | null`. Steps right after `$deep` still skip items that lack the key, so strict mode is the way to collect values at any depth without duplicates:
 
 ```typescript
 json.path(reports.result, { mode: 'strict' }).$deep.$key('score').$query
