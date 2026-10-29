@@ -219,6 +219,8 @@ await db
 | ----------------------------------------------------- | -------------------------------------------------- | ----------------------------------------------------------------------- |
 | `json(source)`                                        | Callable typed ref API                             | Primary API for path access, updates, containment, and pipes            |
 | `json(source).$path` / `path(source)`                 | Typed SQL/JSON path queries                        | Filters array items and object values; `$exists` is GIN-indexable       |
+| `json.path(source, { mode: 'strict' })`               | The same builder in strict mode                    | Raises on missing keys; `$deep` yields no duplicates                    |
+| `json(source).$path...$rows(alias, columns)`          | One row per yielded item, as a lateral subquery    | Columns are typed refs to the item                                      |
 | `json(source).path.$number` / `.$boolean`             | Extract a JSON number or boolean as a SQL scalar   | JSON `null` and missing keys become SQL `NULL`                          |
 | `access(source)`                                      | Deprecated path extraction                         | Use `json(source).path.$value` or `.$text`                              |
 | `set(source)`                                         | Deprecated single-update builder                   | Use `json(source).path.$set(...)` or `.$default(...)`                   |
@@ -325,7 +327,7 @@ lt(json(reports.result).audits.$key('fcp').score.$number, 0.9)
 
 ### Query JSON paths with `$path`
 
-`json(source).$path` builds a typed, read-only [SQL/JSON path](https://www.postgresql.org/docs/current/functions-json.html#FUNCTIONS-SQLJSON-PATH) in lax mode. It reaches what refs cannot: every item of an array, every value of an object map, and items that match a condition. It works on every supported PostgreSQL version (14+). `json.path(source)` is the same builder.
+`json(source).$path` builds a typed, read-only [SQL/JSON path](https://www.postgresql.org/docs/current/functions-json.html#FUNCTIONS-SQLJSON-PATH) in lax mode. It reaches what refs cannot: every item of an array, every value of an object map, values at any depth, and items that match a condition. Everything works on every supported PostgreSQL version (14+) except `$valueAs(...)`, which needs PostgreSQL 17. `json.path(source)` is the same builder, and `json.path(source, { mode: 'strict' })` builds it in strict mode.
 
 ```typescript
 type Audit = {
@@ -372,6 +374,7 @@ Navigate:
 | `$each`            | `[*]`          | Every array item                                                                                       |
 | `$values`          | `.*`           | Every value of an object or `Record`                                                                   |
 | `$entries`         | `.keyvalue()`  | `{ key, value, id }` for every member, keeping map keys; non-objects such as JSON `null` yield nothing |
+| `$deep`            | `.**`          | The item and every value nested in it, at any depth, typed `unknown`                                   |
 | `$key(name)`       | `."name"`      | Any key: `Record` keys, numeric-looking keys, `$`-names                                                |
 | `$filter(fn)`      | `? (...)`      | The items the predicate accepts                                                                        |
 | `$match({ k: v })` | `? (@.k == v)` | The items with those scalar values; narrows union types                                                |
@@ -381,6 +384,11 @@ Finish with a terminal:
 - `.$exists` emits `source @? path`. It can use a full-column GIN index.
 - `.$query` emits `jsonb_path_query_array(source, path)`: every yielded item, `[]` when nothing matches, SQL `NULL` when the source is SQL `NULL`.
 - `.$first` emits `jsonb_path_query_first(source, path)`: the first item, or SQL `NULL` when nothing matches. A matched JSON `null` stays JSON `null`.
+- `.$count` counts the yielded items, JSON `null` included; it is `0` when nothing matches or the source is SQL `NULL`.
+- `.$sum`, `.$avg`, `.$min`, and `.$max` are offered on number paths. They ignore JSON `null` and return SQL `NULL` when no number is left. Each one is a scalar subquery over `jsonb_path_query(...)`; to compute several, or to group and filter, use `$rows(...)` with Drizzle's aggregate helpers.
+- `.$test((node, p) => ...)` emits `source @@ predicate`, where `node` stands for the current path. Unlike `$filter(...).$exists`, it keeps an unknown result as SQL `NULL`, for example a comparison between a string and a number. A callback that returns `undefined` tests `true`.
+- `.$valueAs(type, { onEmpty?, onError? })` emits `JSON_VALUE(source, path RETURNING type)` and needs **PostgreSQL 17+**. `type` is `'text'`, `'integer'`, `'double precision'`, or `'boolean'`. It converts the single scalar the path yields, numeric and boolean strings included (`"7"` becomes `7`). It returns SQL `NULL` when nothing matches, more than one item does, the item is an object or array, or the conversion fails; pass `'error'` to raise instead. Defaults are not supported (PostgreSQL only accepts constants there); wrap the result in `coalesce(...)`.
+- `.$rows(alias, columns)` turns the items into rows; see below.
 
 Inside `$filter((node, p) => ...)`, `node` is the item being tested (`@`). Build predicates on it and its paths:
 
@@ -389,6 +397,24 @@ Inside `$filter((node, p) => ...)`, `node` is the item being tested (`@`). Build
 - `$startsWith(prefix)` and `$regex(pattern, flags?)` are offered on string paths. `$regex` is PostgreSQL's `like_regex` (POSIX), with flags made of `i`, `m`, `s`, and `q`.
 - `$exists` tests that a path yields an item; `$isNull` tests for a present JSON `null`.
 - `p.and(...)`, `p.or(...)`, and `p.not(...)` combine predicates and skip `undefined`, so JS-side conditions read inline. When nothing is left, the filter is dropped.
+- `p.sql(value)` compares against a SQL value instead of a literal: a column, or `sql<T>` with a type. It is passed as a jsonpath variable (`$v1`) built with `jsonb_build_object(...)`, so untyped parameters need a cast (`` sql<number>`${min}::float8` ``). SQL `NULL` becomes JSON `null`, which `$eq` matches against stored JSON nulls. A path with a variable can't use the `@?`/`@@` operators, so `$exists` and `$test` switch to `jsonb_path_exists(...)` / `jsonb_path_match(...)`, which no index serves.
+
+```typescript
+const thresholds = pgTable('thresholds', {
+  reportId: integer('report_id').notNull(),
+  minScore: doublePrecision('min_score').notNull(),
+})
+
+const belowThreshold = json(reports.result).$path.audits.$values.$filter(
+  (audit, p) => audit.score.$lt(p.sql(thresholds.minScore)),
+)
+
+await db
+  .select({ id: reports.id, failing: belowThreshold.$count })
+  .from(reports)
+  .innerJoin(thresholds, eq(thresholds.reportId, reports.id))
+  .where(belowThreshold.$exists)
+```
 
 Path semantics to keep in mind:
 
@@ -396,8 +422,54 @@ Path semantics to keep in mind:
 - Two conditions on `node.items.$each.a` and `node.items.$each.b` may match different items. To require both on the same item, nest a filter: `node.items.$each.$filter((item, p) => p.and(item.a.$eq(1), item.b.$eq(1))).$exists`.
 - Arrays need `$each` before `$filter(...)` or `$match(...)`: lax mode unwraps arrays, so a filter on the array itself would test its items.
 - A JSON `null` stored where an array is declared counts as a one-item array, so `$each` and `[n]` yield `null` for it; their item types include `null` when the array is nullable.
-- Values are written into the path as JSON literals, and the whole path is one bound parameter. Only JS scalars are accepted; to combine a path with a SQL condition, use Drizzle's `and(...)` around `$exists`. A predicate only works inside the callback that built it.
+- Values are written into the path as JSON literals, and the whole path is one bound parameter. Only JS scalars and `p.sql(...)` variables are accepted. A predicate only works inside the callback that built it.
+- Lax `$deep` yields an item twice when the descent passes through arrays. That doesn't matter for `$exists`, but it does for `$query` and aggregates; use strict mode for those.
 - `$path` is only available on the root ref. Numeric property names are array indexes; use `$key('0')` for an object key named `"0"`.
+
+#### Strict mode
+
+`json.path(source, { mode: 'strict' })` prefixes the path with `strict`. A missing key or an array where an object was expected raises an error in `$query`, `$first`, `$count` and the other aggregates, `$rows`, and `$valueAs`, instead of yielding nothing. `$exists` and `$test` return SQL `NULL` in that case, so `$exists` is typed `boolean | null`. Steps right after `$deep` still skip items that lack the key, so strict mode is the way to collect values at any depth without duplicates:
+
+```typescript
+json.path(reports.result, { mode: 'strict' }).$deep.$key('score').$query
+// strict $.**."score"
+```
+
+#### Turn JSON into rows with `$rows`
+
+`$rows(alias, (item, ordinality) => columns)` yields one row per item as a Drizzle subquery over `jsonb_path_query(...)`. `item` is a typed ref to the item, so columns are built with `$text`, `$number`, `$boolean`, and `$value`; `ordinality` is the item's 1-based position. Join it with `crossJoinLateral(...)`, or `leftJoinLateral(..., sql\`true\`)` to keep rows that have no items:
+
+```typescript
+const audits = json(reports.result).$path.audits.$entries.$rows(
+  'audits',
+  (entry, ordinality) => ({
+    key: entry.key.$text,
+    score: entry.value.score.$number,
+    mode: entry.value.mode.$text,
+    ordinality,
+  }),
+)
+
+await db
+  .select({ id: reports.id, numeric: count(), average: avg(audits.score) })
+  .from(reports)
+  .crossJoinLateral(audits)
+  .where(eq(audits.mode, 'numeric'))
+  .groupBy(reports.id)
+```
+
+```sql
+select ... from "reports"
+cross join lateral (
+  select jsonb_extract_path_text("jsonb_path_items".item, 'key') as "key", ...
+  from jsonb_path_query("reports"."result", $1::text::jsonpath)
+    with ordinality as "jsonb_path_items"(item, ord)
+) "audits"
+```
+
+A source that does not reference a table, such as a bound JSON value, can go straight into `.from(...)`. With `leftJoinLateral`, Drizzle types the columns of a partial selection as non-null, but rows without items come back with SQL `NULL` in every column; test `ordinality` for `null` to find them.
+
+This is a deliberate subset of PostgreSQL 17's `JSON_TABLE`, which is not wrapped: `JSON_TABLE` only accepts a constant path, so it can't take the path as a bound parameter, and it needs PostgreSQL 17. `$rows` works on 14+. Typed refs take the place of `JSON_TABLE` column types, and a second `$rows(...)` over a column of the first takes the place of `NESTED PATH`, except that sibling nested paths multiply rows instead of combining them.
 
 ### Indexes for JSON queries
 
@@ -428,13 +500,13 @@ await db
 
 An index on `result->>'kind'` is not used for `json(reports.result).kind.$text`, which emits `jsonb_extract_path_text(result, 'kind')`. Changing either side to match the other is enough.
 
-For `$contains(...)` and `$path.$exists`, a full-column GIN index serves every path. What it narrows depends on the operator class:
+For `$contains(...)`, `$path.$exists`, and `$path.$test(...)`, a full-column GIN index serves every path that has no `p.sql(...)` variable. What it narrows depends on the operator class:
 
 | Predicate                                                    | `jsonb_ops` (default) | `jsonb_path_ops` (smaller) |
 | ------------------------------------------------------------ | --------------------- | -------------------------- |
 | `$contains(...)`                                             | Narrows               | Narrows                    |
 | `$path` equality (`$eq`, `$in`, `$match`), including `$each` | Narrows               | Narrows                    |
-| `$path` equality below `$values`                             | Narrows               | Scans the whole index      |
+| `$path` equality below `$values` or `$deep`                  | Narrows               | Scans the whole index      |
 | Ranges, `$startsWith`, `$regex`, existence-only paths        | Scans the whole index | Scans the whole index      |
 | Anything below `$entries`                                    | Scans the whole index | Scans the whole index      |
 

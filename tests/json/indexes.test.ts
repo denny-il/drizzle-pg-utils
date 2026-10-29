@@ -430,6 +430,43 @@ describe('JSONB index compatibility', () => {
     expect(await explainIndexRows(featured, indexName)).toBe(40)
   })
 
+  it('narrows GIN scans for $test and $deep equality, but not with variables', async () => {
+    const { indexedTable, tableName } = await createSeededTable('path_more')
+    const indexName = `${tableName}_gin_idx`
+    const data = json(indexedTable.data).$path
+    const select = (condition: SQL) =>
+      sql`select 1 from ${indexedTable} where ${condition}`
+    const alpha = select(data.kind.$test((kind) => kind.$eq('alpha')))
+    const tag7 = select(
+      data.$deep.$filter((value) => value.$eq('tag7')).$exists,
+    )
+    const variable = select(
+      data.$filter((d, p) => d.kind.$eq(p.sql(sql<string>`'alpha'::text`)))
+        .$exists,
+    )
+
+    expect(await runQuery(alpha)).toHaveLength(100)
+    expect(await runQuery(tag7)).toHaveLength(20)
+    expect(await runQuery(variable)).toHaveLength(100)
+
+    await executeRaw(
+      `create index "${indexName}" on "${tableName}" using gin (data);`,
+    )
+    expect(await explainIndexRows(alpha, indexName)).toBe(100)
+    expect(await explainIndexRows(tag7, indexName)).toBe(20)
+    expect(findIndexNames(await explainQuery(variable))).not.toContain(
+      indexName,
+    )
+
+    // jsonb_path_ops can't narrow `.**`.
+    await executeRaw(`drop index "${indexName}";`)
+    await executeRaw(
+      `create index "${indexName}" on "${tableName}" using gin (data jsonb_path_ops);`,
+    )
+    expect(await explainIndexRows(alpha, indexName)).toBe(100)
+    expect(await explainIndexRows(tag7, indexName)).toBe(200)
+  })
+
   it('uses a btree index declared in the drizzle schema from a $number ref', async () => {
     const { tableName } = await createSeededTable('number')
     const indexName = `${tableName}_rank_idx`

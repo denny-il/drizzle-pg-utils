@@ -62,8 +62,12 @@ export type {
   SQLJSONPathEntry,
   SQLJSONPathFilter,
   SQLJSONPathOf,
+  SQLJSONPathOptions,
   SQLJSONPathPredicate,
   SQLJSONPathPredicates,
+  SQLJSONPathValueOptions,
+  SQLJSONPathValueTypes,
+  SQLJSONPathVariable,
 } from './operations/path.ts'
 export type { SQLJSONRef, SQLJSONRefPipeFn } from './operations/ref.ts'
 export type { SQLJSONRefAPI } from './types.ts'

@@ -6,7 +6,7 @@ Use this file as the router. Read it first, then load the focused helper file th
 - [json/access.md](json/access.md) for `.$value`, `.$text`, the deprecated `access(...)`, path extraction, and expression-index implications.
 - [json/updates.md](json/updates.md) for `.$set(...)`, `.$default(...)`, missing branches, SQL `NULL` roots, and the deprecated `set(...)` / `setPipe(...)`.
 - [json/arrays.md](json/arrays.md) for `arrayPush(...)`, `arraySet(...)`, `arrayDelete(...)`, out-of-bounds behavior, and `undefined` handling.
-- [json/path.md](json/path.md) for `json(source).$path`: SQL/JSON path queries over array items and object-map values with `$filter(...)`, `$match(...)`, `$exists`, `$query`, `$first`, and their GIN index behavior.
+- [json/path.md](json/path.md) for `json(source).$path`: SQL/JSON path queries over array items, object-map values, and nested values with `$filter(...)`, `$match(...)`, `$deep`, `p.sql(...)` variables, strict mode, the terminals `$exists`, `$query`, `$first`, `$count`/`$sum`/..., `$test`, `$valueAs` (PostgreSQL 17+), and `$rows` (JSON to rows), and their GIN index behavior.
 - [json/contains.md](json/contains.md) for `.$contains(...)`, the deprecated `contains(...)`, JSONB `@>`, and full-column GIN / `jsonb_path_ops` indexes.
 - [json/build-coalesce-merge.md](json/build-coalesce-merge.md) for `build(...)`, `coalesce(...)`, `merge(...)`, SQL expressions, `to_jsonb(...)`, and trust boundaries.
 
@@ -27,6 +27,7 @@ import { jsonRef, jsonRefPipe } from '@denny-il/drizzle-pg-utils/json/ref'
 | `json(source)`                                        | Callable typed ref: access, updates, containment, pipes        | [json/ref.md](json/ref.md)                                   |
 | `json(source).$pipe(...ops)` / `pipe(source, ...ops)` | Chain JSON updates; each step sees previous result             | [json/ref.md](json/ref.md)                                   |
 | `json(source).$path` / `path(source)`                 | Typed SQL/JSON path queries; filter array items and map values | [json/path.md](json/path.md)                                 |
+| `json(source).$path...$rows(alias, columns)`          | One row per path item, for lateral joins                       | [json/path.md](json/path.md)                                 |
 | `access(source)`                                      | Deprecated; use `json(source).path.$value` / `.$text`          | [json/access.md](json/access.md)                             |
 | `set(source)`                                         | Deprecated; use `json(source).path.$set(...)`                  | [json/updates.md](json/updates.md)                           |
 | `setPipe(source, ...ops)`                             | Deprecated; use `json(source).$pipe(...)`                      | [json/updates.md](json/updates.md)                           |

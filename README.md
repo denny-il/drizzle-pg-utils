@@ -66,6 +66,7 @@ await db
 - Access nested JSONB paths with `json(source)` and full TypeScript inference.
 - Query JSONB containment with typed path traversal and full-column index-friendly SQL.
 - Filter array items and object values with typed SQL/JSON paths: `json(source).$path`.
+- Turn JSON arrays and maps into rows for lateral joins with `$rows(...)`, aggregate path items, and compare them with SQL columns.
 - Extract numbers and booleans as typed SQL scalars with `.$number` and `.$boolean`.
 - Update deep branches atomically with `.$set(...)`, `.$default(...)`, `.$push(...)`, `.$merge(...)`, and `.$pipe(...)`.
 - Build, merge, coalesce, and modify arrays with typed SQL helpers.

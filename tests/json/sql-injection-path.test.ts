@@ -120,6 +120,31 @@ describe('JSON path SQL injection and misuse resistance', () => {
     },
   )
 
+  it.each(payloads)(
+    'binds the p.sql(...) value %j outside the jsonpath text',
+    async (payload) => {
+      const source = json(docSql({ s: payload, items: [], map: {} })).$path
+      const value = sql<string>`${payload}::text`
+      const node = source.$filter((d, p) => d.s.$eq(p.sql(value)))
+      const query = dialect.sqlToQuery(node.$exists)
+
+      expect(query.params).toEqual([
+        JSON.stringify({ s: payload, items: [], map: {} }),
+        `$ ? (@."s" == $v1)`,
+        payload,
+      ])
+      await expect(executeQuery(db, node.$exists)).resolves.toBe(true)
+      await expect(
+        executeQuery(
+          db,
+          source.$filter((d, p) =>
+            d.s.$eq(p.sql(sql<string>`${`${payload}!`}::text`)),
+          ).$exists,
+        ),
+      ).resolves.toBe(false)
+    },
+  )
+
   it('treats a regex pattern as a regex, never as jsonpath', async () => {
     const source = json(docSql({ s: 'a"b', items: [], map: {} })).$path
 

@@ -1,5 +1,9 @@
-import { type SQL, sql } from 'drizzle-orm'
-import type { AnyPgColumn } from 'drizzle-orm/pg-core'
+import { is, isSQLWrapper, SQL, sql } from 'drizzle-orm'
+import {
+  type AnyPgColumn,
+  QueryBuilder,
+  type SubqueryWithSelection,
+} from 'drizzle-orm/pg-core'
 
 import { jsonSource } from '../source.ts'
 import type {
@@ -7,6 +11,7 @@ import type {
   SQLJSONIsNullish,
   SQLJSONValue,
 } from '../types.ts'
+import { jsonRef, type SQLJSONRef } from './ref.ts'
 
 type Scalar = string | number | boolean | null
 type Present<T> = Exclude<T, undefined>
@@ -120,6 +125,7 @@ type CanFilter<T> =
   IsUnknown<T> extends true ? true : HasArray<T> extends true ? false : true
 
 declare const predicateBrand: unique symbol
+declare const variableType: unique symbol
 
 /**
  * A condition built inside a `$filter(...)` callback. It is only valid in the
@@ -130,11 +136,40 @@ export interface SQLJSONPathPredicate {
 }
 
 /**
+ * A SQL value passed into the path as a jsonpath variable (`$v1`), created
+ * with `p.sql(...)`. `V` is its SQL type, which comparisons check.
+ */
+export interface SQLJSONPathVariable<V> {
+  readonly [variableType]: V
+}
+
+type SQLScalarSource =
+  | SQL<Scalar>
+  | SQL.Aliased<Scalar>
+  | AnyPgColumn<{ data: string | number | boolean }>
+type SQLScalarType<S> = S extends AnyPgColumn
+  ? S['_']['notNull'] extends true
+    ? S['_']['data']
+    : S['_']['data'] | null
+  : S extends SQL<infer V> | SQL.Aliased<infer V>
+    ? V
+    : never
+
+/**
  * Combinators passed to `$filter(...)` callbacks. `undefined` operands are
  * skipped, so optional conditions can be written inline; when nothing is
  * left, the result is `undefined` and the filter is omitted.
  */
 export type SQLJSONPathPredicates = {
+  /**
+   * Compares against a SQL value (a column or typed `sql<T>`) through a
+   * jsonpath variable. Untyped parameters need a cast, e.g. `sql<number>\`${n}::float8\``.
+   * Paths with variables can't use the `@?`/`@@` operators, so they lose GIN
+   * index support; SQL `NULL` becomes JSON `null`.
+   */
+  sql<S extends SQLScalarSource>(
+    value: S,
+  ): SQLJSONPathVariable<SQLScalarType<S>>
   and(
     ...predicates: Array<SQLJSONPathPredicate | undefined>
   ): SQLJSONPathPredicate | undefined
@@ -162,6 +197,18 @@ type OrderValue<T> =
         | ([Extract<T, string>] extends [never] ? never : string)
 type StringValue<T> = IsUnknown<T> extends true ? string : Extract<T, string>
 
+// Variables are widened to their base type, so a text column can be compared
+// with a literal-union field; they may be SQL NULL, which jsonpath compares as
+// JSON null.
+type Widen<V> = V extends string
+  ? string
+  : V extends number
+    ? number
+    : V extends boolean
+      ? boolean
+      : V
+type Operand<V> = V | SQLJSONPathVariable<Widen<V> | null>
+
 type FilterPredicates<T> = {
   /** `exists(@...)`: the path yields at least one item, JSON `null` included. */
   readonly $exists: SQLJSONPathPredicate
@@ -170,17 +217,17 @@ type FilterPredicates<T> = {
 } & ([EqValue<T>] extends [never]
   ? {}
   : {
-      $eq(value: EqValue<T>): SQLJSONPathPredicate
-      $ne(value: EqValue<T>): SQLJSONPathPredicate
-      $in(values: readonly EqValue<T>[]): SQLJSONPathPredicate
+      $eq(value: Operand<EqValue<T>>): SQLJSONPathPredicate
+      $ne(value: Operand<EqValue<T>>): SQLJSONPathPredicate
+      $in(values: readonly Operand<EqValue<T>>[]): SQLJSONPathPredicate
     }) &
   ([OrderValue<T>] extends [never]
     ? {}
     : {
-        $lt(value: OrderValue<T>): SQLJSONPathPredicate
-        $lte(value: OrderValue<T>): SQLJSONPathPredicate
-        $gt(value: OrderValue<T>): SQLJSONPathPredicate
-        $gte(value: OrderValue<T>): SQLJSONPathPredicate
+        $lt(value: Operand<OrderValue<T>>): SQLJSONPathPredicate
+        $lte(value: Operand<OrderValue<T>>): SQLJSONPathPredicate
+        $gt(value: Operand<OrderValue<T>>): SQLJSONPathPredicate
+        $gte(value: Operand<OrderValue<T>>): SQLJSONPathPredicate
       }) &
   ([StringValue<T>] extends [never]
     ? {}
@@ -190,32 +237,34 @@ type FilterPredicates<T> = {
         $regex(pattern: string, flags?: string): SQLJSONPathPredicate
       })
 
-type FilterNavigation<T> =
-  IsUnknown<T> extends true
+type FilterNavigation<T> = {
+  /** `.**`: the item and every value nested in it, at any depth. */
+  readonly $deep: SQLJSONPathFilter<unknown>
+} & (IsUnknown<T> extends true
+  ? {
+      readonly $each: SQLJSONPathFilter<unknown>
+      readonly $values: SQLJSONPathFilter<unknown>
+      readonly $entries: SQLJSONPathFilter<SQLJSONPathEntry<unknown>>
+      $key(key: string): SQLJSONPathFilter<unknown>
+    }
+  : IsArray<T> extends true
     ? {
-        readonly $each: SQLJSONPathFilter<unknown>
-        readonly $values: SQLJSONPathFilter<unknown>
-        readonly $entries: SQLJSONPathFilter<SQLJSONPathEntry<unknown>>
-        $key(key: string): SQLJSONPathFilter<unknown>
+        readonly $each: SQLJSONPathFilter<ArrayItem<T>>
+        readonly [index: number]: SQLJSONPathFilter<ArrayItem<T>>
       }
-    : IsArray<T> extends true
+    : IsObject<T> extends true
       ? {
-          readonly $each: SQLJSONPathFilter<ArrayItem<T>>
-          readonly [index: number]: SQLJSONPathFilter<ArrayItem<T>>
+          readonly $values: SQLJSONPathFilter<ObjectValues<Defined<T>>>
+          readonly $entries: SQLJSONPathFilter<SQLJSONPathEntry<Defined<T>>>
+          $key<K extends string>(
+            key: K,
+          ): SQLJSONPathFilter<ObjectMember<Defined<T>, K>>
+        } & {
+          readonly [K in ObjectKeys<Defined<T>>]: SQLJSONPathFilter<
+            Present<Defined<T>[K]>
+          >
         }
-      : IsObject<T> extends true
-        ? {
-            readonly $values: SQLJSONPathFilter<ObjectValues<Defined<T>>>
-            readonly $entries: SQLJSONPathFilter<SQLJSONPathEntry<Defined<T>>>
-            $key<K extends string>(
-              key: K,
-            ): SQLJSONPathFilter<ObjectMember<Defined<T>, K>>
-          } & {
-            readonly [K in ObjectKeys<Defined<T>>]: SQLJSONPathFilter<
-              Present<Defined<T>[K]>
-            >
-          }
-        : {}
+      : {})
 
 /**
  * A path relative to the item a `$filter(...)` callback tests (`@`). It builds
@@ -234,64 +283,163 @@ export type SQLJSONPathFilter<T> = FilterPredicates<T> &
       }
     : {})
 
-type PathNavigation<T, Nullable extends boolean> =
-  IsUnknown<T> extends true
+type PathNavigation<T, Nullable extends boolean, Strict extends boolean> = {
+  /**
+   * `.**`: the item and every value nested in it, at any depth. Lax mode can
+   * yield an item twice when the descent passes through arrays; strict mode
+   * does not.
+   */
+  readonly $deep: SQLJSONPath<unknown, Nullable, Strict>
+} & (IsUnknown<T> extends true
+  ? {
+      readonly $each: SQLJSONPath<unknown, Nullable, Strict>
+      readonly $values: SQLJSONPath<unknown, Nullable, Strict>
+      readonly $entries: SQLJSONPath<
+        SQLJSONPathEntry<unknown>,
+        Nullable,
+        Strict
+      >
+      $key(key: string): SQLJSONPath<unknown, Nullable, Strict>
+    }
+  : IsArray<T> extends true
     ? {
-        readonly $each: SQLJSONPath<unknown, Nullable>
-        readonly $values: SQLJSONPath<unknown, Nullable>
-        readonly $entries: SQLJSONPath<SQLJSONPathEntry<unknown>, Nullable>
-        $key(key: string): SQLJSONPath<unknown, Nullable>
+        readonly $each: SQLJSONPath<ArrayItem<T>, Nullable, Strict>
+        readonly [index: number]: SQLJSONPath<ArrayItem<T>, Nullable, Strict>
       }
-    : IsArray<T> extends true
+    : IsObject<T> extends true
       ? {
-          readonly $each: SQLJSONPath<ArrayItem<T>, Nullable>
-          readonly [index: number]: SQLJSONPath<ArrayItem<T>, Nullable>
+          readonly $values: SQLJSONPath<
+            ObjectValues<Defined<T>>,
+            Nullable,
+            Strict
+          >
+          readonly $entries: SQLJSONPath<
+            SQLJSONPathEntry<Defined<T>>,
+            Nullable,
+            Strict
+          >
+          $key<K extends string>(
+            key: K,
+          ): SQLJSONPath<ObjectMember<Defined<T>, K>, Nullable, Strict>
+        } & {
+          readonly [K in ObjectKeys<Defined<T>>]: SQLJSONPath<
+            Present<Defined<T>[K]>,
+            Nullable,
+            Strict
+          >
         }
-      : IsObject<T> extends true
+      : {})
+
+/** Target types for `$valueAs(...)`, limited to ones every driver decodes alike. */
+export type SQLJSONPathValueTypes = {
+  text: string
+  integer: number
+  'double precision': number
+  boolean: boolean
+}
+
+/** `null` (the default) returns SQL `NULL`; `error` raises. */
+export type SQLJSONPathValueOptions = {
+  onEmpty?: 'null' | 'error'
+  onError?: 'null' | 'error'
+}
+
+export type SQLJSONPathOptions = {
+  /**
+   * `lax` (default) skips missing keys and unwraps arrays. `strict` raises on
+   * them in `$query`, `$first`, `$rows`, `$valueAs`, and aggregates, and makes
+   * `$exists` SQL `NULL`.
+   */
+  mode?: 'lax' | 'strict'
+}
+
+type RowColumns = Record<string, SQL<unknown>>
+type RowSelection<C extends RowColumns> = {
+  [K in keyof C]: SQL.Aliased<C[K]['_']['type']>
+}
+
+type NumberAggregates<T> =
+  IsUnknown<T> extends true
+    ? {}
+    : [Defined<T>] extends [never]
+      ? {}
+      : [Defined<T>] extends [number]
         ? {
-            readonly $values: SQLJSONPath<ObjectValues<Defined<T>>, Nullable>
-            readonly $entries: SQLJSONPath<
-              SQLJSONPathEntry<Defined<T>>,
-              Nullable
-            >
-            $key<K extends string>(
-              key: K,
-            ): SQLJSONPath<ObjectMember<Defined<T>, K>, Nullable>
-          } & {
-            readonly [K in ObjectKeys<Defined<T>>]: SQLJSONPath<
-              Present<Defined<T>[K]>,
-              Nullable
-            >
+            /** Sum of the numbers, ignoring JSON `null`; SQL `NULL` when none. */
+            readonly $sum: SQL<number | null>
+            readonly $avg: SQL<number | null>
+            readonly $min: SQL<number | null>
+            readonly $max: SQL<number | null>
           }
         : {}
 
 /**
- * A typed, read-only SQL/JSON path over a JSONB source, evaluated in lax mode.
- * `T` is the type of one item the path yields; `Nullable` tracks whether the
- * source itself can be SQL `NULL`.
+ * A typed, read-only SQL/JSON path over a JSONB source. `T` is the type of
+ * one item the path yields; `Nullable` tracks whether the source itself can be
+ * SQL `NULL`; `Strict` is the path mode.
  */
-export type SQLJSONPath<T, Nullable extends boolean = true> = {
-  /** `source @? path`: whether the path yields any item. GIN-indexable. */
-  readonly $exists: SQL<boolean | (Nullable extends true ? null : never)>
+export type SQLJSONPath<
+  T,
+  Nullable extends boolean = true,
+  Strict extends boolean = false,
+> = {
+  /**
+   * `source @? path`: whether the path yields any item. GIN-indexable unless
+   * the path uses `p.sql(...)` variables.
+   */
+  readonly $exists: SQL<
+    | boolean
+    | (Nullable extends true ? null : Strict extends true ? null : never)
+  >
   /** `jsonb_path_query_array(...)`: every yielded item, `[]` when none. */
   readonly $query: SQL<Present<T>[] | (Nullable extends true ? null : never)>
   /** `jsonb_path_query_first(...)`: the first yielded item, or SQL `NULL`. */
   readonly $first: SQL<Present<T> | null>
-} & PathNavigation<T, Nullable> &
+  /** How many items the path yields, JSON `null` included; 0 for SQL `NULL`. */
+  readonly $count: SQL<number>
+  /**
+   * `source @@ predicate`: the predicate's three-valued result. The callback
+   * node stands for this path; SQL `NULL` when the result is unknown, e.g. a
+   * comparison across JSON types.
+   */
+  $test(fn: SQLJSONPathFilterFn<T>): SQL<boolean | null>
+  /**
+   * `JSON_VALUE(... RETURNING type)`, PostgreSQL 17+: the single scalar the
+   * path yields, converted to `type` (numeric strings included). SQL `NULL`
+   * when there is none, more than one, or it does not convert.
+   */
+  $valueAs<K extends keyof SQLJSONPathValueTypes>(
+    type: K,
+    options?: SQLJSONPathValueOptions,
+  ): SQL<SQLJSONPathValueTypes[K] | null>
+  /**
+   * One row per yielded item, as a subquery for `crossJoinLateral(...)` or
+   * `leftJoinLateral(..., sql\`true\`)`. Columns are built from a typed ref
+   * to the item and its 1-based position.
+   */
+  $rows<A extends string, C extends RowColumns>(
+    alias: A,
+    columns: (item: SQLJSONRef<SQL<Present<T>>>, ordinality: SQL<number>) => C,
+  ): SubqueryWithSelection<RowSelection<C>, A>
+} & NumberAggregates<T> &
+  PathNavigation<T, Nullable, Strict> &
   (CanFilter<T> extends true
     ? {
-        $filter(fn: SQLJSONPathFilterFn<T>): SQLJSONPath<T, Nullable>
+        $filter(fn: SQLJSONPathFilterFn<T>): SQLJSONPath<T, Nullable, Strict>
       }
     : {}) &
   (IsObject<T> extends true
     ? {
         $match<const M extends MatchShape<Defined<T>>>(
           shape: MatchArgument<Defined<T>, M>,
-        ): SQLJSONPath<MatchNarrow<T, M>, Nullable>
+        ): SQLJSONPath<MatchNarrow<T, M>, Nullable, Strict>
       }
     : {})
 
-export type SQLJSONPathOf<Source extends SQLJSONValue> = SQLJSONPath<
+export type SQLJSONPathOf<
+  Source extends SQLJSONValue,
+  Strict extends boolean = false,
+> = SQLJSONPath<
   SQLJSONExtractType<Source>,
   SQLJSONIsNullish<SQLJSONExtractType<Source>> extends true
     ? true
@@ -299,18 +447,44 @@ export type SQLJSONPathOf<Source extends SQLJSONValue> = SQLJSONPath<
       ? Source['_']['notNull'] extends true
         ? false
         : true
-      : false
+      : false,
+  Strict
 >
 
 /** One `$filter(...)` callback; `@` means a different item in each. */
 class PathScope {}
 
+// SQL values referenced by id from path text. The text holds a token per
+// variable, `\u0001<id>\u0001`, which terminals rename to `$v1`, `$v2`, ...
+// Raw control characters never appear otherwise: keys and string literals go
+// through JSON.stringify, which escapes them.
+type Variables = ReadonlyMap<number, SQL>
+const noVariables: Variables = new Map()
+// oxlint-disable-next-line no-control-regex -- the token delimiter
+const variableToken = /\u0001(\d+)\u0001/g
+let lastVariableId = 0
+
+class PathVariable {
+  readonly id = ++lastVariableId
+  constructor(readonly value: SQL) {}
+}
+
+function mergeVariables(...sets: Variables[]): Variables {
+  const present = sets.filter((set) => set.size > 0)
+  if (present.length <= 1) return present[0] ?? noVariables
+  return new Map(present.flatMap((set) => [...set]))
+}
+
 class PathPredicate {
   constructor(
     readonly text: string,
     readonly scope: PathScope,
+    readonly variables: Variables = noVariables,
   ) {}
 }
+
+/** Path text plus the SQL values its variable tokens refer to. */
+type PathState = { readonly text: string; readonly variables: Variables }
 
 const maxArrayIndex = 2147483647
 
@@ -323,14 +497,29 @@ function pathLiteral(value: unknown): string {
     return JSON.stringify(value)
   }
   throw new TypeError(
-    'JSON path values must be strings, finite numbers, booleans, or null',
+    'JSON path values must be strings, finite numbers, booleans, null, or p.sql(...) variables',
   )
 }
 
 function pathOrderLiteral(value: unknown): string {
   if (typeof value !== 'string' && typeof value !== 'number')
-    throw new TypeError('JSON path comparisons take a string or a number')
+    throw new TypeError(
+      'JSON path comparisons take a string, a number, or a p.sql(...) variable',
+    )
   return pathLiteral(value)
+}
+
+/** A literal, or the token for a `p.sql(...)` variable. */
+function pathOperand(
+  value: unknown,
+  literal: (value: unknown) => string,
+): PathState {
+  if (value instanceof PathVariable)
+    return {
+      text: `\u0001${value.id}\u0001`,
+      variables: new Map([[value.id, value.value]]),
+    }
+  return { text: literal(value), variables: noVariables }
 }
 
 function pathString(value: unknown, name: string): string {
@@ -383,6 +572,7 @@ function createPredicates(scope: PathScope): SQLJSONPathPredicates {
         .map((predicate) => `(${predicate.text})`)
         .join(` ${operator} `),
       scope,
+      mergeVariables(...predicates.map((predicate) => predicate.variables)),
     )
   }
 
@@ -392,22 +582,45 @@ function createPredicates(scope: PathScope): SQLJSONPathPredicates {
     not: (value: unknown) => {
       if (value === undefined) return undefined
       assertPredicate(value, scope)
-      return new PathPredicate(`!(${value.text})`, scope)
+      return new PathPredicate(`!(${value.text})`, scope, value.variables)
     },
-  } as SQLJSONPathPredicates
+    sql: (value: unknown) => {
+      if (!isSQLWrapper(value))
+        throw new TypeError(
+          'p.sql(...) takes a column or a SQL expression, e.g. sql<number>`...`',
+        )
+      return new PathVariable(sql`${jsonSource(value)}`)
+    },
+  } as unknown as SQLJSONPathPredicates
 }
 
-function buildFilter(path: string, fn: unknown): string {
-  if (typeof fn !== 'function')
-    throw new TypeError('$filter(...) takes a callback')
+/** Runs a predicate callback; `undefined` when it returns no condition. */
+function runPredicate(
+  fn: unknown,
+  name: string,
+  path: PathState,
+): PathPredicate | undefined {
+  if (typeof fn !== 'function') throw new TypeError(`${name} takes a callback`)
   const scope = new PathScope()
-  const predicate = fn(createFilterNode(scope, '@'), createPredicates(scope))
-  if (predicate === undefined) return path
+  const predicate = fn(createFilterNode(scope, path), createPredicates(scope))
+  if (predicate === undefined) return undefined
   assertPredicate(predicate, scope)
-  return `${path} ? (${predicate.text})`
+  return predicate
 }
 
-function buildMatch(path: string, shape: unknown): string {
+function buildFilter(path: PathState, fn: unknown): PathState {
+  const predicate = runPredicate(fn, '$filter(...)', {
+    text: '@',
+    variables: noVariables,
+  })
+  if (predicate === undefined) return path
+  return {
+    text: `${path.text} ? (${predicate.text})`,
+    variables: mergeVariables(path.variables, predicate.variables),
+  }
+}
+
+function buildMatch(path: PathState, shape: unknown): PathState {
   if (typeof shape !== 'object' || shape === null || Array.isArray(shape))
     throw new TypeError('$match(...) takes an object of scalar values')
   const conditions = Object.entries(shape).map(([key, value]) => {
@@ -421,27 +634,30 @@ function buildMatch(path: string, shape: unknown): string {
     conditions.length === 1
       ? conditions[0]
       : conditions.map((condition) => `(${condition})`).join(' && ')
-  return `${path} ? (${condition})`
+  return { ...path, text: `${path.text} ? (${condition})` }
 }
 
 // Properties shared by path and filter nodes: navigation and filtering.
 // Returns `undefined` for properties the caller should handle itself.
 function navigate(
-  path: string,
+  path: PathState,
   property: string,
-  next: (path: string) => unknown,
+  next: (path: PathState) => unknown,
 ): unknown {
+  const step = (text: string) => next({ ...path, text: `${path.text}${text}` })
   switch (property) {
     case '$each':
-      return next(`${path}[*]`)
+      return step('[*]')
     case '$values':
-      return next(`${path}.*`)
+      return step('.*')
+    case '$deep':
+      return step('.**')
     case '$entries':
       // `.keyvalue()` errors on non-objects even in lax mode (e.g. a JSON
       // null map), so skip them like the lax accessors do.
-      return next(`${path} ? (@.type() == "object").keyvalue()`)
+      return step(' ? (@.type() == "object").keyvalue()')
     case '$key':
-      return (key: unknown) => next(`${path}${pathKey(key)}`)
+      return (key: unknown) => step(pathKey(key))
     case '$filter':
       return (fn: unknown) => next(buildFilter(path, fn))
     case '$match':
@@ -456,25 +672,42 @@ function navigate(
     case 'toString':
       return () => '[object SQLJSONPath]'
     default:
-      return next(`${path}${pathSegment(property)}`)
+      return step(pathSegment(property))
   }
 }
 
-function createFilterNode(scope: PathScope, path: string): unknown {
-  const predicate = (text: string) => new PathPredicate(text, scope)
+// Filter nodes build predicate text. Variables of nested filters in the
+// node's own path travel on into every predicate built from it.
+function createFilterNode(scope: PathScope, node: PathState): unknown {
+  const path = node.text
+  const predicate = (state: PathState) =>
+    new PathPredicate(
+      state.text,
+      scope,
+      mergeVariables(node.variables, state.variables),
+    )
+  const comparison = (
+    operator: string,
+    value: unknown,
+    literal: (value: unknown) => string,
+  ) => {
+    const operand = pathOperand(value, literal)
+    return { ...operand, text: `${path} ${operator} ${operand.text}` }
+  }
   const compare = (operator: string) => (value: unknown) =>
-    predicate(`${path} ${operator} ${pathLiteral(value)}`)
+    predicate(comparison(operator, value, pathLiteral))
   const order = (operator: string) => (value: unknown) =>
-    predicate(`${path} ${operator} ${pathOrderLiteral(value)}`)
+    predicate(comparison(operator, value, pathOrderLiteral))
+  const text = (text: string) => predicate({ text, variables: noVariables })
 
   return new Proxy(Object.create(null), {
     get(_, property) {
       if (typeof property === 'symbol') return undefined
       switch (property) {
         case '$exists':
-          return predicate(`exists(${path})`)
+          return text(`exists(${path})`)
         case '$isNull':
-          return predicate(`${path} == null`)
+          return text(`${path} == null`)
         case '$eq':
           return compare('==')
         case '$ne':
@@ -492,31 +725,34 @@ function createFilterNode(scope: PathScope, path: string): unknown {
             if (!Array.isArray(values))
               throw new TypeError('$in(...) takes an array of values')
             // jsonpath has no boolean literals as predicates, and no `in`.
-            if (values.length === 0) return predicate('1 == 0')
-            if (values.length === 1)
-              return predicate(`${path} == ${pathLiteral(values[0])}`)
-            return predicate(
-              values
-                .map((value) => `(${path} == ${pathLiteral(value)})`)
-                .join(' || '),
+            if (values.length === 0) return text('1 == 0')
+            const options = values.map((value) =>
+              comparison('==', value, pathLiteral),
             )
+            if (options.length === 1) return predicate(options[0]!)
+            return predicate({
+              text: options.map((option) => `(${option.text})`).join(' || '),
+              variables: mergeVariables(
+                ...options.map((option) => option.variables),
+              ),
+            })
           }
         case '$startsWith':
           return (prefix: unknown) =>
-            predicate(`${path} starts with ${pathString(prefix, 'prefixes')}`)
+            text(`${path} starts with ${pathString(prefix, 'prefixes')}`)
         case '$regex':
           return (pattern: unknown, flags?: unknown) => {
             const regex = `${path} like_regex ${pathString(pattern, 'patterns')}`
-            if (flags === undefined || flags === '') return predicate(regex)
+            if (flags === undefined || flags === '') return text(regex)
             // PostgreSQL rejects `x` as not implemented.
             if (typeof flags !== 'string' || !/^[imsq]+$/.test(flags))
               throw new TypeError(
                 'JSON path regex flags must be made of i, m, s, and q',
               )
-            return predicate(`${regex} flag ${JSON.stringify(flags)}`)
+            return text(`${regex} flag ${JSON.stringify(flags)}`)
           }
         default:
-          return navigate(path, property, (next) =>
+          return navigate(node, property, (next) =>
             createFilterNode(scope, next),
           )
       }
@@ -524,24 +760,161 @@ function createFilterNode(scope: PathScope, path: string): unknown {
   })
 }
 
-function createPathNode(source: SQLJSONValue, path: string): unknown {
+const valueTypes: ReadonlySet<string> = new Set<keyof SQLJSONPathValueTypes>([
+  'text',
+  'integer',
+  'double precision',
+  'boolean',
+])
+const aggregates: Readonly<Record<string, string>> = {
+  $sum: 'sum',
+  $avg: 'avg',
+  $min: 'min',
+  $max: 'max',
+}
+// Fixed aliases for the item set inside generated subqueries. They are only
+// referenced inside the subquery, which is its own scope.
+const itemsAlias = sql.identifier('jsonb_path_items')
+
+function valueBehavior(value: unknown, on: string): SQL | undefined {
+  if (value === undefined) return undefined
+  if (value !== 'null' && value !== 'error')
+    throw new TypeError(`$valueAs(...) ${on} must be 'null' or 'error'`)
+  return sql.raw(` ${value} on ${on.slice(2).toLowerCase()}`)
+}
+
+function createPathNode(
+  source: SQLJSONValue,
+  path: PathState,
+  strict: boolean,
+): unknown {
+  const target = () => jsonSource(source)
   // The path is bound as one text parameter. Every literal in it was encoded
   // with JSON.stringify, which jsonpath parses as a JSON string or number.
-  const pathParam = () => sql`${path}::text::jsonpath`
+  const render = (state: PathState) => {
+    const names = new Map<number, string>()
+    const text = state.text.replace(variableToken, (_, id: string) => {
+      const key = Number(id)
+      let name = names.get(key)
+      if (name === undefined) names.set(key, (name = `v${names.size + 1}`))
+      return `$${name}`
+    })
+    const path = sql`${strict ? `strict ${text}` : text}::text::jsonpath`
+    const variables = [...names].map(
+      ([id, name]) => [name, state.variables.get(id)!] as const,
+    )
+    // Generated names are `v<n>`, safe to embed as SQL literals.
+    const object =
+      variables.length === 0
+        ? undefined
+        : sql`jsonb_build_object(${sql.join(
+            variables.map(
+              ([name, value]) => sql`${sql.raw(`'${name}'`)}, ${value}`,
+            ),
+            sql`, `,
+          )})`
+    return { path, variables, object }
+  }
+  // `fn(source, path[, vars, silent])`, the form every function takes.
+  const call = (name: string, state: PathState, silent = false) => {
+    const { path, object } = render(state)
+    const variables =
+      object === undefined
+        ? sql``
+        : silent
+          ? sql`, ${object}, true`
+          : sql`, ${object}`
+    return sql`${sql.raw(name)}(${target()}, ${path}${variables})`
+  }
+  const items = (select: SQL) =>
+    sql`(select ${select} from ${call('jsonb_path_query', path)} as ${itemsAlias}(item))`
 
   return new Proxy(Object.create(null), {
     get(_, property) {
       if (typeof property === 'symbol') return undefined
       switch (property) {
         case '$exists':
-          return sql<boolean>`${jsonSource(source)} @? ${pathParam()}`
+          // The operators take no variables; `silent` keeps their error
+          // suppression in the function form.
+          return path.variables.size === 0
+            ? sql<boolean>`${target()} @? ${render(path).path}`
+            : call('jsonb_path_exists', path, true)
         case '$query':
-          return sql`jsonb_path_query_array(${jsonSource(source)}, ${pathParam()})`
+          return call('jsonb_path_query_array', path)
         case '$first':
-          return sql`jsonb_path_query_first(${jsonSource(source)}, ${pathParam()})`
+          return call('jsonb_path_query_first', path)
+        case '$count':
+          // count(*) is bigint, which some drivers decode as a string.
+          return items(sql`count(*)::int`)
+        case '$sum':
+        case '$avg':
+        case '$min':
+        case '$max':
+          return items(
+            sql`${sql.raw(aggregates[property]!)}(nullif(${itemsAlias}.item, 'null'::jsonb)::float8)`,
+          )
+        case '$test':
+          return (fn: unknown) => {
+            const predicate = runPredicate(fn, '$test(...)', path)
+            // `@@` takes a bare predicate, where `true` is valid.
+            const state: PathState = predicate ?? {
+              text: 'true',
+              variables: noVariables,
+            }
+            return state.variables.size === 0
+              ? sql<boolean | null>`${target()} @@ ${render(state).path}`
+              : call('jsonb_path_match', state, true)
+          }
+        case '$valueAs':
+          return (type: unknown, options: SQLJSONPathValueOptions = {}) => {
+            if (typeof type !== 'string' || !valueTypes.has(type))
+              throw new TypeError(
+                `$valueAs(...) type must be one of ${[...valueTypes].join(', ')}`,
+              )
+            const { path: param, variables } = render(path)
+            const passing =
+              variables.length === 0
+                ? sql``
+                : sql` passing ${sql.join(
+                    variables.map(
+                      ([name, value]) => sql`${value} as ${sql.raw(name)}`,
+                    ),
+                    sql`, `,
+                  )}`
+            return sql`json_value(${target()}, ${param}${passing} returning ${sql.raw(type)}${valueBehavior(options.onEmpty, 'onEmpty')}${valueBehavior(options.onError, 'onError')})`
+          }
+        case '$rows':
+          return (alias: unknown, columns: unknown) => {
+            if (typeof alias !== 'string')
+              throw new TypeError('$rows(...) alias must be a string')
+            if (typeof columns !== 'function')
+              throw new TypeError('$rows(...) takes a columns callback')
+            const fields = columns(
+              jsonRef(sql`${itemsAlias}.item`),
+              // ordinality is bigint, which some drivers decode as a string.
+              sql<number>`${itemsAlias}.ord::int`,
+            )
+            if (typeof fields !== 'object' || fields === null)
+              throw new TypeError('$rows(...) columns must return an object')
+            const selection = Object.fromEntries(
+              Object.entries(fields).map(([name, value]) => {
+                if (!is(value, SQL))
+                  throw new TypeError(
+                    `$rows(...) column "${name}" must be a SQL expression, e.g. item.name.$text`,
+                  )
+                return [name, value.as(name)]
+              }),
+            )
+            return new QueryBuilder()
+              .select(selection)
+              .from(
+                sql`${call('jsonb_path_query', path)} with ordinality as ${itemsAlias}(item, ord)`,
+              )
+              .as(alias)
+          }
         default:
           return navigate(path, property, (next) =>
-            createPathNode(source, next),
+            createPathNode(source, next, strict),
           )
       }
     },
@@ -550,12 +923,28 @@ function createPathNode(source: SQLJSONValue, path: string): unknown {
 
 /**
  * Builds a typed SQL/JSON path over a JSONB source. Navigate with property
- * access, `$each` (`[*]`), `$values` (`.*`), and `$entries` (`.keyvalue()`),
- * narrow with `$filter(...)` and `$match(...)`, then finish with `$exists`,
- * `$query`, or `$first`.
+ * access, `$each` (`[*]`), `$values` (`.*`), `$entries` (`.keyvalue()`), and
+ * `$deep` (`.**`), narrow with `$filter(...)` and `$match(...)`, then finish
+ * with a terminal such as `$exists`, `$query`, `$first`, or `$rows(...)`.
  */
 export function jsonPath<Source extends SQLJSONValue>(
   source: Source,
-): SQLJSONPathOf<Source> {
-  return createPathNode(source, '$') as SQLJSONPathOf<Source>
+  options?: { mode?: 'lax' },
+): SQLJSONPathOf<Source>
+export function jsonPath<Source extends SQLJSONValue>(
+  source: Source,
+  options: { mode: 'strict' },
+): SQLJSONPathOf<Source, true>
+export function jsonPath(
+  source: SQLJSONValue,
+  options: SQLJSONPathOptions = {},
+): unknown {
+  const { mode = 'lax' } = options
+  if (mode !== 'lax' && mode !== 'strict')
+    throw new TypeError(`JSON path mode must be 'lax' or 'strict'`)
+  return createPathNode(
+    source,
+    { text: '$', variables: noVariables },
+    mode === 'strict',
+  )
 }
