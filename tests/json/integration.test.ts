@@ -200,9 +200,15 @@ describe('JSON Integration Tests', () => {
       const jsonNullValue = await executeQuery(db, jsonNullResult)
       const sqlNullValue = await executeQuery(db, sqlNullResult)
 
-      // JSON null becomes SQL NULL when extracted
+      // Both decode to a JS null, but JSON null stays JSON null when extracted
       expect(jsonNullValue).toBeNull()
       expect(sqlNullValue).toBeNull()
+      expect(await executeQuery(db, sql`jsonb_typeof(${jsonNullResult})`)).toBe(
+        'null',
+      )
+      expect(
+        await executeQuery(db, sql`jsonb_typeof(${sqlNullResult})`),
+      ).toBeNull()
     })
 
     it('should handle missing properties as SQL NULL', async () => {

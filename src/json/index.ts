@@ -8,6 +8,7 @@ import { jsonBuild } from './operations/build.ts'
 import { jsonCoalesce } from './operations/coalesce.ts'
 import { jsonContains } from './operations/contains.ts'
 import { jsonMerge } from './operations/merge.ts'
+import { jsonPath } from './operations/path.ts'
 import { jsonRef, jsonRefPipe } from './operations/ref.ts'
 import { jsonSet, jsonSetPipe } from './operations/set.ts'
 import type { SQLJSONRefAPI } from './types.ts'
@@ -28,6 +29,7 @@ export { jsonCoalesce as coalesce } from './operations/coalesce.ts'
  */
 export { jsonContains as contains } from './operations/contains.ts'
 export { jsonMerge as merge } from './operations/merge.ts'
+export { jsonPath as path } from './operations/path.ts'
 export { jsonRefPipe as pipe } from './operations/ref.ts'
 /**
  * @deprecated Use `json(source).path.$set(...)` / `.$default(...)` instead.
@@ -49,10 +51,19 @@ export const json: SQLJSONRefAPI = Object.assign(jsonRoot, {
   coalesce: jsonCoalesce,
   contains: jsonContains,
   merge: jsonMerge,
+  path: jsonPath,
   pipe: jsonRefPipe,
   set: jsonSet,
   setPipe: jsonSetPipe,
 })
 
+export type {
+  SQLJSONPath,
+  SQLJSONPathEntry,
+  SQLJSONPathFilter,
+  SQLJSONPathOf,
+  SQLJSONPathPredicate,
+  SQLJSONPathPredicates,
+} from './operations/path.ts'
 export type { SQLJSONRef, SQLJSONRefPipeFn } from './operations/ref.ts'
 export type { SQLJSONRefAPI } from './types.ts'

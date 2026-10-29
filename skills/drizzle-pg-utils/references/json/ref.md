@@ -23,10 +23,12 @@ const rows = await db
     firstTag: profile.user.preferences.tags[0].$value,
   })
   .from(users)
-  .where(eq(profile.user.preferences.theme.$value, 'dark'))
+  .where(eq(profile.user.preferences.theme.$text, 'dark'))
 ```
 
-- `.$value` extracts JSONB; `.$text` extracts text. Refs are also SQL expressions themselves (`getSQL()`), so a bare ref can be used where Drizzle accepts SQL; prefer the explicit terminals in examples.
+- `.$value` extracts JSONB; `.$text` extracts text. Compare strings through `.$text` (or `.$value` against `json.build('dark')`): a plain string compared with `.$value` is bound as JSONB and fails.
+- `.$number` / `.$boolean` extract JSON numbers and booleans as `float8` / `boolean` SQL scalars (JSON `null` and missing keys become SQL `NULL`; other JSON types error). Use them for ranges and ordering: `lt(ref.score.$number, 0.9)`. They exist only on number / boolean (or `unknown`) paths.
+- `.$value` and `.$text` Refs are also SQL expressions themselves (`getSQL()`), so a bare ref can be used where Drizzle accepts SQL; prefer the explicit terminals in examples.
 - Rewrap an extracted subdocument as a new root when needed: `json(profile.user.preferences.$value).theme.$value`.
 
 ## Write
@@ -75,9 +77,13 @@ profile.user.preferences.$contains({ theme: 'dark' })
 - SQL containment values are only accepted at the root ref; nested paths take plain values (enforced at the type level).
 - Containment below an array index is a type error by design: JSONB `@>` cannot address array positions. Filter on the array path itself, e.g. `profile.user.preferences.tags.$contains(['drizzle'])`.
 
+## JSON Paths
+
+`json(source).$path` (root only) queries array items, object-map values, and filtered items with typed SQL/JSON paths; see [path.md](path.md).
+
 ## Reserved Keys and Dynamic Paths
 
-Property names starting with `$` (plus `getSQL`, `toString`, `valueOf`) are helper operations. For data keys with those names, or for dynamic segments, use `.$key(name)`:
+Property names starting with `$` (plus `getSQL`, `toString`, `valueOf`) are helper operations, including `$path`, `$number`, and `$boolean`. For data keys with those names, or for dynamic segments, use `.$key(name)`:
 
 ```typescript
 json(users.profile).config.$key('$value').$text

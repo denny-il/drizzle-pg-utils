@@ -9,5 +9,5 @@ Prefer practical Drizzle query examples using public package imports. Avoid `src
 
 ## References
 
-- Read [references/json.md](references/json.md) first for JSONB helper routing, import styles, and common rules. Then load the focused file under `references/json/` for the helper family being used: the callable `json(source)` ref API (primary), access, updates/defaults, arrays, containment, or build/coalesce/merge.
+- Read [references/json.md](references/json.md) first for JSONB helper routing, import styles, and common rules. Then load the focused file under `references/json/` for the helper family being used: the callable `json(source)` ref API (primary), access, updates/defaults, arrays, containment, path queries, or build/coalesce/merge.
 - Read [references/temporal.md](references/temporal.md) for Temporal helpers: entrypoint choice, column mapping, factories, constraints, interval setup, SQL expressions, query examples, and driver notes (per-connection `intervalstyle`, decoding raw SQL, known driver limitations).

@@ -6,6 +6,7 @@ Use this file as the router. Read it first, then load the focused helper file th
 - [json/access.md](json/access.md) for `.$value`, `.$text`, the deprecated `access(...)`, path extraction, and expression-index implications.
 - [json/updates.md](json/updates.md) for `.$set(...)`, `.$default(...)`, missing branches, SQL `NULL` roots, and the deprecated `set(...)` / `setPipe(...)`.
 - [json/arrays.md](json/arrays.md) for `arrayPush(...)`, `arraySet(...)`, `arrayDelete(...)`, out-of-bounds behavior, and `undefined` handling.
+- [json/path.md](json/path.md) for `json(source).$path`: SQL/JSON path queries over array items and object-map values with `$filter(...)`, `$match(...)`, `$exists`, `$query`, `$first`, and their GIN index behavior.
 - [json/contains.md](json/contains.md) for `.$contains(...)`, the deprecated `contains(...)`, JSONB `@>`, and full-column GIN / `jsonb_path_ops` indexes.
 - [json/build-coalesce-merge.md](json/build-coalesce-merge.md) for `build(...)`, `coalesce(...)`, `merge(...)`, SQL expressions, `to_jsonb(...)`, and trust boundaries.
 
@@ -25,6 +26,7 @@ import { jsonRef, jsonRefPipe } from '@denny-il/drizzle-pg-utils/json/ref'
 | ----------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------ |
 | `json(source)`                                        | Callable typed ref: access, updates, containment, pipes        | [json/ref.md](json/ref.md)                                   |
 | `json(source).$pipe(...ops)` / `pipe(source, ...ops)` | Chain JSON updates; each step sees previous result             | [json/ref.md](json/ref.md)                                   |
+| `json(source).$path` / `path(source)`                 | Typed SQL/JSON path queries; filter array items and map values | [json/path.md](json/path.md)                                 |
 | `access(source)`                                      | Deprecated; use `json(source).path.$value` / `.$text`          | [json/access.md](json/access.md)                             |
 | `set(source)`                                         | Deprecated; use `json(source).path.$set(...)`                  | [json/updates.md](json/updates.md)                           |
 | `setPipe(source, ...ops)`                             | Deprecated; use `json(source).$pipe(...)`                      | [json/updates.md](json/updates.md)                           |
@@ -69,6 +71,8 @@ await db
 - Use `.$contains(...)` for index-friendly JSONB containment rooted at the full JSONB source. Containment below an array index is a type error by design.
 - Use `.$default(...)` before writing through missing branches or SQL `NULL` roots; inside `$pipe`, a step may return the `$default(...)` continuation directly.
 - Use `.$push(...)` / `arrayPush(...)` for append behavior; `arraySet(...)` is replacement-only and out-of-bounds writes are no-ops.
+- Compare extracted strings with `.$text` and numbers / booleans with `.$number` / `.$boolean`; never compare `.$value` with a plain JS string.
+- Use `json(source).$path` to filter array items or object-map values; write JS-side conditions as `cond ? predicate : undefined`, never interpolated into a path.
 - Use `.$key('name')` for JSON keys that collide with helper names (`$value`, `$set`, `getSQL`, ...) or for dynamic keys.
 - Pass user input as plain JavaScript values. Use `sql\`...\`` only when PostgreSQL should compute the value.
 - Prefer a focused reference file over adding more examples here. Keep this router short enough to load often.

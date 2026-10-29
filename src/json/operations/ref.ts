@@ -27,6 +27,7 @@ import {
 import { jsonCoalesce } from './coalesce.ts'
 import type { SQLJSONContainmentValue } from './contains.ts'
 import { jsonMerge } from './merge.ts'
+import { jsonPath, type SQLJSONPathOf } from './path.ts'
 import type { SQLJSONSetMixedValue, SQLJSONSetNull } from './set.ts'
 
 const refDefaultSourceSymbol = Symbol('SQLJSONRefDefaultSource')
@@ -70,6 +71,9 @@ type SQLJSONRefReservedKey =
   | '$push'
   | '$delete'
   | '$key'
+  | '$path'
+  | '$number'
+  | '$boolean'
   | 'getSQL'
   | 'shouldOmitSQLParens'
   | 'toString'
@@ -81,10 +85,50 @@ type SQLJSONRefContainsValue<Root extends boolean, ObjectType> =
       ? SQLJSONValue<SQLJSONContainmentValue<ObjectType>>
       : never)
 
+// Keys of the current object, including `Record` index keys, keep the same
+// type as property access; any other key is `unknown`.
 type SQLJSONRefKeyFn<
   RootSource extends SQLJSONValue,
   CanContain extends boolean,
-> = (key: string) => SQLJSONRef<RootSource, SQL<unknown>, false, CanContain>
+  ObjectType,
+  IsNullish extends boolean,
+> = <Key extends string>(
+  key: Key,
+) => ObjectType extends readonly any[]
+  ? SQLJSONRef<RootSource, SQL<unknown>, false, CanContain>
+  : ObjectType extends object
+    ? Key extends keyof ObjectType
+      ? SQLJSONRef<
+          RootSource,
+          SQL<ObjectType[Key] | (IsNullish extends true ? null : never)>,
+          false,
+          CanContain,
+          null extends ObjectType[Key] ? true : false
+        >
+      : SQLJSONRef<RootSource, SQL<unknown>, false, CanContain>
+    : SQLJSONRef<RootSource, SQL<unknown>, false, CanContain>
+
+// Offered only where the JSON type is that scalar (or unknown), since the
+// cast errors on any other JSON type.
+type SQLJSONRefScalarAccessors<
+  Type,
+  ObjectType,
+  IsNullish extends boolean,
+> = 0 extends 1 & Type
+  ? {}
+  : unknown extends Type
+    ? {
+        $number: SQL<number | null>
+        $boolean: SQL<boolean | null>
+      }
+    : [ObjectType] extends [never]
+      ? {}
+      : ([ObjectType] extends [number]
+          ? { $number: SQL<SQLJSONNullify<IsNullish, number>> }
+          : {}) &
+          ([ObjectType] extends [boolean]
+            ? { $boolean: SQL<SQLJSONNullify<IsNullish, boolean>> }
+            : {})
 
 export type SQLJSONRef<
   RootSource extends SQLJSONValue,
@@ -110,16 +154,20 @@ export type SQLJSONRef<
   shouldOmitSQLParens(): boolean
   $value: SQL<SQLJSONNullify<IsNullish, Type>>
   $text: SQL<SQLJSONNullify<IsNullish, string>>
-  $key: SQLJSONRefKeyFn<RootSource, CanContain>
+  $key: SQLJSONRefKeyFn<RootSource, CanContain, ObjectType, IsNullish>
   $coalesce: SQLJSONRefCoalesceFn<Type>
   $merge: SQLJSONRefMergeFn<RootSource>
-} & (CanContain extends true
-  ? {
-      $contains(value: SQLJSONRefContainsValue<Root, ObjectType>): SQL<boolean>
-    }
-  : {}) &
+} & SQLJSONRefScalarAccessors<Type, ObjectType, IsNullish> &
+  (CanContain extends true
+    ? {
+        $contains(
+          value: SQLJSONRefContainsValue<Root, ObjectType>,
+        ): SQL<boolean>
+      }
+    : {}) &
   (Root extends true
     ? {
+        $path: SQLJSONPathOf<RootSource>
         $pipe(
           ...args: [
             SQLJSONRefPipeFn<RootSource>,
@@ -258,6 +306,17 @@ function buildMerge(source: SQLJSONValue, path: string[], value: unknown) {
   })
 }
 
+// `nullif` maps JSON null to SQL NULL on every version; casting JSON null
+// errors before PostgreSQL 18. float8 rather than numeric: drivers decode
+// numeric as a string.
+function buildScalar(
+  source: SQLJSONValue,
+  path: string[],
+  type: 'float8' | 'boolean',
+) {
+  return sql`nullif(${buildExtract(source, path)}, 'null'::jsonb)::${sql.raw(type)}`
+}
+
 function buildCoalesce(source: SQLJSONValue, path: string[], value: unknown) {
   return jsonCoalesce(buildExtract(source, path) as any, value as any)
 }
@@ -293,6 +352,14 @@ export function jsonRef<Source extends SQLJSONValue>(
             return buildExtractText(activeSource, path)
           case '$key':
             return (key: string) => createProxy(activeSource, [...path, key])
+          case '$number':
+            return buildScalar(activeSource, path, 'float8')
+          case '$boolean':
+            return buildScalar(activeSource, path, 'boolean')
+          case '$path':
+            if (path.length > 0)
+              throw new Error('JSON path is only supported at the root path')
+            return jsonPath(activeSource)
           case '$pipe':
             if (path.length > 0)
               throw new Error('JSON pipe is only supported at the root path')

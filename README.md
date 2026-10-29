@@ -40,7 +40,7 @@ const [row] = await db
     theme: profile.user.preferences.theme.$value,
   })
   .from(users)
-  .where(eq(profile.user.preferences.theme.$value, 'dark'))
+  .where(eq(profile.user.preferences.theme.$text, 'dark'))
 
 await db
   .update(users)
@@ -65,6 +65,8 @@ await db
 
 - Access nested JSONB paths with `json(source)` and full TypeScript inference.
 - Query JSONB containment with typed path traversal and full-column index-friendly SQL.
+- Filter array items and object values with typed SQL/JSON paths: `json(source).$path`.
+- Extract numbers and booleans as typed SQL scalars with `.$number` and `.$boolean`.
 - Update deep branches atomically with `.$set(...)`, `.$default(...)`, `.$push(...)`, `.$merge(...)`, and `.$pipe(...)`.
 - Build, merge, coalesce, and modify arrays with typed SQL helpers.
 
@@ -80,7 +82,7 @@ const rows = await db
     theme: profile.user.preferences.theme.$value,
   })
   .from(users)
-  .where(eq(profile.user.preferences.theme.$value, 'dark'))
+  .where(eq(profile.user.preferences.theme.$text, 'dark'))
 
 // Query JSONB containment while keeping the predicate rooted at users.profile
 const darkUsers = await db

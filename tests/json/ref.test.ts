@@ -462,7 +462,7 @@ describe('JSON Ref API', () => {
     )
     expectTypeOf(
       sqlWrapperKeys.$key('shouldOmitSQLParens').$value,
-    ).toEqualTypeOf<SQL<unknown>>()
+    ).toEqualTypeOf<SQL<string>>()
 
     type NullableLeaf = { value: string | null; tags: string[] }
     const nullableLeaf = json(sql<NullableLeaf>`'{"tags":[]}'::jsonb`)

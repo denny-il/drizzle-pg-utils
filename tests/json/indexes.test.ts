@@ -1,7 +1,13 @@
 import { randomUUID } from 'node:crypto'
 
-import { type SQLWrapper, sql } from 'drizzle-orm'
-import { jsonb, pgTable } from 'drizzle-orm/pg-core'
+import { gt, type SQL, type SQLWrapper, sql } from 'drizzle-orm'
+import {
+  getTableConfig,
+  type IndexBuilder,
+  index,
+  jsonb,
+  pgTable,
+} from 'drizzle-orm/pg-core'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { json } from '../../src/index.ts'
@@ -19,10 +25,12 @@ type IndexedJsonDocument = {
   flags: {
     featured: boolean
   }
+  rank: number
 }
 
 type ExplainPlanNode = {
   'Index Name'?: string
+  'Actual Rows'?: number
   Plans?: ExplainPlanNode[]
 }
 
@@ -62,6 +70,30 @@ const explainQuery = async (query: SQLWrapper) => {
     )
 
     return rows[0]!['QUERY PLAN'][0]!.Plan
+  } finally {
+    await executeRaw('rollback')
+  }
+}
+
+/**
+ * Rows the index returned before any recheck, which shows whether the index
+ * narrowed the search or merely scanned every entry.
+ */
+const explainIndexRows = async (query: SQLWrapper, indexName: string) => {
+  await db.execute(sql.raw('begin'))
+
+  try {
+    await executeRaw('set local enable_seqscan = off;')
+    const rows = await executeRows<ExplainQueryRow>(
+      db,
+      sql`explain (analyze, format json) ${query}`,
+    )
+    const find = (plan: ExplainPlanNode): ExplainPlanNode | undefined =>
+      plan['Index Name'] === indexName
+        ? plan
+        : plan.Plans?.map(find).find(Boolean)
+
+    return find(rows[0]!['QUERY PLAN'][0]!.Plan)?.['Actual Rows']
   } finally {
     await executeRaw('rollback')
   }
@@ -114,7 +146,8 @@ const createSeededTable = async (suffix: string) => {
         jsonb_build_object('name', 'tag' || (g % 10)),
         jsonb_build_object('name', 'common')
       ),
-      'flags', jsonb_build_object('featured', (g % 5 = 0))
+      'flags', jsonb_build_object('featured', (g % 5 = 0)),
+      'rank', g
     )
     from generate_series(1, 200) as g;
   `)
@@ -349,5 +382,89 @@ describe('JSONB index compatibility', () => {
     const plan = await explainQuery(query)
 
     expect(findIndexNames(plan)).toContain(indexName)
+  })
+  it('narrows full-column jsonb_path_ops GIN scans with bound $path equality predicates', async () => {
+    const { indexedTable, tableName } = await createSeededTable('path_query')
+    const indexName = `${tableName}_path_idx`
+    const data = json(indexedTable.data).$path
+    const byTag = sql`
+      select ${json(indexedTable.data).profile.email.$text} as email
+      from ${indexedTable}
+      where ${data.tags.$each.$match({ name: 'tag7' }).$exists}
+    `
+    const byKind = sql`
+      select 1 from ${indexedTable}
+      where ${data.$filter((d) => d.kind.$eq('alpha')).$exists}
+    `
+
+    expect(await runQuery(byTag)).toHaveLength(20)
+    expect(await runQuery(byKind)).toHaveLength(100)
+
+    await executeRaw(
+      `create index "${indexName}" on "${tableName}" using gin (data jsonb_path_ops);`,
+    )
+
+    expect(findIndexNames(await explainQuery(byTag))).toContain(indexName)
+    expect(await explainIndexRows(byTag, indexName)).toBe(20)
+    expect(await explainIndexRows(byKind, indexName)).toBe(100)
+  })
+
+  it('narrows full-column jsonb_ops GIN scans for $values predicates', async () => {
+    const { indexedTable, tableName } = await createSeededTable('path_values')
+    const indexName = `${tableName}_gin_idx`
+    const featured = sql`
+      select 1 from ${indexedTable}
+      where ${
+        json(indexedTable.data).$path.flags.$values.$filter((flag) =>
+          flag.$eq(true),
+        ).$exists
+      }
+    `
+
+    expect(await runQuery(featured)).toHaveLength(40)
+
+    await executeRaw(
+      `create index "${indexName}" on "${tableName}" using gin (data);`,
+    )
+
+    expect(await explainIndexRows(featured, indexName)).toBe(40)
+  })
+
+  it('uses a btree index declared in the drizzle schema from a $number ref', async () => {
+    const { tableName } = await createSeededTable('number')
+    const indexName = `${tableName}_rank_idx`
+    const ranked = pgTable(
+      tableName,
+      { data: jsonb('data').$type<IndexedJsonDocument>().notNull() },
+      // The callback's own columns lose the JSON type in drizzle rc.5, so the
+      // index reads the outer table.
+      (): IndexBuilder[] => [
+        index(indexName).on(json(ranked.data).rank.$number),
+      ],
+    )
+    const [declared] = getTableConfig(ranked).indexes
+    const indexExpression = dialect.sqlToQuery(
+      declared!.config.columns[0] as SQL,
+      'indexes',
+    )
+    const query = sql`
+      select ${json(ranked.data).rank.$number} as rank
+      from ${ranked}
+      where ${gt(json(ranked.data).rank.$number, 195)}
+    `
+
+    expect(indexExpression).toEqual({
+      sql: `nullif(jsonb_extract_path("data", 'rank'), 'null'::jsonb)::float8`,
+      params: [],
+    })
+
+    await executeRaw(
+      `create index "${indexName}" on "${tableName}" ((${indexExpression.sql}));`,
+    )
+
+    expect(findIndexNames(await explainQuery(query))).toContain(indexName)
+    expect(
+      (await runQuery<{ rank: number }>(query)).map((row) => row.rank).sort(),
+    ).toEqual([196, 197, 198, 199, 200])
   })
 })

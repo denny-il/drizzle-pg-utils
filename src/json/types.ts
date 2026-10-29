@@ -11,6 +11,7 @@ import type { jsonBuild } from './operations/build.ts'
 import type { jsonCoalesce } from './operations/coalesce.ts'
 import type { jsonContains } from './operations/contains.ts'
 import type { jsonMerge } from './operations/merge.ts'
+import type { jsonPath } from './operations/path.ts'
 import type { jsonRef, jsonRefPipe } from './operations/ref.ts'
 import type { jsonSet, jsonSetPipe } from './operations/set.ts'
 
@@ -60,6 +61,7 @@ export type SQLJSONRefAPI = typeof jsonRef & {
    */
   contains: typeof jsonContains
   merge: typeof jsonMerge
+  path: typeof jsonPath
   pipe: typeof jsonRefPipe
   /**
    * @deprecated Use `json(source).path.$set(...)` / `.$default(...)` instead.
