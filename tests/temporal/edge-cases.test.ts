@@ -15,7 +15,7 @@ import {
   createDatabase,
   tableChecks,
   type TestDatabase,
-  testDriver,
+  lossyTimestamps,
 } from '../utils.ts'
 
 const dates = pgTable(
@@ -45,9 +45,7 @@ beforeAll(async () => {
 
 describe('Temporal edge cases', () => {
   for (const value of ['0000-01-02', '-000001-03-04', '+010000-05-06']) {
-    // @effect/sql-pg decodes dates itself and returns a 4-digit signed year
-    // (`-0001-03-04`) for dates before year 0, which Temporal rejects.
-    it.skipIf(testDriver === 'effect-postgres' && value.startsWith('-'))(
+    it.skipIf(lossyTimestamps)(
       `round-trips ISO year ${value} through native date and timestamp columns`,
       async () => {
         const date = Temporal.PlainDate.from(value)

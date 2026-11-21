@@ -22,7 +22,12 @@ import {
   testDriver,
 } from './drivers.ts'
 
-export { type TestDatabase, type TestDriver, testDriver } from './drivers.ts'
+export {
+  lossyTimestamps,
+  type TestDatabase,
+  type TestDriver,
+  testDriver,
+} from './drivers.ts'
 
 export const dialect = new PgDialect()
 

@@ -8,9 +8,6 @@ importers:
 
   .:
     devDependencies:
-      '@drizzle-team/minipg':
-        specifier: ^0.4.2
-        version: 0.4.2
       '@effect/sql-pg':
         specifier: ^4.0.5
         version: 4.0.5(effect@4.0.5)
@@ -27,8 +24,8 @@ importers:
         specifier: ^8.23.1
         version: 8.23.1
       drizzle-orm:
-        specifier: 1.0.0-rc.5
-        version: 1.0.0-rc.5(@drizzle-team/minipg@0.4.2)(@effect/sql-pg@4.0.5(effect@4.0.5))(@effect/sql-pglite@4.0.5(effect@4.0.5))(@electric-sql/pglite@0.5.11)(@types/mssql@9.1.9)(@types/pg@8.23.1)(effect@4.0.5)(mssql@11.0.1)(pg@8.23.1)(postgres@3.4.9)
+        specifier: 1.0.0-rc.6
+        version: 1.0.0-rc.6(@effect/sql-pg@4.0.5(effect@4.0.5))(@effect/sql-pglite@4.0.5(effect@4.0.5))(@electric-sql/pglite@0.5.11)(@types/pg@8.23.1)(effect@4.0.5)(mssql@11.0.1)(pg@8.23.1)(postgres@3.4.9)
       effect:
         specifier: ^4.0.5
         version: 4.0.5
@@ -119,10 +116,6 @@ packages:
   '@azure/msal-node@5.2.5':
     resolution: {integrity: sha512-RUuewWk9JvWJS5Yiy8/74Lm1rQAWlrU/qg/Bgtk1jIauVRtnb9XKwS5Xg0J+Whwjesq9EVrBIFgQEP8vHxgezA==}
     engines: {node: '>=20'}
-
-  '@drizzle-team/minipg@0.4.2':
-    resolution: {integrity: sha512-pSCO0XuPAr5WQyCqmzYsw/2R9evG35/zq8QEqrr2pT5aMCLRbIbvOEYNHbxN2QSrSw1PscC0WsPlTENsSHcYWw==}
-    engines: {node: '>=22.12'}
 
   '@effect/sql-pg@4.0.5':
     resolution: {integrity: sha512-F9tG76H+aryhYcp5pvgd+MwWrNltv3XAuLcZSBsOOX6q+PEl+IM4zkQKzx0TF9OsEMH/SQ+3gZRdYWOsDF+vJQ==}
@@ -703,9 +696,6 @@ packages:
   '@types/estree@1.0.9':
     resolution: {integrity: sha512-GhdPgy1el4/ImP05X05Uw4cw2/M93BCUmnEvWZNStlCzEKME4Fkk+YpoA5OiHNQmoS7Cafb8Xa3Pya8m1Qrzeg==}
 
-  '@types/mssql@9.1.9':
-    resolution: {integrity: sha512-P0nCgw6vzY23UxZMnbI4N7fnLGANt4LI4yvxze1paPj+LuN28cFv5EI+QidP8udnId/BKhkcRhm/BleNsjK65A==}
-
   '@types/node@22.20.5':
     resolution: {integrity: sha512-U2+DNr+wSjpsTS/wZGYHq7GcwfuSmKiKvoPvK22zwTlRhU91yOniN4qRR5KhIjvif7ysw/dz/hKmfDH0Ris4aA==}
 
@@ -916,14 +906,14 @@ packages:
     resolution: {integrity: sha512-N+MeXYoqr3pOgn8xfyRPREN7gHakLYjhsHhWGT3fWAiL4IkAt0iDw14QiiEm2bE30c5XX5q0FtAA3CK5f9/BUg==}
     engines: {node: '>=12'}
 
-  drizzle-orm@1.0.0-rc.5:
-    resolution: {integrity: sha512-7BMYTsAZbQ9DcQCtLG4G202Hq6nc/e8o1EBKN6nBweRI8EGPFe/VdyvWQCsU9fuZSiRjNpELolUSi//JFBq+lw==}
+  drizzle-orm@1.0.0-rc.6:
+    resolution: {integrity: sha512-z/2UDIuD/IbA862MbficiLc0BZodaWoXqSrv3Opdi1k0lx5oK4iX+rayJ1RwHbwFvvDGJpVP2mTYwxefar1xEg==}
+    engines: {node: ^20.19.0 || >=22.12.0}
     peerDependencies:
       '@aws-sdk/client-rds-data': '>=3'
       '@aws/aurora-dsql-node-postgres-connector': '>=0.1.9'
       '@aws/aurora-dsql-postgresjs-connector': '>=0.3.0'
       '@cloudflare/workers-types': '>=4'
-      '@drizzle-team/minipg': '>=0.4.2'
       '@effect/sql-d1': '>=4.0.0'
       '@effect/sql-libsql': '>=4.0.0'
       '@effect/sql-mysql2': '>=4.0.0'
@@ -949,10 +939,9 @@ packages:
       '@tursodatabase/serverless': '>=1.4.0'
       '@tursodatabase/sync': '>=0.7.1'
       '@types/better-sqlite3': '*'
-      '@types/mssql': ^9.1.4
+      '@types/mssql': '>=9.1.11'
       '@types/pg': '*'
       '@types/sql.js': '*'
-      '@upstash/redis': '>=1.34.7'
       '@vercel/postgres': '>=0.8.0'
       '@xata.io/client': '*'
       arktype: '>=2.0.0'
@@ -960,7 +949,7 @@ packages:
       bun-types: '*'
       effect: '>=4.0.0'
       expo-sqlite: '>=14.0.0'
-      mssql: ^11.0.1
+      mssql: '>=11.0.1'
       mysql2: '>=2'
       pg: '>=8'
       postgres: '>=3'
@@ -977,8 +966,6 @@ packages:
       '@aws/aurora-dsql-postgresjs-connector':
         optional: true
       '@cloudflare/workers-types':
-        optional: true
-      '@drizzle-team/minipg':
         optional: true
       '@effect/sql-d1':
         optional: true
@@ -1035,8 +1022,6 @@ packages:
       '@types/pg':
         optional: true
       '@types/sql.js':
-        optional: true
-      '@upstash/redis':
         optional: true
       '@vercel/postgres':
         optional: true
@@ -1124,10 +1109,6 @@ packages:
 
   iconv-lite@0.6.3:
     resolution: {integrity: sha512-4fCk79wshMdzMp2rH06qWrJE4iolqLhCUH+OiuIgU++RB0+94NlDL81atO7GX55uUKueo0txHNtvEyI6D7WdMw==}
-    engines: {node: '>=0.10.0'}
-
-  iconv-lite@0.7.2:
-    resolution: {integrity: sha512-im9DjEDQ55s9fL4EYzOAv0yMqmMBSZp6G0VvFyTMPKWxiSBHUj9NW/qqLmXUwXrrM7AvqSlTCfvqRb0cM8yYqw==}
     engines: {node: '>=0.10.0'}
 
   ieee754@1.2.1:
@@ -1360,10 +1341,6 @@ packages:
   tedious@18.6.2:
     resolution: {integrity: sha512-g7jC56o3MzLkE3lHkaFe2ZdOVFBahq5bsB60/M4NYUbocw/MCrS89IOEQUFr+ba6pb8ZHczZ/VqCyYeYq0xBAg==}
     engines: {node: '>=18'}
-
-  tedious@19.2.1:
-    resolution: {integrity: sha512-pk1Q16Yl62iocuQB+RWbg6rFUFkIyzqOFQ6NfysCltRvQqKwfurgj8v/f2X+CKvDhSL4IJ0cCOfCHDg9PWEEYA==}
-    engines: {node: '>=18.17'}
 
   temporal-polyfill@1.0.6:
     resolution: {integrity: sha512-tYyEry1HLGUDbm2356W3iYD0OZdo7rlP7h98Zr/EnjqLZQwTAfcBDUvJnJbfA15v/vQad57hJZScG5O0W2oKEA==}
@@ -1647,8 +1624,6 @@ snapshots:
       '@azure/msal-common': 16.9.0
       jsonwebtoken: 9.0.3
     optional: true
-
-  '@drizzle-team/minipg@0.4.2': {}
 
   '@effect/sql-pg@4.0.5(effect@4.0.5)':
     dependencies:
@@ -1954,15 +1929,6 @@ snapshots:
 
   '@types/estree@1.0.9': {}
 
-  '@types/mssql@9.1.9':
-    dependencies:
-      '@types/node': 22.20.5
-      tarn: 3.0.2
-      tedious: 19.2.1
-    transitivePeerDependencies:
-      - supports-color
-    optional: true
-
   '@types/node@22.20.5':
     dependencies:
       undici-types: 6.21.0
@@ -2118,13 +2084,11 @@ snapshots:
   define-lazy-prop@3.0.0:
     optional: true
 
-  drizzle-orm@1.0.0-rc.5(@drizzle-team/minipg@0.4.2)(@effect/sql-pg@4.0.5(effect@4.0.5))(@effect/sql-pglite@4.0.5(effect@4.0.5))(@electric-sql/pglite@0.5.11)(@types/mssql@9.1.9)(@types/pg@8.23.1)(effect@4.0.5)(mssql@11.0.1)(pg@8.23.1)(postgres@3.4.9):
+  drizzle-orm@1.0.0-rc.6(@effect/sql-pg@4.0.5(effect@4.0.5))(@effect/sql-pglite@4.0.5(effect@4.0.5))(@electric-sql/pglite@0.5.11)(@types/pg@8.23.1)(effect@4.0.5)(mssql@11.0.1)(pg@8.23.1)(postgres@3.4.9):
     optionalDependencies:
-      '@drizzle-team/minipg': 0.4.2
       '@effect/sql-pg': 4.0.5(effect@4.0.5)
       '@effect/sql-pglite': 4.0.5(effect@4.0.5)
       '@electric-sql/pglite': 0.5.11
-      '@types/mssql': 9.1.9
       '@types/pg': 8.23.1
       effect: 4.0.5
       mssql: 11.0.1
@@ -2205,11 +2169,6 @@ snapshots:
     optional: true
 
   iconv-lite@0.6.3:
-    dependencies:
-      safer-buffer: 2.1.2
-    optional: true
-
-  iconv-lite@0.7.2:
     dependencies:
       safer-buffer: 2.1.2
     optional: true
@@ -2505,22 +2464,6 @@ snapshots:
       '@types/node': 22.20.5
       bl: 6.1.6
       iconv-lite: 0.6.3
-      js-md4: 0.3.2
-      native-duplexpair: 1.0.0
-      sprintf-js: 1.1.3
-    transitivePeerDependencies:
-      - supports-color
-    optional: true
-
-  tedious@19.2.1:
-    dependencies:
-      '@azure/core-auth': 1.10.1
-      '@azure/identity': 4.13.1
-      '@azure/keyvault-keys': 4.10.2
-      '@js-joda/core': 5.7.0
-      '@types/node': 22.20.5
-      bl: 6.1.6
-      iconv-lite: 0.7.2
       js-md4: 0.3.2
       native-duplexpair: 1.0.0
       sprintf-js: 1.1.3

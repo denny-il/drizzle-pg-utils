@@ -157,14 +157,14 @@ await db.insert(events).values({
 
 ## Driver Notes
 
-Tested drivers: PGlite, postgres-js, node-postgres, `drizzle-orm/postgres` (minipg), bun-sql, effect-postgres, effect-pglite.
+Tested drivers: PGlite, postgres-js, node-postgres, `drizzle-orm/postgres`, bun-sql, effect-postgres, effect-pglite.
 
 Set `intervalstyle` per connection. Pools keep other connections on the server default, postgres-js reconnects after `idle_timeout`, and node-postgres's `pool.query()` discards its connection when the query fails, so a one-off `SET` gets lost:
 
 ```typescript
 new Pool({ connectionString, options: '-c intervalstyle=iso_8601' }) // node-postgres
 postgres(url, { connection: { intervalstyle: 'iso_8601' } }) // postgres-js
-createPool({ url, options: '-c intervalstyle=iso_8601' }) // minipg
+createPool({ url, options: '-c intervalstyle=iso_8601' }) // drizzle-orm/postgres/client
 new SQL({ url, connection: { intervalstyle: 'iso_8601' } }) // bun-sql
 PgClient.layer({
   url: Redacted.make(url), // Redacted from 'effect'
@@ -182,8 +182,28 @@ ALTER DATABASE app SET intervalstyle = 'iso_8601';
 db.select({ now: sql`now()`.mapWith(events.createdAt) }).from(events)
 ```
 
+effect-postgres and effect-pglite need lossless decoding setup since drizzle-orm 1.0.0-rc.6 (no more `::text` casts). Without it, `timestampz` throws and `timestamp` loses microseconds:
+
+```typescript
+import {
+  temporalCodecs,
+  temporalPgTypes,
+} from '@denny-il/drizzle-pg-utils/temporal/effect-postgres'
+PgClient.layer({ url, types: temporalPgTypes() })
+makeWithDefaults({ relations, codecs: temporalCodecs() })
+
+import {
+  temporalCodecs,
+  temporalPgliteParsers,
+} from '@denny-il/drizzle-pg-utils/temporal/effect-pglite'
+PgliteClient.layer({ parsers: temporalPgliteParsers })
+makeWithDefaults({ relations, codecs: temporalCodecs() })
+```
+
+Both helpers are client-wide: raw Effect `sql` and `db.execute(...)` then return those types as strings. effect-postgres `timestamptz` text is UTC, and its `interval` needs no `intervalstyle`. Pass existing codec refinements as `temporalCodecs(myCodecs)`.
+
 Known limitations:
 
-- postgres-js with drizzle-orm 1.0.0-rc.5: SQL `NULL` elements in Temporal arrays are read as `'NULL'`, so decoding throws.
-- effect-postgres with @effect/sql-pg 4.0: multidimensional array columns fail to decode and break the connection; `plainDate` values with negative ISO years fail to decode (`-0001-03-04` instead of `0002-03-04 BC`).
+- bun-sql with drizzle-orm 1.0.0-rc.6: `timestamp`/`timestamptz` decode to millisecond `Date`s with no parser hook, so `timestampz` throws and `timestamp` loses microseconds; use `drizzle-orm/postgres` on Bun for them.
+- effect-postgres with @effect/sql-pg 4.0: multidimensional array columns fail to decode and break the connection.
 - pg-proxy is untested; decoding depends on the proxy server returning PostgreSQL text output for date and time types.

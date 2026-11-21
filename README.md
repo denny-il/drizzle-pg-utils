@@ -102,6 +102,7 @@ await db
 - Map PostgreSQL date and time columns directly to Temporal values.
 - Choose any of the three equal entrypoints: `/temporal`, `/temporal/global`, or `/temporal/polyfill`.
 - Add optional database constraints for `yearMonth` and `monthDay` text columns.
+- On effect-postgres or effect-pglite, set up lossless decoding with `/temporal/effect-postgres` or `/temporal/effect-pglite` (see [driver notes](./docs/temporal.md#effect-postgres-and-effect-pglite-setup)).
 
 ```typescript
 import {

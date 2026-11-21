@@ -203,7 +203,7 @@ These two helpers store strings and decode them back into Temporal values.
 
 ## Driver Notes
 
-The test suite runs against PGlite, postgres-js, node-postgres, drizzle's `postgres` driver (minipg), bun-sql, effect-postgres, and effect-pglite.
+The test suite runs against PGlite, postgres-js, node-postgres, drizzle's own `postgres` driver, bun-sql, effect-postgres, and effect-pglite. effect-postgres and effect-pglite need [extra setup](#effect-postgres-and-effect-pglite-setup).
 
 ### Set `intervalstyle` per connection
 
@@ -216,7 +216,7 @@ new Pool({ connectionString, options: '-c intervalstyle=iso_8601' })
 // postgres-js
 postgres(url, { connection: { intervalstyle: 'iso_8601' } })
 
-// drizzle-orm/postgres (minipg)
+// drizzle-orm/postgres (createPool from 'drizzle-orm/postgres/client')
 createPool({ url, options: '-c intervalstyle=iso_8601' })
 
 // bun-sql
@@ -237,6 +237,41 @@ ALTER DATABASE app SET intervalstyle = 'iso_8601';
 
 PGlite has a single connection, so `SET` is enough there.
 
+### effect-postgres and effect-pglite setup
+
+Since drizzle-orm 1.0.0-rc.6, selected columns are no longer cast to text, so these drivers decode date/time values themselves. @effect/sql-pg reads `timestamp` and `timestamptz` as millisecond `Date`s and `interval` as an object. PGlite reads `date`, `timestamp` and `timestamptz` as `Date`s. Without setup, `timestampz` columns throw and `timestamp` columns lose microseconds. The `temporal/effect-postgres` and `temporal/effect-pglite` entrypoints set up lossless decoding. They need drizzle-orm 1.0.0-rc.6, and `temporal/effect-postgres` also needs `effect` and `@effect/sql-pg` 4.
+
+```typescript
+import {
+  temporalCodecs,
+  temporalPgTypes,
+} from '@denny-il/drizzle-pg-utils/temporal/effect-postgres'
+// effect-postgres
+import * as PgClient from '@effect/sql-pg/PgClient'
+import { makeWithDefaults } from 'drizzle-orm/effect-postgres'
+
+const client = PgClient.layer({
+  url: Redacted.make(url),
+  types: temporalPgTypes(), // or temporalPgTypes(registry) to extend your own
+})
+const db = makeWithDefaults({ relations, codecs: temporalCodecs() })
+
+import {
+  temporalCodecs,
+  temporalPgliteParsers,
+} from '@denny-il/drizzle-pg-utils/temporal/effect-pglite'
+// effect-pglite
+import * as PgliteClient from '@effect/sql-pglite/PgliteClient'
+import { makeWithDefaults } from 'drizzle-orm/effect-pglite'
+
+const client = PgliteClient.layer({ parsers: temporalPgliteParsers })
+const db = makeWithDefaults({ relations, codecs: temporalCodecs() })
+```
+
+- `temporalPgTypes()` registers decoders that return `timestamp` and `timestamptz` as the text PostgreSQL prints, and `temporalPgliteParsers` keeps `date`, `timestamp` and `timestamptz` as text. Both apply to the whole client, so Effect `sql` queries and `db.execute(...)` on it get these types as strings instead of `Date`s. Give drizzle its own client if other code depends on `Date`s.
+- With effect-postgres, `timestamptz` text is in UTC (`+00`) rather than the session time zone. The instant is the same.
+- `temporalCodecs()` refines the driver's default codecs so string- and `Date`-mode columns of these types decode the text. On effect-postgres it also formats `interval` as ISO 8601, so `interval` columns there don't need `intervalstyle`, and drizzle's own `interval()` columns return that text too. To keep other codec refinements, pass them in: `temporalCodecs(myCodecs)`.
+
 ### Decode SQL expressions with `.mapWith(...)`
 
 Results of `db.execute(...)` and untyped `sql` selections don't go through the Temporal columns, and drivers return date/time values in them differently: some as strings, others as `Date` objects. To get Temporal values, map the expression with a Temporal column:
@@ -253,8 +288,8 @@ row!.now instanceof Temporal.Instant
 
 ### Known driver limitations
 
-- **postgres-js** with drizzle-orm 1.0.0-rc.5: drizzle's array parser reads SQL `NULL` elements as the string `'NULL'`, so reading a Temporal array column that contains a `NULL` element throws.
-- **effect-postgres** with @effect/sql-pg 4.0: multidimensional array columns, such as `.array('[][]')`, fail to decode, and the failure leaves the connection unusable. `plainDate` values with negative ISO years also fail to decode, because @effect/sql-pg returns them as `-0001-03-04` instead of PostgreSQL's `0002-03-04 BC`.
+- **bun-sql** with drizzle-orm 1.0.0-rc.6: Bun SQL decodes `timestamp` and `timestamptz` to millisecond `Date`s and has no type parser hooks, so `timestampz` columns throw and `timestamp` columns lose microseconds and fail on years before 1 AD or after 9999. Use drizzle's own `postgres` driver on Bun for these columns. Other Temporal columns work.
+- **effect-postgres** with @effect/sql-pg 4.0: multidimensional array columns, such as `.array('[][]')`, fail to decode, and the failure leaves the connection unusable.
 - **pg-proxy** isn't tested. What it decodes depends on what your proxy server returns; Temporal columns expect PostgreSQL's text output for date and time types.
 
 ## Factories and Serialization Defaults

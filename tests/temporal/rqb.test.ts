@@ -8,7 +8,7 @@ import {
   timestamp,
   timestampz,
 } from '../../src/temporal/polyfill.ts'
-import { createDatabase, type TestDatabase } from '../utils.ts'
+import { createDatabase, lossyTimestamps, type TestDatabase } from '../utils.ts'
 
 const temporalUsersTable = pgTable('temporal_rqb_users', {
   id: serial('id').primaryKey(),
@@ -105,26 +105,29 @@ describe('Temporal RQB column types', () => {
     expect(event.eventTimestampz!.toString()).toBe('2026-05-07T03:15:30Z')
   })
 
-  it('maps temporal columns from nested one relation JSON', async () => {
-    const [user] = await db
-      .insert(temporalUsersTable)
-      .values({
-        name: 'Grace',
-        joinedAt: TemporalImpl.Instant.from('2026-06-08T04:16:31.123456Z'),
+  it.skipIf(lossyTimestamps)(
+    'maps temporal columns from nested one relation JSON',
+    async () => {
+      const [user] = await db
+        .insert(temporalUsersTable)
+        .values({
+          name: 'Grace',
+          joinedAt: TemporalImpl.Instant.from('2026-06-08T04:16:31.123456Z'),
+        })
+        .returning()
+
+      await db.insert(temporalEventsTable).values({ userId: user!.id })
+
+      const [result] = await db.query.temporalEventsTable.findMany({
+        with: {
+          user: true,
+        },
       })
-      .returning()
 
-    await db.insert(temporalEventsTable).values({ userId: user!.id })
-
-    const [result] = await db.query.temporalEventsTable.findMany({
-      with: {
-        user: true,
-      },
-    })
-
-    expect(result!.user!.joinedAt).toBeInstanceOf(Temporal.Instant)
-    expect(result!.user!.joinedAt!.toString()).toBe(
-      '2026-06-08T04:16:31.123456Z',
-    )
-  })
+      expect(result!.user!.joinedAt).toBeInstanceOf(Temporal.Instant)
+      expect(result!.user!.joinedAt!.toString()).toBe(
+        '2026-06-08T04:16:31.123456Z',
+      )
+    },
+  )
 })
