@@ -203,7 +203,32 @@ These two helpers store strings and decode them back into Temporal values.
 
 ## Driver Notes
 
-The test suite runs against PGlite, postgres-js, node-postgres, drizzle's own `postgres` driver, bun-sql, effect-postgres, and effect-pglite. effect-postgres and effect-pglite need [extra setup](#effect-postgres-and-effect-pglite-setup).
+Supported and tested drivers: node-postgres, postgres-js, PGlite, and drizzle's own Postgres driver: `drizzle-orm/postgres` (on Node and Bun), `drizzle-orm/postgres/effect`, and `drizzle-orm/postgres/pglite`.
+
+### Unsupported drivers: bun-sql, effect-postgres, effect-pglite
+
+Since drizzle-orm 1.0.0-rc.6, selected columns are no longer cast to text, and these three drivers decode date and time values themselves: Bun SQL and @effect/sql-pg read `timestamp` and `timestamptz` as millisecond `Date`s, @effect/sql-pg reads `interval` as an object, and @effect/sql-pglite reads `date` and timestamps as `Date`s. drizzle throws `Column type "timestamp with time zone" is not supported` for `timestampz` columns on them, and other columns silently lose microseconds, BC years, and years past 9999.
+
+Switch to drizzle's own Postgres driver, which returns PostgreSQL's exact text for these types:
+
+| Instead of                                       | Use                                                           |
+| ------------------------------------------------ | ------------------------------------------------------------- |
+| `drizzle-orm/bun-sql`                            | `drizzle-orm/postgres` (runs on Bun)                          |
+| `drizzle-orm/effect-postgres` (@effect/sql-pg)   | `drizzle-orm/postgres/effect` (needs `effect` 4.1.3 or later) |
+| `drizzle-orm/effect-pglite` (@effect/sql-pglite) | `drizzle-orm/postgres/pglite`                                 |
+
+```typescript
+// Effect
+import * as PostgresDrizzle from 'drizzle-orm/postgres/effect'
+import { DrizzlePostgresClient } from 'drizzle-orm/postgres/effect'
+
+const program = Effect.gen(function* () {
+  const db = yield* PostgresDrizzle.makeWithDefaults({ relations })
+  return yield* db.select().from(events)
+}).pipe(
+  Effect.provide(DrizzlePostgresClient.layer({ url: Redacted.make(url) })),
+)
+```
 
 ### Set `intervalstyle` per connection
 
@@ -217,16 +242,12 @@ new Pool({ connectionString, options: '-c intervalstyle=iso_8601' })
 postgres(url, { connection: { intervalstyle: 'iso_8601' } })
 
 // drizzle-orm/postgres (createPool from 'drizzle-orm/postgres/client')
-createPool({ url, options: '-c intervalstyle=iso_8601' })
+drizzle({ client: createPool({ url, options: '-c intervalstyle=iso_8601' }) })
 
-// bun-sql
-new SQL({ url, connection: { intervalstyle: 'iso_8601' } })
-
-// effect-postgres
-PgClient.layer({
-  url: Redacted.make(url), // Redacted from 'effect'
-  startupParameters: { intervalstyle: 'iso_8601' },
-})
+// drizzle-orm/postgres/effect
+DrizzlePostgresClient.layerFromPool(
+  createPool({ url, options: '-c intervalstyle=iso_8601' }),
+)
 ```
 
 Or make it the default for a database or role:
@@ -236,41 +257,6 @@ ALTER DATABASE app SET intervalstyle = 'iso_8601';
 ```
 
 PGlite has a single connection, so `SET` is enough there.
-
-### effect-postgres and effect-pglite setup
-
-Since drizzle-orm 1.0.0-rc.6, selected columns are no longer cast to text, so these drivers decode date/time values themselves. @effect/sql-pg reads `timestamp` and `timestamptz` as millisecond `Date`s and `interval` as an object. PGlite reads `date`, `timestamp` and `timestamptz` as `Date`s. Without setup, `timestampz` columns throw and `timestamp` columns lose microseconds. The `temporal/effect-postgres` and `temporal/effect-pglite` entrypoints set up lossless decoding. They need drizzle-orm 1.0.0-rc.6, and `temporal/effect-postgres` also needs `effect` and `@effect/sql-pg` 4.
-
-```typescript
-import {
-  temporalCodecs,
-  temporalPgTypes,
-} from '@denny-il/drizzle-pg-utils/temporal/effect-postgres'
-// effect-postgres
-import * as PgClient from '@effect/sql-pg/PgClient'
-import { makeWithDefaults } from 'drizzle-orm/effect-postgres'
-
-const client = PgClient.layer({
-  url: Redacted.make(url),
-  types: temporalPgTypes(), // or temporalPgTypes(registry) to extend your own
-})
-const db = makeWithDefaults({ relations, codecs: temporalCodecs() })
-
-import {
-  temporalCodecs,
-  temporalPgliteParsers,
-} from '@denny-il/drizzle-pg-utils/temporal/effect-pglite'
-// effect-pglite
-import * as PgliteClient from '@effect/sql-pglite/PgliteClient'
-import { makeWithDefaults } from 'drizzle-orm/effect-pglite'
-
-const client = PgliteClient.layer({ parsers: temporalPgliteParsers })
-const db = makeWithDefaults({ relations, codecs: temporalCodecs() })
-```
-
-- `temporalPgTypes()` registers decoders that return `timestamp` and `timestamptz` as the text PostgreSQL prints, and `temporalPgliteParsers` keeps `date`, `timestamp` and `timestamptz` as text. Both apply to the whole client, so Effect `sql` queries and `db.execute(...)` on it get these types as strings instead of `Date`s. Give drizzle its own client if other code depends on `Date`s.
-- With effect-postgres, `timestamptz` text is in UTC (`+00`) rather than the session time zone. The instant is the same.
-- `temporalCodecs()` refines the driver's default codecs so string- and `Date`-mode columns of these types decode the text. On effect-postgres it also formats `interval` as ISO 8601, so `interval` columns there don't need `intervalstyle`, and drizzle's own `interval()` columns return that text too. To keep other codec refinements, pass them in: `temporalCodecs(myCodecs)`.
 
 ### Decode SQL expressions with `.mapWith(...)`
 
@@ -288,8 +274,6 @@ row!.now instanceof Temporal.Instant
 
 ### Known driver limitations
 
-- **bun-sql** with drizzle-orm 1.0.0-rc.6: Bun SQL decodes `timestamp` and `timestamptz` to millisecond `Date`s and has no type parser hooks, so `timestampz` columns throw and `timestamp` columns lose microseconds and fail on years before 1 AD or after 9999. Use drizzle's own `postgres` driver on Bun for these columns. Other Temporal columns work.
-- **effect-postgres** with @effect/sql-pg 4.0: multidimensional array columns, such as `.array('[][]')`, fail to decode, and the failure leaves the connection unusable.
 - **pg-proxy** isn't tested. What it decodes depends on what your proxy server returns; Temporal columns expect PostgreSQL's text output for date and time types.
 
 ## Factories and Serialization Defaults

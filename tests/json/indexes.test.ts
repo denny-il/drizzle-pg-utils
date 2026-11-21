@@ -51,11 +51,14 @@ const jsonbLiteral = (value: unknown) =>
 
 const executeRaw = (statement: string) => db.execute(sql.raw(statement))
 
+// A session setting rather than `begin; set local ...`: drizzle's pooled
+// `postgres` drivers don't keep a raw `begin` open across `db.execute()`
+// calls. Every test database holds a single connection, so the setting
+// reaches the `explain` and is reset afterwards.
 const explainQuery = async (query: SQLWrapper) => {
-  await db.execute(sql.raw('begin'))
+  await executeRaw('set enable_seqscan = off;')
 
   try {
-    await executeRaw('set local enable_seqscan = off;')
     const rows = await executeRows<ExplainQueryRow>(
       db,
       sql`explain (format json) ${query}`,
@@ -63,7 +66,7 @@ const explainQuery = async (query: SQLWrapper) => {
 
     return rows[0]!['QUERY PLAN'][0]!.Plan
   } finally {
-    await executeRaw('rollback')
+    await executeRaw('reset enable_seqscan;')
   }
 }
 

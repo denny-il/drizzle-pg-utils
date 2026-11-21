@@ -11,12 +11,7 @@ import {
   timestampz,
   yearMonth,
 } from '../../src/temporal/polyfill.ts'
-import {
-  createDatabase,
-  tableChecks,
-  type TestDatabase,
-  lossyTimestamps,
-} from '../utils.ts'
+import { createDatabase, tableChecks, type TestDatabase } from '../utils.ts'
 
 const dates = pgTable(
   'temporal_edge_cases',
@@ -45,21 +40,18 @@ beforeAll(async () => {
 
 describe('Temporal edge cases', () => {
   for (const value of ['0000-01-02', '-000001-03-04', '+010000-05-06']) {
-    it.skipIf(lossyTimestamps)(
-      `round-trips ISO year ${value} through native date and timestamp columns`,
-      async () => {
-        const date = Temporal.PlainDate.from(value)
-        const plain = Temporal.PlainDateTime.from(`${value}T12:34:56.123456`)
-        const instant = Temporal.Instant.from(`${value}T12:34:56.123456Z`)
-        const [row] = await db
-          .insert(dates)
-          .values({ date, timestamp: plain, instant })
-          .returning()
-        expect(row!.date!.equals(date)).toBe(true)
-        expect(row!.timestamp!.equals(plain)).toBe(true)
-        expect(row!.instant!.equals(instant)).toBe(true)
-      },
-    )
+    it(`round-trips ISO year ${value} through native date and timestamp columns`, async () => {
+      const date = Temporal.PlainDate.from(value)
+      const plain = Temporal.PlainDateTime.from(`${value}T12:34:56.123456`)
+      const instant = Temporal.Instant.from(`${value}T12:34:56.123456Z`)
+      const [row] = await db
+        .insert(dates)
+        .values({ date, timestamp: plain, instant })
+        .returning()
+      expect(row!.date!.equals(date)).toBe(true)
+      expect(row!.timestamp!.equals(plain)).toBe(true)
+      expect(row!.instant!.equals(instant)).toBe(true)
+    })
   }
 
   it.each(['-PT1H', '-P1Y2M3DT4H5M6.123456S', 'PT0S'])(

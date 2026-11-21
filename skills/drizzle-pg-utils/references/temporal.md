@@ -157,19 +157,26 @@ await db.insert(events).values({
 
 ## Driver Notes
 
-Tested drivers: PGlite, postgres-js, node-postgres, `drizzle-orm/postgres`, bun-sql, effect-postgres, effect-pglite.
+Supported drivers (require drizzle-orm `1.0.0-rc.6`): node-postgres, postgres-js, PGlite, and drizzle's own Postgres driver: `drizzle-orm/postgres` (Node, Bun), `drizzle-orm/postgres/effect`, `drizzle-orm/postgres/pglite`.
+
+**Not supported: bun-sql, effect-postgres, effect-pglite.** Since rc.6 they decode date/time values themselves and lose precision: `timestampz` throws `Column type "timestamp with time zone" is not supported`, other columns lose microseconds and BC / 5-digit years. When a user is on one of them, tell them to switch to drizzle's own driver:
+
+- `drizzle-orm/bun-sql` → `drizzle-orm/postgres` (runs on Bun)
+- `drizzle-orm/effect-postgres` (@effect/sql-pg) → `drizzle-orm/postgres/effect` (`effect` ≥ 4.1.3), provided with `DrizzlePostgresClient.layer({ url })`
+- `drizzle-orm/effect-pglite` (@effect/sql-pglite) → `drizzle-orm/postgres/pglite`
+
+Don't suggest client type registries, parsers or `refineCodecs` workarounds for those drivers.
 
 Set `intervalstyle` per connection. Pools keep other connections on the server default, postgres-js reconnects after `idle_timeout`, and node-postgres's `pool.query()` discards its connection when the query fails, so a one-off `SET` gets lost:
 
 ```typescript
 new Pool({ connectionString, options: '-c intervalstyle=iso_8601' }) // node-postgres
 postgres(url, { connection: { intervalstyle: 'iso_8601' } }) // postgres-js
-createPool({ url, options: '-c intervalstyle=iso_8601' }) // drizzle-orm/postgres/client
-new SQL({ url, connection: { intervalstyle: 'iso_8601' } }) // bun-sql
-PgClient.layer({
-  url: Redacted.make(url), // Redacted from 'effect'
-  startupParameters: { intervalstyle: 'iso_8601' },
-}) // effect-postgres
+drizzle({ client: createPool({ url, options: '-c intervalstyle=iso_8601' }) }) // drizzle-orm/postgres
+DrizzlePostgresClient.layerFromPool(
+  createPool({ url, options: '-c intervalstyle=iso_8601' }),
+) // drizzle-orm/postgres/effect
+// createPool from 'drizzle-orm/postgres/client'
 ```
 
 ```sql
@@ -182,28 +189,6 @@ ALTER DATABASE app SET intervalstyle = 'iso_8601';
 db.select({ now: sql`now()`.mapWith(events.createdAt) }).from(events)
 ```
 
-effect-postgres and effect-pglite need lossless decoding setup since drizzle-orm 1.0.0-rc.6 (no more `::text` casts). Without it, `timestampz` throws and `timestamp` loses microseconds:
-
-```typescript
-import {
-  temporalCodecs,
-  temporalPgTypes,
-} from '@denny-il/drizzle-pg-utils/temporal/effect-postgres'
-PgClient.layer({ url, types: temporalPgTypes() })
-makeWithDefaults({ relations, codecs: temporalCodecs() })
-
-import {
-  temporalCodecs,
-  temporalPgliteParsers,
-} from '@denny-il/drizzle-pg-utils/temporal/effect-pglite'
-PgliteClient.layer({ parsers: temporalPgliteParsers })
-makeWithDefaults({ relations, codecs: temporalCodecs() })
-```
-
-Both helpers are client-wide: raw Effect `sql` and `db.execute(...)` then return those types as strings. effect-postgres `timestamptz` text is UTC, and its `interval` needs no `intervalstyle`. Pass existing codec refinements as `temporalCodecs(myCodecs)`.
-
 Known limitations:
 
-- bun-sql with drizzle-orm 1.0.0-rc.6: `timestamp`/`timestamptz` decode to millisecond `Date`s with no parser hook, so `timestampz` throws and `timestamp` loses microseconds; use `drizzle-orm/postgres` on Bun for them.
-- effect-postgres with @effect/sql-pg 4.0: multidimensional array columns fail to decode and break the connection.
 - pg-proxy is untested; decoding depends on the proxy server returning PostgreSQL text output for date and time types.

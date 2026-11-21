@@ -10,6 +10,21 @@ A TypeScript library providing type-safe utilities for working with PostgreSQL J
 npm install @denny-il/drizzle-pg-utils
 ```
 
+Requires `drizzle-orm` `1.0.0-rc.6`.
+
+### Supported drivers
+
+| Driver                                                   | Import                        |
+| -------------------------------------------------------- | ----------------------------- |
+| node-postgres                                            | `drizzle-orm/node-postgres`   |
+| postgres-js                                              | `drizzle-orm/postgres-js`     |
+| PGlite                                                   | `drizzle-orm/pglite`          |
+| drizzle's own Postgres driver (Node, Bun, Deno, Workers) | `drizzle-orm/postgres`        |
+| drizzle's own Postgres driver for Effect                 | `drizzle-orm/postgres/effect` |
+| drizzle's own Postgres driver over PGlite                | `drizzle-orm/postgres/pglite` |
+
+**bun-sql, effect-postgres and effect-pglite are not supported.** Since drizzle-orm 1.0.0-rc.6, these drivers decode date and time values themselves and lose precision, so Temporal columns can't read them correctly. Switch to drizzle's own Postgres driver: `drizzle-orm/postgres` instead of `drizzle-orm/bun-sql`, `drizzle-orm/postgres/effect` instead of `drizzle-orm/effect-postgres`, and `drizzle-orm/postgres/pglite` instead of `drizzle-orm/effect-pglite`. See [Driver Notes](./docs/temporal.md#driver-notes).
+
 ### Query Example (Select + Update)
 
 ```typescript
@@ -102,7 +117,6 @@ await db
 - Map PostgreSQL date and time columns directly to Temporal values.
 - Choose any of the three equal entrypoints: `/temporal`, `/temporal/global`, or `/temporal/polyfill`.
 - Add optional database constraints for `yearMonth` and `monthDay` text columns.
-- On effect-postgres or effect-pglite, set up lossless decoding with `/temporal/effect-postgres` or `/temporal/effect-pglite` (see [driver notes](./docs/temporal.md#effect-postgres-and-effect-pglite-setup)).
 
 ```typescript
 import {

@@ -12,12 +12,7 @@ import {
   createTimestampz,
   createYearMonth,
 } from '../../src/temporal/index.ts'
-import {
-  createDatabase,
-  lossyTimestamps,
-  tableChecks,
-  type TestDatabase,
-} from '../utils.ts'
+import { createDatabase, tableChecks, type TestDatabase } from '../utils.ts'
 
 const factoryTemporal = {
   interval: createInterval(PolyfillTemporal),
@@ -91,45 +86,38 @@ describe('Temporal Factory Tests', () => {
     expect(temporalImport.createMonthDay).toBeDefined()
   })
 
-  it.skipIf(lossyTimestamps)(
-    'should support factory-created columns with a caller-provided Temporal implementation',
-    async () => {
-      const testInstant = PolyfillTemporal.Instant.from(
-        '2023-08-15T09:10:11.1234Z',
-      )
-      const persistedInstant = PolyfillTemporal.Instant.from(
-        '2023-08-15T09:10:11.123Z',
-      )
+  it('should support factory-created columns with a caller-provided Temporal implementation', async () => {
+    const testInstant = PolyfillTemporal.Instant.from(
+      '2023-08-15T09:10:11.1234Z',
+    )
+    const persistedInstant = PolyfillTemporal.Instant.from(
+      '2023-08-15T09:10:11.123Z',
+    )
 
-      await db.insert(factoryTemporalTable).values({
-        plainDate: PolyfillTemporal.PlainDate.from('2023-08-15'),
-        plainTime: PolyfillTemporal.PlainTime.from('09:10:11.1234'),
-        plainDateTime: PolyfillTemporal.PlainDateTime.from(
-          '2023-08-15T09:10:11.123456',
-        ),
-        zonedDateTime: testInstant,
-        duration: PolyfillTemporal.Duration.from('PT1H2M3.674S'),
-        yearMonthValue: PolyfillTemporal.PlainYearMonth.from('2023-08'),
-        monthDayValue: PolyfillTemporal.PlainMonthDay.from('08-15'),
-      })
+    await db.insert(factoryTemporalTable).values({
+      plainDate: PolyfillTemporal.PlainDate.from('2023-08-15'),
+      plainTime: PolyfillTemporal.PlainTime.from('09:10:11.1234'),
+      plainDateTime: PolyfillTemporal.PlainDateTime.from(
+        '2023-08-15T09:10:11.123456',
+      ),
+      zonedDateTime: testInstant,
+      duration: PolyfillTemporal.Duration.from('PT1H2M3.674S'),
+      yearMonthValue: PolyfillTemporal.PlainYearMonth.from('2023-08'),
+      monthDayValue: PolyfillTemporal.PlainMonthDay.from('08-15'),
+    })
 
-      const [result] = await db.select().from(factoryTemporalTable).limit(1)
+    const [result] = await db.select().from(factoryTemporalTable).limit(1)
 
-      expect(result!.plainDate).toBeInstanceOf(PolyfillTemporal.PlainDate)
-      expect(result!.plainDate?.toString()).toBe('2023-08-15')
-      expect(result!.plainTime).toBeInstanceOf(PolyfillTemporal.PlainTime)
-      expect(result!.plainDateTime).toBeInstanceOf(
-        PolyfillTemporal.PlainDateTime,
-      )
-      expect(result!.zonedDateTime).toBeInstanceOf(PolyfillTemporal.Instant)
-      expect(result!.zonedDateTime?.equals(persistedInstant)).toBe(true)
-      expect(result!.duration).toBeInstanceOf(PolyfillTemporal.Duration)
-      expect(result!.yearMonthValue).toBeInstanceOf(
-        PolyfillTemporal.PlainYearMonth,
-      )
-      expect(result!.monthDayValue).toBeInstanceOf(
-        PolyfillTemporal.PlainMonthDay,
-      )
-    },
-  )
+    expect(result!.plainDate).toBeInstanceOf(PolyfillTemporal.PlainDate)
+    expect(result!.plainDate?.toString()).toBe('2023-08-15')
+    expect(result!.plainTime).toBeInstanceOf(PolyfillTemporal.PlainTime)
+    expect(result!.plainDateTime).toBeInstanceOf(PolyfillTemporal.PlainDateTime)
+    expect(result!.zonedDateTime).toBeInstanceOf(PolyfillTemporal.Instant)
+    expect(result!.zonedDateTime?.equals(persistedInstant)).toBe(true)
+    expect(result!.duration).toBeInstanceOf(PolyfillTemporal.Duration)
+    expect(result!.yearMonthValue).toBeInstanceOf(
+      PolyfillTemporal.PlainYearMonth,
+    )
+    expect(result!.monthDayValue).toBeInstanceOf(PolyfillTemporal.PlainMonthDay)
+  })
 })

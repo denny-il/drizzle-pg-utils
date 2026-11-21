@@ -1,26 +1,29 @@
 import type { AnyRelations, EmptyRelations } from 'drizzle-orm'
 import type { PgAsyncDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core'
 
-// Every drizzle Postgres driver that runs against a local server or an
-// embedded database. Drivers for hosted services (Neon, Vercel, Xata, AWS Data
-// API, Aurora DSQL, Netlify DB) aren't covered, nor is pg-proxy: it only
+// Every supported drizzle Postgres driver that runs against a local server or
+// an embedded database. Drivers for hosted services (Neon, Vercel, Xata, AWS
+// Data API, Aurora DSQL, Netlify DB) aren't covered, nor is pg-proxy: it only
 // forwards queries, so its behavior depends on the user's proxy server.
+// bun-sql, effect-postgres and effect-pglite are unsupported: since
+// drizzle-orm 1.0.0-rc.6 they decode date/time values lossily (see
+// docs/temporal.md).
 export const drivers = [
   'pglite',
   'postgres-js',
   'node-postgres',
-  // drizzle's own driver (formerly minipg), `drizzle-orm/postgres`
+  // drizzle's own driver, `drizzle-orm/postgres`, and its Effect and PGlite
+  // variants. The suite runs `postgres` under Bun too.
   'postgres',
-  'bun-sql',
-  'effect-postgres',
-  'effect-pglite',
+  'postgres-effect',
+  'postgres-pglite',
 ] as const
 export type TestDriver = (typeof drivers)[number]
 
 // Drivers that run their own embedded Postgres and ignore `DATABASE_URL`.
 export const embeddedDrivers: readonly TestDriver[] = [
   'pglite',
-  'effect-pglite',
+  'postgres-pglite',
 ]
 
 const resolveDriver = (): TestDriver => {
@@ -36,11 +39,6 @@ const resolveDriver = (): TestDriver => {
       throw new Error(`TEST_DRIVER=${driver} requires DATABASE_URL`)
     }
   }
-  if (driver === 'bun-sql' && !('Bun' in globalThis)) {
-    throw new Error(
-      'TEST_DRIVER=bun-sql must run under Bun: bun run --bun vitest run',
-    )
-  }
   return driver as TestDriver
 }
 
@@ -49,13 +47,6 @@ const resolveDriver = (): TestDriver => {
  * defaults to postgres-js when `DATABASE_URL` is set and PGlite otherwise.
  */
 export const testDriver = resolveDriver()
-
-/**
- * Bun SQL decodes `timestamp` and `timestamptz` to millisecond `Date`s and has
- * no type parser hooks, so Temporal timestamp columns can't read them
- * losslessly there; drizzle rejects `timestamptz` in string mode outright.
- */
-export const lossyTimestamps = testDriver === 'bun-sql'
 
 // The shared base type rather than a union of the driver databases: a union of
 // their overloaded methods (e.g. `execute`) is not callable. The Effect
@@ -128,51 +119,42 @@ export const connect = async ({
       return { db: drizzle({ client, relations }), close: () => client.end() }
     }
 
-    case 'bun-sql': {
-      const { drizzle } = await import('drizzle-orm/bun-sql')
-      const db = drizzle({
-        connection: { url, max: 1, connection: { search_path: schema } },
-        relations,
-      })
-      return { db, close: () => db.$client.close() }
-    }
-
-    case 'effect-postgres': {
-      const { ManagedRuntime, Redacted } = await import('effect')
-      const PgClient = await import('@effect/sql-pg/PgClient')
-      const { makeWithDefaults } = await import('drizzle-orm/effect-postgres')
-      const { temporalCodecs, temporalPgTypes } =
-        await import('../src/temporal/effect-postgres.ts')
-      await makeEffectQueriesAwaitable()
-      const runtime = ManagedRuntime.make(
-        PgClient.layerFrom(
-          PgClient.makeClient({
-            url: Redacted.make(url),
-            startupParameters: { search_path: schema },
-            types: temporalPgTypes(),
-          }),
-        ),
-      )
-      const db = await runtime.runPromise(
-        makeWithDefaults({ relations, codecs: temporalCodecs() }),
-      )
-      return { db, close: () => runtime.dispose() }
-    }
-
-    case 'effect-pglite': {
+    case 'postgres-effect': {
       const { ManagedRuntime } = await import('effect')
-      const PgliteClient = await import('@effect/sql-pglite/PgliteClient')
-      const { makeWithDefaults } = await import('drizzle-orm/effect-pglite')
-      const { temporalCodecs, temporalPgliteParsers } =
-        await import('../src/temporal/effect-pglite.ts')
+      const { createPool } = await import('drizzle-orm/postgres/client')
+      const { DrizzlePostgresClient, makeWithDefaults } =
+        await import('drizzle-orm/postgres/effect')
       await makeEffectQueriesAwaitable()
+      const pool = createPool({
+        url,
+        max: 1,
+        options: `-c search_path=${schema}`,
+      })
       const runtime = ManagedRuntime.make(
-        PgliteClient.layer({ parsers: temporalPgliteParsers }),
+        DrizzlePostgresClient.layerFromPool(pool),
       )
-      const db = await runtime.runPromise(
-        makeWithDefaults({ relations, codecs: temporalCodecs() }),
-      )
-      return { db, close: () => runtime.dispose() }
+      const db = await runtime.runPromise(makeWithDefaults({ relations }))
+      return {
+        db,
+        close: async () => {
+          await runtime.dispose()
+          await pool.end()
+        },
+      }
+    }
+
+    case 'postgres-pglite': {
+      const { PGlite } = await import('@electric-sql/pglite')
+      const { drizzle } = await import('drizzle-orm/postgres/pglite')
+      const client = await PGlite.create()
+      const db = drizzle({ connection: client, relations })
+      return {
+        db,
+        close: async () => {
+          await db.$client.end()
+          await client.close()
+        },
+      }
     }
   }
 }
