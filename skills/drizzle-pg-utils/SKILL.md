@@ -9,7 +9,7 @@ Prefer practical Drizzle query examples using public package imports. Avoid `src
 
 ## Supported Drivers
 
-Requires drizzle-orm `1.0.0-rc.6`. Supported: node-postgres, postgres-js, PGlite, and drizzle's own Postgres driver (`drizzle-orm/postgres`, `/postgres/effect`, `/postgres/pglite`). bun-sql, effect-postgres and effect-pglite are not supported: point users to `drizzle-orm/postgres`, `drizzle-orm/postgres/effect` or `drizzle-orm/postgres/pglite` instead (details in references/temporal.md, Driver Notes).
+Requires drizzle-orm `1.0.0-rc.6`. Supported: node-postgres, postgres-js, PGlite, and drizzle's own Postgres driver (`drizzle-orm/postgres`, `/postgres/effect`, `/postgres/pglite`). bun-sql, effect-postgres and effect-pglite are not supported: point users to `drizzle-orm/postgres` or `drizzle-orm/postgres/effect` (with drizzle's PGlite layer for effect-pglite) instead (details in references/temporal.md, Driver Notes).
 
 ## References
 

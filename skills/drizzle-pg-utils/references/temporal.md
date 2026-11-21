@@ -159,11 +159,11 @@ await db.insert(events).values({
 
 Supported drivers (require drizzle-orm `1.0.0-rc.6`): node-postgres, postgres-js, PGlite, and drizzle's own Postgres driver: `drizzle-orm/postgres` (Node, Bun), `drizzle-orm/postgres/effect`, `drizzle-orm/postgres/pglite`.
 
-**Not supported: bun-sql, effect-postgres, effect-pglite.** Since rc.6 they decode date/time values themselves and lose precision: `timestampz` throws `Column type "timestamp with time zone" is not supported`, other columns lose microseconds and BC / 5-digit years. When a user is on one of them, tell them to switch to drizzle's own driver:
+**Not supported: bun-sql, effect-postgres, effect-pglite.** Since rc.6 they decode date/time values themselves and lose precision: `timestampz` throws `Column type "..." is not supported` (also `timestamp` on effect-pglite), other columns lose microseconds and BC / 5-digit years. When a user is on one of them, tell them to switch to drizzle's own driver:
 
 - `drizzle-orm/bun-sql` → `drizzle-orm/postgres` (runs on Bun)
-- `drizzle-orm/effect-postgres` (@effect/sql-pg) → `drizzle-orm/postgres/effect` (`effect` ≥ 4.1.3), provided with `DrizzlePostgresClient.layer({ url })`
-- `drizzle-orm/effect-pglite` (@effect/sql-pglite) → `drizzle-orm/postgres/pglite`
+- `drizzle-orm/effect-postgres` (@effect/sql-pg) → `drizzle-orm/postgres/effect` (`effect` ≥ 4.1.3), provided with `DrizzlePostgresClient.layer({ url: Redacted.make(url) })`. `sslmode=require` no longer verifies the certificate there; use `sslmode=verify-full` to keep verification.
+- `drizzle-orm/effect-pglite` (@effect/sql-pglite) → `drizzle-orm/postgres/effect` provided with `DrizzlePostgresClient.layer(pglite)` from `drizzle-orm/postgres/client/effect/pglite` (without Effect: `drizzle-orm/postgres/pglite`)
 
 Don't suggest client type registries, parsers or `refineCodecs` workarounds for those drivers.
 
@@ -173,9 +173,9 @@ Set `intervalstyle` per connection. Pools keep other connections on the server d
 new Pool({ connectionString, options: '-c intervalstyle=iso_8601' }) // node-postgres
 postgres(url, { connection: { intervalstyle: 'iso_8601' } }) // postgres-js
 drizzle({ client: createPool({ url, options: '-c intervalstyle=iso_8601' }) }) // drizzle-orm/postgres
-DrizzlePostgresClient.layerFromPool(
-  createPool({ url, options: '-c intervalstyle=iso_8601' }),
-) // drizzle-orm/postgres/effect
+DrizzlePostgresClient.layer({
+  url: Redacted.make(`${url}?options=-c%20intervalstyle%3Diso_8601`),
+}) // drizzle-orm/postgres/effect
 // createPool from 'drizzle-orm/postgres/client'
 ```
 

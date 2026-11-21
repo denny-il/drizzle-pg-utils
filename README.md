@@ -23,7 +23,7 @@ Requires `drizzle-orm` `1.0.0-rc.6`.
 | drizzle's own Postgres driver for Effect                 | `drizzle-orm/postgres/effect` |
 | drizzle's own Postgres driver over PGlite                | `drizzle-orm/postgres/pglite` |
 
-**bun-sql, effect-postgres and effect-pglite are not supported.** Since drizzle-orm 1.0.0-rc.6, these drivers decode date and time values themselves and lose precision, so Temporal columns can't read them correctly. Switch to drizzle's own Postgres driver: `drizzle-orm/postgres` instead of `drizzle-orm/bun-sql`, `drizzle-orm/postgres/effect` instead of `drizzle-orm/effect-postgres`, and `drizzle-orm/postgres/pglite` instead of `drizzle-orm/effect-pglite`. See [Driver Notes](./docs/temporal.md#driver-notes).
+**bun-sql, effect-postgres and effect-pglite are not supported.** Since drizzle-orm 1.0.0-rc.6, these drivers decode date and time values themselves and lose precision, so Temporal columns can't read them correctly. Switch to drizzle's own Postgres driver: `drizzle-orm/postgres` instead of `drizzle-orm/bun-sql`, `drizzle-orm/postgres/effect` instead of `drizzle-orm/effect-postgres`, and `drizzle-orm/postgres/effect` with drizzle's PGlite layer instead of `drizzle-orm/effect-pglite`. See [Driver Notes](./docs/temporal.md#driver-notes).
 
 ### Query Example (Select + Update)
 

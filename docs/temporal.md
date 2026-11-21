@@ -207,28 +207,38 @@ Supported and tested drivers: node-postgres, postgres-js, PGlite, and drizzle's 
 
 ### Unsupported drivers: bun-sql, effect-postgres, effect-pglite
 
-Since drizzle-orm 1.0.0-rc.6, selected columns are no longer cast to text, and these three drivers decode date and time values themselves: Bun SQL and @effect/sql-pg read `timestamp` and `timestamptz` as millisecond `Date`s, @effect/sql-pg reads `interval` as an object, and @effect/sql-pglite reads `date` and timestamps as `Date`s. drizzle throws `Column type "timestamp with time zone" is not supported` for `timestampz` columns on them, and other columns silently lose microseconds, BC years, and years past 9999.
+Since drizzle-orm 1.0.0-rc.6, selected columns are no longer cast to text, and these three drivers decode date and time values themselves: Bun SQL and @effect/sql-pg read `timestamp` and `timestamptz` as millisecond `Date`s, @effect/sql-pg reads `interval` as an object, and @effect/sql-pglite reads `date` and timestamps as `Date`s. drizzle throws `Column type "..." is not supported` for `timestampz` columns on all three and for `timestamp` columns on effect-pglite; other columns silently lose microseconds, BC years, and years past 9999.
 
 Switch to drizzle's own Postgres driver, which returns PostgreSQL's exact text for these types:
 
-| Instead of                                       | Use                                                           |
-| ------------------------------------------------ | ------------------------------------------------------------- |
-| `drizzle-orm/bun-sql`                            | `drizzle-orm/postgres` (runs on Bun)                          |
-| `drizzle-orm/effect-postgres` (@effect/sql-pg)   | `drizzle-orm/postgres/effect` (needs `effect` 4.1.3 or later) |
-| `drizzle-orm/effect-pglite` (@effect/sql-pglite) | `drizzle-orm/postgres/pglite`                                 |
+| Instead of                                       | Use                                                                                                  |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| `drizzle-orm/bun-sql`                            | `drizzle-orm/postgres` (runs on Bun)                                                                 |
+| `drizzle-orm/effect-postgres` (@effect/sql-pg)   | `drizzle-orm/postgres/effect` (needs `effect` 4.1.3 or later)                                        |
+| `drizzle-orm/effect-pglite` (@effect/sql-pglite) | `drizzle-orm/postgres/effect` with the PGlite layer from `drizzle-orm/postgres/client/effect/pglite` |
 
 ```typescript
-// Effect
 import * as PostgresDrizzle from 'drizzle-orm/postgres/effect'
 import { DrizzlePostgresClient } from 'drizzle-orm/postgres/effect'
+import { Effect, Redacted } from 'effect'
 
 const program = Effect.gen(function* () {
   const db = yield* PostgresDrizzle.makeWithDefaults({ relations })
   return yield* db.select().from(events)
-}).pipe(
+})
+
+// server
+program.pipe(
   Effect.provide(DrizzlePostgresClient.layer({ url: Redacted.make(url) })),
 )
+
+// PGlite: DrizzlePostgresClient from 'drizzle-orm/postgres/client/effect/pglite'
+program.pipe(Effect.provide(DrizzlePostgresClient.layer(await PGlite.create())))
 ```
+
+Without Effect, PGlite users can use `drizzle-orm/postgres/pglite`.
+
+`sslmode=require` in the URL means something different on drizzle's driver: @effect/sql-pg verifies the server certificate, drizzle's driver only encrypts. Use `sslmode=verify-full` to keep verification.
 
 ### Set `intervalstyle` per connection
 
@@ -244,10 +254,10 @@ postgres(url, { connection: { intervalstyle: 'iso_8601' } })
 // drizzle-orm/postgres (createPool from 'drizzle-orm/postgres/client')
 drizzle({ client: createPool({ url, options: '-c intervalstyle=iso_8601' }) })
 
-// drizzle-orm/postgres/effect
-DrizzlePostgresClient.layerFromPool(
-  createPool({ url, options: '-c intervalstyle=iso_8601' }),
-)
+// drizzle-orm/postgres/effect: `options` in the URL
+DrizzlePostgresClient.layer({
+  url: Redacted.make(`${url}?options=-c%20intervalstyle%3Diso_8601`),
+})
 ```
 
 Or make it the default for a database or role:
