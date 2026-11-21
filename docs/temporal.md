@@ -218,6 +218,8 @@ Switch to drizzle's own Postgres driver, which returns PostgreSQL's exact text f
 | `drizzle-orm/effect-pglite` (@effect/sql-pglite) | `drizzle-orm/postgres/effect` with the PGlite layer from `drizzle-orm/postgres/client/effect/pglite` |
 
 ```typescript
+import { PGlite } from '@electric-sql/pglite'
+import { DrizzlePostgresClient as PgliteClient } from 'drizzle-orm/postgres/client/effect/pglite'
 import * as PostgresDrizzle from 'drizzle-orm/postgres/effect'
 import { DrizzlePostgresClient } from 'drizzle-orm/postgres/effect'
 import { Effect, Redacted } from 'effect'
@@ -232,8 +234,10 @@ program.pipe(
   Effect.provide(DrizzlePostgresClient.layer({ url: Redacted.make(url) })),
 )
 
-// PGlite: DrizzlePostgresClient from 'drizzle-orm/postgres/client/effect/pglite'
-program.pipe(Effect.provide(DrizzlePostgresClient.layer(await PGlite.create())))
+// PGlite: the layer leaves the instance open, so close it yourself
+const pglite = await PGlite.create()
+program.pipe(Effect.provide(PgliteClient.layer(pglite)))
+// later: await pglite.close()
 ```
 
 Without Effect, PGlite users can use `drizzle-orm/postgres/pglite`.
@@ -254,10 +258,10 @@ postgres(url, { connection: { intervalstyle: 'iso_8601' } })
 // drizzle-orm/postgres (createPool from 'drizzle-orm/postgres/client')
 drizzle({ client: createPool({ url, options: '-c intervalstyle=iso_8601' }) })
 
-// drizzle-orm/postgres/effect: `options` in the URL
-DrizzlePostgresClient.layer({
-  url: Redacted.make(`${url}?options=-c%20intervalstyle%3Diso_8601`),
-})
+// drizzle-orm/postgres/effect: `options` in the URL, keeping its other parameters
+const withOptions = new URL(url)
+withOptions.searchParams.set('options', '-c intervalstyle=iso_8601')
+DrizzlePostgresClient.layer({ url: Redacted.make(withOptions.href) })
 ```
 
 Or make it the default for a database or role:

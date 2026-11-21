@@ -173,9 +173,9 @@ Set `intervalstyle` per connection. Pools keep other connections on the server d
 new Pool({ connectionString, options: '-c intervalstyle=iso_8601' }) // node-postgres
 postgres(url, { connection: { intervalstyle: 'iso_8601' } }) // postgres-js
 drizzle({ client: createPool({ url, options: '-c intervalstyle=iso_8601' }) }) // drizzle-orm/postgres
-DrizzlePostgresClient.layer({
-  url: Redacted.make(`${url}?options=-c%20intervalstyle%3Diso_8601`),
-}) // drizzle-orm/postgres/effect
+const withOptions = new URL(url) // drizzle-orm/postgres/effect: keep the URL's other parameters
+withOptions.searchParams.set('options', '-c intervalstyle=iso_8601')
+DrizzlePostgresClient.layer({ url: Redacted.make(withOptions.href) })
 // createPool from 'drizzle-orm/postgres/client'
 ```
 
