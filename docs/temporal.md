@@ -203,7 +203,46 @@ These two helpers store strings and decode them back into Temporal values.
 
 ## Driver Notes
 
-The test suite runs against PGlite, postgres-js, node-postgres, drizzle's `postgres` driver (minipg), bun-sql, effect-postgres, and effect-pglite.
+Supported and tested drivers: node-postgres, postgres-js, PGlite, and drizzle's own Postgres driver: `drizzle-orm/postgres` (on Node and Bun), `drizzle-orm/postgres/effect`, and `drizzle-orm/postgres/pglite`.
+
+### Unsupported drivers: bun-sql, effect-postgres, effect-pglite
+
+Since drizzle-orm 1.0.0-rc.6, selected columns are no longer cast to text, and these three drivers decode date and time values themselves: Bun SQL and @effect/sql-pg read `timestamp` and `timestamptz` as millisecond `Date`s, @effect/sql-pg reads `interval` as an object, and @effect/sql-pglite reads `date` and timestamps as `Date`s. drizzle throws `Column type "..." is not supported` for `timestampz` columns on all three and for `timestamp` columns on effect-pglite; other columns silently lose microseconds, BC years, and years past 9999.
+
+Switch to drizzle's own Postgres driver, which returns PostgreSQL's exact text for these types:
+
+| Instead of                                       | Use                                                                                                  |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| `drizzle-orm/bun-sql`                            | `drizzle-orm/postgres` (runs on Bun)                                                                 |
+| `drizzle-orm/effect-postgres` (@effect/sql-pg)   | `drizzle-orm/postgres/effect` (needs `effect` 4.1.3 or later)                                        |
+| `drizzle-orm/effect-pglite` (@effect/sql-pglite) | `drizzle-orm/postgres/effect` with the PGlite layer from `drizzle-orm/postgres/client/effect/pglite` |
+
+```typescript
+import { PGlite } from '@electric-sql/pglite'
+import { DrizzlePostgresClient as PgliteClient } from 'drizzle-orm/postgres/client/effect/pglite'
+import * as PostgresDrizzle from 'drizzle-orm/postgres/effect'
+import { DrizzlePostgresClient } from 'drizzle-orm/postgres/effect'
+import { Effect, Redacted } from 'effect'
+
+const program = Effect.gen(function* () {
+  const db = yield* PostgresDrizzle.makeWithDefaults({ relations })
+  return yield* db.select().from(events)
+})
+
+// server
+program.pipe(
+  Effect.provide(DrizzlePostgresClient.layer({ url: Redacted.make(url) })),
+)
+
+// PGlite: the layer leaves the instance open, so close it yourself
+const pglite = await PGlite.create()
+program.pipe(Effect.provide(PgliteClient.layer(pglite)))
+// later: await pglite.close()
+```
+
+Without Effect, PGlite users can use `drizzle-orm/postgres/pglite`.
+
+`sslmode=require` in the URL means something different on drizzle's driver: @effect/sql-pg verifies the server certificate, drizzle's driver only encrypts. Use `sslmode=verify-full` to keep verification.
 
 ### Set `intervalstyle` per connection
 
@@ -216,17 +255,13 @@ new Pool({ connectionString, options: '-c intervalstyle=iso_8601' })
 // postgres-js
 postgres(url, { connection: { intervalstyle: 'iso_8601' } })
 
-// drizzle-orm/postgres (minipg)
-createPool({ url, options: '-c intervalstyle=iso_8601' })
+// drizzle-orm/postgres (createPool from 'drizzle-orm/postgres/client')
+drizzle({ client: createPool({ url, options: '-c intervalstyle=iso_8601' }) })
 
-// bun-sql
-new SQL({ url, connection: { intervalstyle: 'iso_8601' } })
-
-// effect-postgres
-PgClient.layer({
-  url: Redacted.make(url), // Redacted from 'effect'
-  startupParameters: { intervalstyle: 'iso_8601' },
-})
+// drizzle-orm/postgres/effect: `options` in the URL, keeping its other parameters
+const withOptions = new URL(url)
+withOptions.searchParams.set('options', '-c intervalstyle=iso_8601')
+DrizzlePostgresClient.layer({ url: Redacted.make(withOptions.href) })
 ```
 
 Or make it the default for a database or role:
@@ -253,8 +288,6 @@ row!.now instanceof Temporal.Instant
 
 ### Known driver limitations
 
-- **postgres-js** with drizzle-orm 1.0.0-rc.5: drizzle's array parser reads SQL `NULL` elements as the string `'NULL'`, so reading a Temporal array column that contains a `NULL` element throws.
-- **effect-postgres** with @effect/sql-pg 4.0: multidimensional array columns, such as `.array('[][]')`, fail to decode, and the failure leaves the connection unusable. `plainDate` values with negative ISO years also fail to decode, because @effect/sql-pg returns them as `-0001-03-04` instead of PostgreSQL's `0002-03-04 BC`.
 - **pg-proxy** isn't tested. What it decodes depends on what your proxy server returns; Temporal columns expect PostgreSQL's text output for date and time types.
 
 ## Factories and Serialization Defaults

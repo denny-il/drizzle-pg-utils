@@ -27,8 +27,8 @@ export function createYearMonth<T extends typeof globalThis.Temporal>(
 ): TemporalYearMonthType<T> {
   return {
     column: customType<Config<T>>({
-      // Without a codec, drivers that need one to encode array params (e.g.
-      // bun-sql) send arrays of these columns unencoded.
+      // Without a codec, drivers that need one to encode array params send
+      // arrays of these columns unencoded.
       codec: 'text',
       dataType: () => 'text',
       fromDriver: (val: string) =>

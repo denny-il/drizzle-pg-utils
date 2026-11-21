@@ -12,7 +12,7 @@ import {
   timestamp,
   timestampz,
 } from '../../src/temporal/polyfill.ts'
-import { createDatabase, type TestDatabase, testDriver } from '../utils.ts'
+import { createDatabase, type TestDatabase } from '../utils.ts'
 
 // Array columns rely on each column's drizzle codec to read elements as text.
 // A codec name drizzle doesn't recognize leaves the raw array literal unparsed.
@@ -73,27 +73,21 @@ describe('Temporal array columns', () => {
     expect(record!.plainTimes).toEqual([])
   })
 
-  // @effect/sql-pg 4.0 only decodes one-dimensional arrays. Skipped rather
-  // than expected to fail: the failed decode also leaves its connection
-  // unusable, which would fail every later test in this file.
-  it.skipIf(testDriver === 'effect-postgres')(
-    'decodes multidimensional arrays',
-    async () => {
-      const [record] = await db
-        .insert(temporalArrayTable)
-        .values({
-          dateMatrix: [
-            [Temporal.PlainDate.from('0000-01-02')],
-            [Temporal.PlainDate.from('2026-10-22')],
-          ],
-        })
-        .returning()
-      expect(record!.dateMatrix!.map((row) => row.map(String))).toEqual([
-        ['0000-01-02'],
-        ['2026-10-22'],
-      ])
-    },
-  )
+  it('decodes multidimensional arrays', async () => {
+    const [record] = await db
+      .insert(temporalArrayTable)
+      .values({
+        dateMatrix: [
+          [Temporal.PlainDate.from('0000-01-02')],
+          [Temporal.PlainDate.from('2026-10-22')],
+        ],
+      })
+      .returning()
+    expect(record!.dateMatrix!.map((row) => row.map(String))).toEqual([
+      ['0000-01-02'],
+      ['2026-10-22'],
+    ])
+  })
 
   it('round-trips arrays with microsecond precision', async () => {
     await db.insert(temporalArrayTable).values({

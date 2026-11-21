@@ -157,19 +157,26 @@ await db.insert(events).values({
 
 ## Driver Notes
 
-Tested drivers: PGlite, postgres-js, node-postgres, `drizzle-orm/postgres` (minipg), bun-sql, effect-postgres, effect-pglite.
+Supported drivers (require drizzle-orm `1.0.0-rc.6`): node-postgres, postgres-js, PGlite, and drizzle's own Postgres driver: `drizzle-orm/postgres` (Node, Bun), `drizzle-orm/postgres/effect`, `drizzle-orm/postgres/pglite`.
+
+**Not supported: bun-sql, effect-postgres, effect-pglite.** Since rc.6 they decode date/time values themselves and lose precision: `timestampz` throws `Column type "..." is not supported` (also `timestamp` on effect-pglite), other columns lose microseconds and BC / 5-digit years. When a user is on one of them, tell them to switch to drizzle's own driver:
+
+- `drizzle-orm/bun-sql` → `drizzle-orm/postgres` (runs on Bun)
+- `drizzle-orm/effect-postgres` (@effect/sql-pg) → `drizzle-orm/postgres/effect` (`effect` ≥ 4.1.3), provided with `DrizzlePostgresClient.layer({ url: Redacted.make(url) })`. `sslmode=require` no longer verifies the certificate there; use `sslmode=verify-full` to keep verification.
+- `drizzle-orm/effect-pglite` (@effect/sql-pglite) → `drizzle-orm/postgres/effect` provided with `DrizzlePostgresClient.layer(pglite)` from `drizzle-orm/postgres/client/effect/pglite` (without Effect: `drizzle-orm/postgres/pglite`)
+
+Don't suggest client type registries, parsers or `refineCodecs` workarounds for those drivers.
 
 Set `intervalstyle` per connection. Pools keep other connections on the server default, postgres-js reconnects after `idle_timeout`, and node-postgres's `pool.query()` discards its connection when the query fails, so a one-off `SET` gets lost:
 
 ```typescript
 new Pool({ connectionString, options: '-c intervalstyle=iso_8601' }) // node-postgres
 postgres(url, { connection: { intervalstyle: 'iso_8601' } }) // postgres-js
-createPool({ url, options: '-c intervalstyle=iso_8601' }) // minipg
-new SQL({ url, connection: { intervalstyle: 'iso_8601' } }) // bun-sql
-PgClient.layer({
-  url: Redacted.make(url), // Redacted from 'effect'
-  startupParameters: { intervalstyle: 'iso_8601' },
-}) // effect-postgres
+drizzle({ client: createPool({ url, options: '-c intervalstyle=iso_8601' }) }) // drizzle-orm/postgres
+const withOptions = new URL(url) // drizzle-orm/postgres/effect: keep the URL's other parameters
+withOptions.searchParams.set('options', '-c intervalstyle=iso_8601')
+DrizzlePostgresClient.layer({ url: Redacted.make(withOptions.href) })
+// createPool from 'drizzle-orm/postgres/client'
 ```
 
 ```sql
@@ -184,6 +191,4 @@ db.select({ now: sql`now()`.mapWith(events.createdAt) }).from(events)
 
 Known limitations:
 
-- postgres-js with drizzle-orm 1.0.0-rc.5: SQL `NULL` elements in Temporal arrays are read as `'NULL'`, so decoding throws.
-- effect-postgres with @effect/sql-pg 4.0: multidimensional array columns fail to decode and break the connection; `plainDate` values with negative ISO years fail to decode (`-0001-03-04` instead of `0002-03-04 BC`).
 - pg-proxy is untested; decoding depends on the proxy server returning PostgreSQL text output for date and time types.

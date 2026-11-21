@@ -28,7 +28,7 @@ jobs:
           - postgres-js
           - node-postgres
           - postgres
-          - effect-postgres
+          - postgres-effect
         postgres:
           - 14
           - 15
@@ -77,7 +77,7 @@ jobs:
           - 26
         driver:
           - pglite
-          - effect-pglite
+          - postgres-pglite
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -90,10 +90,10 @@ jobs:
         env:
           TEST_DRIVER: ${{ matrix.driver }}
 
-  # Bun SQL only exists in the Bun runtime, so vitest itself runs under Bun.
-  # Node is still installed for pnpm.
+  # drizzle's own `postgres` driver under the Bun runtime, so vitest itself
+  # runs under Bun. Node is still installed for pnpm.
   test-bun:
-    name: Test Bun / Postgres ${{ matrix.postgres }} / bun-sql
+    name: Test Bun / Postgres ${{ matrix.postgres }} / postgres
     strategy:
       fail-fast: false
       matrix:
@@ -132,4 +132,4 @@ jobs:
       - run: pnpm run test:bun
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/drizzle_pg_utils
-          TEST_DRIVER: bun-sql
+          TEST_DRIVER: postgres
